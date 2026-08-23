@@ -12,27 +12,56 @@ const GoogleSheetsService = {
   accessToken: null,
   tokenExpiresAt: null,
   userEmail: null,
+  cachedClientId: null,
 
   /**
-   * Obtiene el Client ID almacenado o configurado por defecto
+   * Obtiene el Client ID de forma asíncrona:
+   * 1. Desde window.APP_CONFIG.DEFAULT_GOOGLE_CLIENT_ID (si está en js/config.js)
+   * 2. Desde la función Serverless de Netlify (/.netlify/functions/config)
+   * 3. Desde localStorage (fallback)
    */
-  getClientId() {
-    return localStorage.getItem('sheetpivot_google_client_id') || '';
-  },
+  async getClientId() {
+    if (this.cachedClientId) {
+      return this.cachedClientId;
+    }
 
-  /**
-   * Guarda el Client ID en localStorage
-   * @param {string} clientId 
-   */
-  setClientId(clientId) {
-    localStorage.setItem('sheetpivot_google_client_id', (clientId || '').trim());
+    // 1. Verificar si está definido en config.js
+    if (window.APP_CONFIG && window.APP_CONFIG.DEFAULT_GOOGLE_CLIENT_ID) {
+      this.cachedClientId = window.APP_CONFIG.DEFAULT_GOOGLE_CLIENT_ID.trim();
+      return this.cachedClientId;
+    }
+
+    // 2. Intentar obtener desde la función de Netlify si está desplegado
+    if (window.APP_CONFIG && window.APP_CONFIG.NETLIFY_CONFIG_ENDPOINT) {
+      try {
+        const res = await fetch(window.APP_CONFIG.NETLIFY_CONFIG_ENDPOINT);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.clientId) {
+            this.cachedClientId = data.clientId.trim();
+            return this.cachedClientId;
+          }
+        }
+      } catch (e) {
+        // En local sin netlify dev puede dar 404, continuar al fallback
+      }
+    }
+
+    // 3. Fallback en localStorage
+    const localCid = localStorage.getItem('sheetpivot_google_client_id');
+    if (localCid) {
+      this.cachedClientId = localCid.trim();
+      return this.cachedClientId;
+    }
+
+    return '';
   },
 
   /**
    * Inicializa el cliente de token de Google Identity Services
    */
-  initTokenClient(callback) {
-    const clientId = this.getClientId();
+  async initTokenClient(callback) {
+    const clientId = await this.getClientId();
     if (!clientId) {
       console.warn('Google Client ID no está configurado aún.');
       return false;
@@ -80,17 +109,17 @@ const GoogleSheetsService = {
   /**
    * Solicita el token de acceso OAuth 2.0 (muestra la ventana emergente de Google)
    */
-  requestAccessToken(callback) {
-    const clientId = this.getClientId();
+  async requestAccessToken(callback) {
+    const clientId = await this.getClientId();
     if (!clientId) {
       if (window.ClipboardUtil) {
-        window.ClipboardUtil.showToast('Por favor configura primero tu Google Client ID en el botón ⚙️', 'info', 4000);
+        window.ClipboardUtil.showToast('No se encontró el Google Client ID configurado en el servidor o en config.js', 'danger', 5000);
       }
       return;
     }
 
     if (!this.tokenClient) {
-      const initialized = this.initTokenClient(callback);
+      const initialized = await this.initTokenClient(callback);
       if (!initialized) return;
     }
 

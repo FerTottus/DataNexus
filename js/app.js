@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * Inicializa los eventos de botones y modales
+ * Inicializa los eventos de botones
  */
 function initUIEvents() {
   // 1. Botón Login de Google
@@ -68,25 +68,7 @@ function initUIEvents() {
     ClipboardUtil.showToast('Sesión de Google cerrada', 'info');
   });
 
-  // 3. Modal de Configuración (Client ID)
-  const configModal = document.getElementById('configModal');
-  document.getElementById('btnOpenConfig').addEventListener('click', () => {
-    document.getElementById('googleClientIdInput').value = GoogleSheetsService.getClientId();
-    configModal.classList.remove('hidden');
-  });
-
-  document.getElementById('btnCloseConfigModal').addEventListener('click', () => {
-    configModal.classList.add('hidden');
-  });
-
-  document.getElementById('btnSaveConfig').addEventListener('click', () => {
-    const cid = document.getElementById('googleClientIdInput').value.trim();
-    GoogleSheetsService.setClientId(cid);
-    configModal.classList.add('hidden');
-    ClipboardUtil.showToast('Configuración guardada correctamente', 'success');
-  });
-
-  // 4. Botón de Conectar y Cargar Google Sheet
+  // 3. Botón de Conectar y Cargar Google Sheet
   document.getElementById('btnFetchSheets').addEventListener('click', () => {
     fetchSheetWorkbook();
   });
@@ -98,7 +80,7 @@ function initUIEvents() {
     }
   });
 
-  // 5. Selector de Pestaña de Hoja
+  // 4. Selector de Pestaña de Hoja
   document.getElementById('sheetTabSelect').addEventListener('change', (e) => {
     const selectedTab = e.target.value;
     if (selectedTab) {
@@ -106,17 +88,17 @@ function initUIEvents() {
     }
   });
 
-  // 6. Botón Cargar Datos Demo
+  // 5. Botón Cargar Datos Demo
   document.getElementById('btnDemoData').addEventListener('click', () => {
     loadDemoDataset();
   });
 
-  // 7. Botón Compartir / Guardar URL
+  // 6. Botón Compartir / Guardar URL
   document.getElementById('btnShareUrl').addEventListener('click', () => {
     syncStateToUrl(true);
   });
 
-  // 8. Botones para agregar tablas
+  // 7. Botones para agregar tablas
   document.getElementById('btnAddPivotTable').addEventListener('click', () => {
     addNewTable('pivot');
   });
@@ -125,7 +107,7 @@ function initUIEvents() {
     addNewTable('flat');
   });
 
-  // 9. Limpiar espacio de trabajo
+  // 8. Limpiar espacio de trabajo
   document.getElementById('btnResetWorkspace').addEventListener('click', () => {
     if (confirm('¿Estás seguro de que deseas eliminar todas las tablas creadas?')) {
       AppState.tables = [];
@@ -137,7 +119,7 @@ function initUIEvents() {
 }
 
 /**
- * Verifica si hay Client ID configurado y el estado de autenticación
+ * Verifica si el usuario está autenticado
  */
 function checkAuthAndConfig() {
   const isAuth = GoogleSheetsService.isAuthenticated();
@@ -180,7 +162,7 @@ async function fetchSheetWorkbook() {
 
   if (!GoogleSheetsService.isAuthenticated()) {
     ClipboardUtil.showToast('Inicia sesión con Google para acceder al Sheet', 'info');
-    GoogleSheetsService.requestAccessToken(async (success) => {
+    await GoogleSheetsService.requestAccessToken(async (success) => {
       if (success) {
         updateAuthUI(true);
         await performFetchTabs(sheetId, input);

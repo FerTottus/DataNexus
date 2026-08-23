@@ -38,11 +38,6 @@
         <i class="fa-solid fa-share-nodes"></i> Compartir / Guardar URL
       </button>
 
-      <!-- Botón de Configuración de API / Client ID -->
-      <button id="btnOpenConfig" class="btn btn-icon" title="Configurar Google Client ID">
-        <i class="fa-solid fa-gear"></i>
-      </button>
-
       <!-- Estado de Autenticación de Google -->
       <div id="authContainer" class="auth-box">
         <button id="btnGoogleLogin" class="btn btn-google">
@@ -93,7 +88,7 @@
               </button>
             </div>
             <small class="helper-text">
-              <i class="fa-solid fa-info-circle"></i> Puedes pegar el enlace directo del Sheet que te compartieron. Asegúrate de haber iniciado sesión con la cuenta de Google con la que te lo compartieron.
+              <i class="fa-solid fa-info-circle"></i> Pega el enlace de la hoja de cálculo que te compartieron e inicia sesión con tu cuenta de Google.
             </small>
           </div>
 
@@ -161,50 +156,11 @@
 
   </main>
 
-  <!-- Modal: Configuración de Google OAuth Client ID -->
-  <div id="configModal" class="modal-backdrop hidden">
-    <div class="modal-dialog">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-sliders"></i> Configuración de Google Cloud</h3>
-        <button id="btnCloseConfigModal" class="btn-close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="googleClientIdInput"><strong>Google OAuth Client ID:</strong></label>
-          <input 
-            type="text" 
-            id="googleClientIdInput" 
-            class="form-control" 
-            placeholder="Ej: 1234567890-abcde12345.apps.googleusercontent.com"
-          >
-          <small class="helper-text">
-            Este Client ID se guarda en el almacenamiento local de tu navegador (localStorage).
-          </small>
-        </div>
-
-        <div class="alert alert-info">
-          <h4><i class="fa-solid fa-circle-question"></i> ¿Dónde obtengo mi Client ID?</h4>
-          <ol>
-            <li>Ingresa a <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a>.</li>
-            <li>Crea un proyecto y habilita <strong>Google Sheets API</strong>.</li>
-            <li>En <em>Pantalla de consentimiento OAuth</em>, añade tu correo como usuario de prueba.</li>
-            <li>En <em>Credenciales</em>, crea un <strong>ID de cliente de OAuth (Aplicación web)</strong>.</li>
-            <li>Añade en <em>Orígenes de JavaScript autorizados</em> la URL donde alojes esta app (ej. <code>http://localhost:5500</code> o <code>https://tu-app.netlify.app</code>).</li>
-          </ol>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="btnSaveConfig" class="btn btn-primary">
-          <i class="fa-solid fa-floppy-disk"></i> Guardar Configuración
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Toast / Notificaciones Flotantes -->
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts Modulares -->
+  <script src="js/config.js"></script>
   <script src="js/clipboard.js"></script>
   <script src="js/url-state.js"></script>
   <script src="js/pivot-engine.js"></script>
