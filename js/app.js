@@ -551,10 +551,6 @@ function createTableCardElement(config, index) {
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
         <label><i class="fa-solid fa-filter"></i> Filtros Específicos (Datos Base):</label>
         <div>
-          <select class="form-control" style="width: auto; display: inline-block; padding: 0.2rem; font-size: 0.75rem; margin-right: 0.5rem;" onchange="updateTableField('${config.id}', 'filterLogic', this.value)">
-            <option value="AND" ${config.filterLogic !== 'OR' ? 'selected' : ''}>Cumplir TODAS las condiciones (Y)</option>
-            <option value="OR" ${config.filterLogic === 'OR' ? 'selected' : ''}>Cumplir CUALQUIER condición (O)</option>
-          </select>
           <button class="btn btn-outline-primary btn-xs" onclick="addFilterRow('${config.id}')">+ Añadir Filtro</button>
         </div>
       </div>

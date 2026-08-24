@@ -12,7 +12,7 @@ const PivotEngine = {
    * @param {string} globalSearch - Término de búsqueda general
    * @returns {Array<Object>} Filas filtradas
    */
-  applyFilters(rows, filters = [], globalSearch = '', filterLogic = 'AND') {
+  applyFilters(rows, filters = [], globalSearch = '') {
     if (!rows || rows.length === 0) return [];
 
     let filtered = rows;
@@ -28,38 +28,45 @@ const PivotEngine = {
       });
     }
 
-    // 2. Filtros específicos (Lógica manual Y / O)
+    // 2. Filtros específicos (Inteligencia Automática: OR en misma columna, AND cruzado)
     if (filters && filters.length > 0) {
-      filtered = filtered.filter(row => {
-        const checkFilter = (f) => {
-          if (!f.field || f.value === undefined || f.value === '') return true;
-          const cellVal = row[f.field];
-          const filterVal = String(f.value).toLowerCase();
-          const targetStr = cellVal !== null && cellVal !== undefined ? String(cellVal).toLowerCase() : '';
-          const numCell = Number(cellVal);
-          const numFilter = Number(f.value);
-
-          switch (f.operator) {
-            case 'equals': return targetStr === filterVal;
-            case 'contains': return targetStr.includes(filterVal);
-            case 'starts_with': return targetStr.startsWith(filterVal);
-            case 'not_equals': return targetStr !== filterVal;
-            case 'gt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell > numFilter : false;
-            case 'gte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell >= numFilter : false;
-            case 'lt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell < numFilter : false;
-            case 'lte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell <= numFilter : false;
-            default: return targetStr.includes(filterVal);
-          }
-        };
-
-        if (filterLogic === 'OR') {
-          // Con una sola condición que cumpla, pasa
-          return filters.some(checkFilter);
-        } else {
-          // Debe cumplir todas las condiciones
-          return filters.every(checkFilter);
-        }
+      const filtersByField = {};
+      filters.forEach(f => {
+        if (!f.field || f.value === undefined || f.value === '') return;
+        if (!filtersByField[f.field]) filtersByField[f.field] = [];
+        filtersByField[f.field].push(f);
       });
+
+      const fieldKeys = Object.keys(filtersByField);
+
+      if (fieldKeys.length > 0) {
+        filtered = filtered.filter(row => {
+          // Debe cumplir TODOS los campos distintos (AND)
+          return fieldKeys.every(field => {
+            const fieldFilters = filtersByField[field];
+            // Dentro del mismo campo, debe cumplir AL MENOS UNA condición (OR)
+            return fieldFilters.some(f => {
+              const cellVal = row[f.field];
+              const filterVal = String(f.value).toLowerCase();
+              const targetStr = cellVal !== null && cellVal !== undefined ? String(cellVal).toLowerCase() : '';
+              const numCell = Number(cellVal);
+              const numFilter = Number(f.value);
+
+              switch (f.operator) {
+                case 'equals': return targetStr === filterVal;
+                case 'contains': return targetStr.includes(filterVal);
+                case 'starts_with': return targetStr.startsWith(filterVal);
+                case 'not_equals': return targetStr !== filterVal;
+                case 'gt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell > numFilter : false;
+                case 'gte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell >= numFilter : false;
+                case 'lt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell < numFilter : false;
+                case 'lte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell <= numFilter : false;
+                default: return targetStr.includes(filterVal);
+              }
+            });
+          });
+        });
+      }
     }
 
     return filtered;
