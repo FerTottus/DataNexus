@@ -492,7 +492,7 @@ function createTableCardElement(config, index) {
             class="form-control" 
             placeholder="Filtrar resultados..." 
             value="${escapeHtml(config.globalSearch || '')}"
-            oninput="updateTableField('${config.id}', 'globalSearch', this.value)"
+            onkeydown="if(event.key === 'Enter') applyTableFilters('${config.id}')"
           >
         </div>
       </div>
@@ -538,7 +538,7 @@ function createTableCardElement(config, index) {
             class="form-control" 
             placeholder="Filtrar resultados..." 
             value="${escapeHtml(config.globalSearch || '')}"
-            oninput="updateTableField('${config.id}', 'globalSearch', this.value)"
+            onkeydown="if(event.key === 'Enter') applyTableFilters('${config.id}')"
           >
         </div>
       </div>
@@ -560,10 +560,10 @@ function createTableCardElement(config, index) {
       <div class="filters-list" id="filters_list_${config.id}">
         ${(config.filters || []).map((f, fIdx) => `
           <div class="filter-row">
-            <select class="form-control" onchange="updateFilterField('${config.id}', ${fIdx}, 'field', this.value)">
+            <select id="filterField_${config.id}_${fIdx}" class="form-control">
               ${headers.map(h => `<option value="${h}" ${f.field === h ? 'selected' : ''}>${h}</option>`).join('')}
             </select>
-            <select class="form-control" onchange="updateFilterField('${config.id}', ${fIdx}, 'operator', this.value)">
+            <select id="filterOp_${config.id}_${fIdx}" class="form-control">
               <option value="contains" ${f.operator === 'contains' ? 'selected' : ''}>contiene</option>
               <option value="equals" ${f.operator === 'equals' ? 'selected' : ''}>es igual a</option>
               <option value="starts_with" ${f.operator === 'starts_with' ? 'selected' : ''}>empieza con</option>
@@ -574,18 +574,23 @@ function createTableCardElement(config, index) {
               <option value="lte" ${f.operator === 'lte' ? 'selected' : ''}>menor o igual (&le;)</option>
             </select>
             <input 
-              id="filter_${config.id}_${fIdx}"
+              id="filterVal_${config.id}_${fIdx}"
               type="text" 
               class="form-control" 
               placeholder="Valor..." 
               value="${escapeHtml(f.value || '')}"
-              oninput="updateFilterField('${config.id}', ${fIdx}, 'value', this.value)"
+              onkeydown="if(event.key === 'Enter') applyTableFilters('${config.id}')"
             >
             <button class="btn btn-xs btn-outline-danger" onclick="removeFilterRow('${config.id}', ${fIdx})" title="Quitar filtro">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
         `).join('')}
+      </div>
+      <div style="margin-top: 0.8rem; text-align: right;">
+        <button class="btn btn-primary btn-sm" onclick="applyTableFilters('${config.id}')">
+          <i class="fa-solid fa-play"></i> Actualizar Filtros
+        </button>
       </div>
     </div>
   `;
@@ -672,7 +677,34 @@ window.handleFlatColumnToggle = function(tableId, fieldName, isChecked) {
   syncStateToUrl();
 };
 
+window.syncTableDOMToState = function(tableId) {
+  const table = AppState.tables.find(t => t.id === tableId);
+  if (!table) return;
+
+  const searchEl = document.getElementById(`search_${tableId}`);
+  if (searchEl) table.globalSearch = searchEl.value;
+
+  if (table.filters) {
+    table.filters.forEach((f, fIdx) => {
+      const fieldEl = document.getElementById(`filterField_${tableId}_${fIdx}`);
+      const opEl = document.getElementById(`filterOp_${tableId}_${fIdx}`);
+      const valEl = document.getElementById(`filterVal_${tableId}_${fIdx}`);
+      
+      if (fieldEl) f.field = fieldEl.value;
+      if (opEl) f.operator = opEl.value;
+      if (valEl) f.value = valEl.value;
+    });
+  }
+};
+
+window.applyTableFilters = function(tableId) {
+  window.syncTableDOMToState(tableId);
+  reRenderSingleTable(tableId);
+  syncStateToUrl();
+};
+
 window.addFilterRow = function(tableId) {
+  window.syncTableDOMToState(tableId);
   const table = AppState.tables.find(t => t.id === tableId);
   if (!table) return;
 
@@ -684,16 +716,8 @@ window.addFilterRow = function(tableId) {
   syncStateToUrl();
 };
 
-window.updateFilterField = function(tableId, filterIndex, key, val) {
-  const table = AppState.tables.find(t => t.id === tableId);
-  if (!table || !table.filters || !table.filters[filterIndex]) return;
-
-  table.filters[filterIndex][key] = val;
-  reRenderSingleTable(tableId);
-  syncStateToUrl();
-};
-
 window.removeFilterRow = function(tableId, filterIndex) {
+  window.syncTableDOMToState(tableId);
   const table = AppState.tables.find(t => t.id === tableId);
   if (!table || !table.filters) return;
 
