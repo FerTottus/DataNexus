@@ -40,6 +40,7 @@ const DEMO_DATASET = {
 
 document.addEventListener('DOMContentLoaded', () => {
   initUIEvents();
+  GoogleSheetsService.initAuth(); // Restaura token si existía en sessionStorage
   checkAuthAndConfig();
   restoreStateFromUrl();
 });
