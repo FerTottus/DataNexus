@@ -12,7 +12,7 @@ const PivotEngine = {
    * @param {string} globalSearch - Término de búsqueda general
    * @returns {Array<Object>} Filas filtradas
    */
-  applyFilters(rows, filters = [], globalSearch = '') {
+  applyFilters(rows, filters = [], globalSearch = '', filterLogic = 'AND') {
     if (!rows || rows.length === 0) return [];
 
     let filtered = rows;
@@ -28,45 +28,38 @@ const PivotEngine = {
       });
     }
 
-    // 2. Filtros específicos por columna (Lógica BI: OR dentro del mismo campo, AND entre distintos campos)
+    // 2. Filtros específicos (Lógica manual Y / O)
     if (filters && filters.length > 0) {
-      const filtersByField = {};
-      filters.forEach(f => {
-        if (!f.field || f.value === undefined || f.value === '') return;
-        if (!filtersByField[f.field]) filtersByField[f.field] = [];
-        filtersByField[f.field].push(f);
+      filtered = filtered.filter(row => {
+        const checkFilter = (f) => {
+          if (!f.field || f.value === undefined || f.value === '') return true;
+          const cellVal = row[f.field];
+          const filterVal = String(f.value).toLowerCase();
+          const targetStr = cellVal !== null && cellVal !== undefined ? String(cellVal).toLowerCase() : '';
+          const numCell = Number(cellVal);
+          const numFilter = Number(f.value);
+
+          switch (f.operator) {
+            case 'equals': return targetStr === filterVal;
+            case 'contains': return targetStr.includes(filterVal);
+            case 'starts_with': return targetStr.startsWith(filterVal);
+            case 'not_equals': return targetStr !== filterVal;
+            case 'gt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell > numFilter : false;
+            case 'gte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell >= numFilter : false;
+            case 'lt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell < numFilter : false;
+            case 'lte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell <= numFilter : false;
+            default: return targetStr.includes(filterVal);
+          }
+        };
+
+        if (filterLogic === 'OR') {
+          // Con una sola condición que cumpla, pasa
+          return filters.some(checkFilter);
+        } else {
+          // Debe cumplir todas las condiciones
+          return filters.every(checkFilter);
+        }
       });
-
-      const fieldKeys = Object.keys(filtersByField);
-
-      if (fieldKeys.length > 0) {
-        filtered = filtered.filter(row => {
-          // Debe cumplir TODOS los campos (AND)
-          return fieldKeys.every(field => {
-            const fieldFilters = filtersByField[field];
-            // Dentro del campo, debe cumplir AL MENOS UNA condición (OR)
-            return fieldFilters.some(f => {
-              const cellVal = row[f.field];
-              const filterVal = String(f.value).toLowerCase();
-              const targetStr = cellVal !== null && cellVal !== undefined ? String(cellVal).toLowerCase() : '';
-              const numCell = Number(cellVal);
-              const numFilter = Number(f.value);
-
-              switch (f.operator) {
-                case 'equals': return targetStr === filterVal;
-                case 'contains': return targetStr.includes(filterVal);
-                case 'starts_with': return targetStr.startsWith(filterVal);
-                case 'not_equals': return targetStr !== filterVal;
-                case 'gt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell > numFilter : false;
-                case 'gte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell >= numFilter : false;
-                case 'lt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell < numFilter : false;
-                case 'lte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell <= numFilter : false;
-                default: return targetStr.includes(filterVal);
-              }
-            });
-          });
-        });
-      }
     }
 
     return filtered;
@@ -136,16 +129,35 @@ const PivotEngine = {
     if (numbers.length === 0) return 0;
 
     switch (aggFunc) {
-      case 'SUM':
-        return numbers.reduce((acc, cur) => acc + cur, 0);
-      case 'AVG':
-        return numbers.reduce((acc, cur) => acc + cur, 0) / numbers.length;
+      case 'SUM': {
+        let sum = 0;
+        let c = 0; // Compensación de error (Kahan)
+        for (let i = 0; i < numbers.length; i++) {
+          let y = numbers[i] - c;
+          let t = sum + y;
+          c = (t - sum) - y;
+          sum = t;
+        }
+        return parseFloat(sum.toPrecision(15)); // Excel recorta en 15 dígitos significativos
+      }
+      case 'AVG': {
+        let sum = 0;
+        let c = 0;
+        for (let i = 0; i < numbers.length; i++) {
+          let y = numbers[i] - c;
+          let t = sum + y;
+          c = (t - sum) - y;
+          sum = t;
+        }
+        const avg = sum / numbers.length;
+        return parseFloat(avg.toPrecision(15));
+      }
       case 'MIN':
         return Math.min(...numbers);
       case 'MAX':
         return Math.max(...numbers);
       default:
-        return numbers.reduce((acc, cur) => acc + cur, 0);
+        return 0;
     }
   },
 
@@ -305,12 +317,13 @@ const PivotEngine = {
       selectedColumns = [],
       filters = [],
       globalSearch = '',
+      filterLogic = 'AND',
       sortBy = '',
       sortOrder = 'asc',
       limit = 200
     } = config;
 
-    let filtered = this.applyFilters(rows, filters, globalSearch);
+    let filtered = this.applyFilters(rows, filters, globalSearch, filterLogic);
 
     // Ordenamiento
     if (sortBy) {

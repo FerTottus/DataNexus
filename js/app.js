@@ -547,14 +547,16 @@ function createTableCardElement(config, index) {
 
   // Sección de Filtros Específicos por Fila/Columna
   configPanelHtml += `
-    <div class="filters-container" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-        <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">
-          <i class="fa-solid fa-filter"></i> Filtros Específicos (Datos Base):
-        </span>
-        <button class="btn btn-xs btn-outline-primary" onclick="addFilterRow('${config.id}')">
-          <i class="fa-solid fa-plus"></i> Añadir Filtro
-        </button>
+    <div class="config-section" style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <label><i class="fa-solid fa-filter"></i> Filtros Específicos (Datos Base):</label>
+        <div>
+          <select class="form-control" style="width: auto; display: inline-block; padding: 0.2rem; font-size: 0.75rem; margin-right: 0.5rem;" onchange="updateTableField('${config.id}', 'filterLogic', this.value)">
+            <option value="AND" ${config.filterLogic !== 'OR' ? 'selected' : ''}>Cumplir TODAS las condiciones (Y)</option>
+            <option value="OR" ${config.filterLogic === 'OR' ? 'selected' : ''}>Cumplir CUALQUIER condición (O)</option>
+          </select>
+          <button class="btn btn-outline-primary btn-xs" onclick="addFilterRow('${config.id}')">+ Añadir Filtro</button>
+        </div>
       </div>
 
       <div class="filters-list" id="filters_list_${config.id}">
