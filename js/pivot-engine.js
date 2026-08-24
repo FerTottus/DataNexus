@@ -118,116 +118,127 @@ const PivotEngine = {
       globalSearch = ''
     } = config;
 
-    // 1. Aplicar filtros específicos a los datos BASE primero (ignoramos globalSearch aquí)
+    // 1. Aplicar filtros específicos a los datos BASE primero
     const filteredRows = this.applyFilters(rows, filters, '');
 
     if (rowFields.length === 0 && colFields.length === 0) {
-      // Si no hay filas ni columnas, calcular total global
       const allValues = filteredRows.map(r => r[valField]);
       const total = this.calculateAggregation(allValues, aggFunc);
       return {
         headers: ['Total General'],
         matrixRows: [[this.formatNumber(total)]],
-        rowCount: 1
+        rowCount: filteredRows.length
       };
     }
 
-    // 2. Extraer combinaciones únicas de columnas pivot
-    let pivotColValues = [];
-    if (colFields.length > 0) {
-      const colSet = new Set();
-      filteredRows.forEach(r => {
-        const colKey = colFields.map(cf => (r[cf] !== null && r[cf] !== undefined ? String(r[cf]) : '(Vacío)')).join(' - ');
-        colSet.add(colKey);
-      });
-      pivotColValues = Array.from(colSet).sort();
+    // Estructuras de datos para O(N)
+    const pivotMatrix = new Map(); // rowKey -> Map(colKey -> Array<values>)
+    const colSet = new Set();
+    const rowTotalsMap = new Map(); // rowKey -> Array<values>
+    const colTotalsMap = new Map(); // colKey -> Array<values>
+    const allValues = [];
+
+    // 2. ÚNICA PASADA: Agrupar datos en O(N)
+    for (let i = 0; i < filteredRows.length; i++) {
+      const r = filteredRows[i];
+      
+      const rowKey = rowFields.length > 0 
+        ? rowFields.map(rf => (r[rf] !== null && r[rf] !== undefined ? String(r[rf]) : '(Vacío)')).join(' | ')
+        : 'Total';
+        
+      const colKey = colFields.length > 0
+        ? colFields.map(cf => (r[cf] !== null && r[cf] !== undefined ? String(r[cf]) : '(Vacío)')).join(' - ')
+        : 'Total';
+
+      const val = r[valField];
+
+      if (colFields.length > 0) colSet.add(colKey);
+
+      // Guardar en matriz principal
+      if (!pivotMatrix.has(rowKey)) {
+        pivotMatrix.set(rowKey, new Map());
+        rowTotalsMap.set(rowKey, []);
+      }
+      const rowMap = pivotMatrix.get(rowKey);
+      if (!rowMap.has(colKey)) {
+        rowMap.set(colKey, []);
+      }
+      rowMap.get(colKey).push(val);
+
+      // Acumuladores de filas y columnas
+      rowTotalsMap.get(rowKey).push(val);
+      
+      if (colFields.length > 0) {
+        if (!colTotalsMap.has(colKey)) colTotalsMap.set(colKey, []);
+        colTotalsMap.get(colKey).push(val);
+      }
+      
+      allValues.push(val);
     }
 
-    // 3. Agrupar filas por rowFields
-    const rowGroups = new Map();
-    filteredRows.forEach(r => {
-      const rowKey = rowFields.map(rf => (r[rf] !== null && r[rf] !== undefined ? String(r[rf]) : '(Vacío)')).join(' | ');
-      if (!rowGroups.has(rowKey)) {
-        rowGroups.set(rowKey, []);
-      }
-      rowGroups.get(rowKey).push(r);
-    });
-
-    // 4. Armar encabezados de la tabla dinámica
+    // 3. Preparar encabezados
+    const pivotColValues = Array.from(colSet).sort();
     const headers = [...rowFields];
     if (pivotColValues.length > 0) {
       headers.push(...pivotColValues);
     }
     headers.push(`Total (${aggFunc})`);
 
-    // 5. Construir matriz de celdas
+    // 4. Construir matriz de salida
     const matrixRows = [];
-    const colTotals = new Array(pivotColValues.length > 0 ? pivotColValues.length : 1).fill(0).map(() => []);
-    const allRowTotals = [];
+    const sortedRowKeys = Array.from(pivotMatrix.keys()).sort();
 
-    // Ordenar claves de fila alfabéticamente
-    const sortedRowKeys = Array.from(rowGroups.keys()).sort();
-
-    sortedRowKeys.forEach(rowKey => {
-      const groupRows = rowGroups.get(rowKey);
-      const rowParts = rowKey.split(' | ');
+    for (let i = 0; i < sortedRowKeys.length; i++) {
+      const rowKey = sortedRowKeys[i];
+      const rowMap = pivotMatrix.get(rowKey);
+      const rowParts = rowFields.length > 0 ? rowKey.split(' | ') : [];
       const matrixRow = [...rowParts];
 
       if (pivotColValues.length > 0) {
-        let rowAggValues = [];
-        pivotColValues.forEach((colVal, colIdx) => {
-          const matchingRows = groupRows.filter(r => {
-            const currentColKey = colFields.map(cf => (r[cf] !== null && r[cf] !== undefined ? String(r[cf]) : '(Vacío)')).join(' - ');
-            return currentColKey === colVal;
-          });
-          const cellValues = matchingRows.map(r => r[valField]);
+        for (let j = 0; j < pivotColValues.length; j++) {
+          const colKey = pivotColValues[j];
+          const cellValues = rowMap.get(colKey) || [];
           const calculated = this.calculateAggregation(cellValues, aggFunc);
           matrixRow.push(this.formatNumber(calculated));
-
-          // Guardar para totales de columna
-          if (cellValues.length > 0) {
-            for (let v of cellValues) colTotals[colIdx].push(v);
-          }
-          for (let v of cellValues) rowAggValues.push(v);
-        });
-
-        // Total de la fila
-        const rowTotal = this.calculateAggregation(rowAggValues, aggFunc);
-        matrixRow.push(this.formatNumber(rowTotal));
-        for (let v of rowAggValues) allRowTotals.push(v);
+        }
       } else {
-        // Sin columnas pivot, solo métrica por fila
-        const cellValues = groupRows.map(r => r[valField]);
+        // Sin columnas, la celda es el total de la fila
+        const cellValues = rowMap.get('Total') || [];
         const calculated = this.calculateAggregation(cellValues, aggFunc);
         matrixRow.push(this.formatNumber(calculated));
-        for (let v of cellValues) allRowTotals.push(v);
       }
 
+      // Añadir el total de la fila al final
+      const rowTotalVals = rowTotalsMap.get(rowKey) || [];
+      const rowTotal = this.calculateAggregation(rowTotalVals, aggFunc);
+      matrixRow.push(this.formatNumber(rowTotal));
+
       matrixRows.push(matrixRow);
-    });
-
-    // 6. Fila de Totales Generales
-    const grandTotalRow = new Array(rowFields.length).fill('');
-    grandTotalRow[0] = 'Total General';
-
-    if (pivotColValues.length > 0) {
-      colTotals.forEach(colVals => {
-        const total = this.calculateAggregation(colVals, aggFunc);
-        grandTotalRow.push(this.formatNumber(total));
-      });
     }
 
-    const grandTotal = this.calculateAggregation(allRowTotals, aggFunc);
+    // 5. Fila de Totales Generales
+    const grandTotalRow = new Array(rowFields.length).fill('');
+    if (rowFields.length > 0) grandTotalRow[0] = 'Total General';
+
+    if (pivotColValues.length > 0) {
+      for (let j = 0; j < pivotColValues.length; j++) {
+        const colKey = pivotColValues[j];
+        const colVals = colTotalsMap.get(colKey) || [];
+        const total = this.calculateAggregation(colVals, aggFunc);
+        grandTotalRow.push(this.formatNumber(total));
+      }
+    }
+
+    const grandTotal = this.calculateAggregation(allValues, aggFunc);
     grandTotalRow.push(this.formatNumber(grandTotal));
 
-    // 7. Filtro Búsqueda Global (Aplicado a la matriz VISIBLE resultante)
+    // 6. Filtro Búsqueda Global (Aplicado a la matriz VISIBLE resultante)
     let finalMatrixRows = matrixRows;
     if (globalSearch && globalSearch.trim()) {
       const term = globalSearch.trim().toLowerCase();
       finalMatrixRows = finalMatrixRows.filter(rowCells => {
         return rowCells.some(cellVal => {
           if (cellVal === null || cellVal === undefined) return false;
-          // Eliminamos las comas para permitir buscar "1234" aunque en pantalla diga "1,234.00"
           const cleanStr = String(cellVal).toLowerCase().replace(/,/g, '');
           const normalStr = String(cellVal).toLowerCase();
           return normalStr.includes(term) || cleanStr.includes(term);
