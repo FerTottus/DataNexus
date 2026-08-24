@@ -108,12 +108,6 @@ const PivotEngine = {
     }
   },
 
-  /**
-   * Construye y calcula una tabla dinámica (Pivot Table)
-   * @param {Array<Object>} rows - Datos de origen
-   * @param {Object} config - Configuración { rowFields, colFields, valField, aggFunc, filters, globalSearch }
-   * @returns {Object} { headers, matrixRows, grandTotals }
-   */
   buildPivotData(rows, config) {
     const {
       rowFields = [],
@@ -124,8 +118,8 @@ const PivotEngine = {
       globalSearch = ''
     } = config;
 
-    // 1. Aplicar filtros primero
-    const filteredRows = this.applyFilters(rows, filters, globalSearch);
+    // 1. Aplicar filtros específicos a los datos BASE primero (ignoramos globalSearch aquí)
+    const filteredRows = this.applyFilters(rows, filters, '');
 
     if (rowFields.length === 0 && colFields.length === 0) {
       // Si no hay filas ni columnas, calcular total global
@@ -226,9 +220,24 @@ const PivotEngine = {
     const grandTotal = this.calculateAggregation(allRowTotals, aggFunc);
     grandTotalRow.push(this.formatNumber(grandTotal));
 
+    // 7. Filtro Búsqueda Global (Aplicado a la matriz VISIBLE resultante)
+    let finalMatrixRows = matrixRows;
+    if (globalSearch && globalSearch.trim()) {
+      const term = globalSearch.trim().toLowerCase();
+      finalMatrixRows = finalMatrixRows.filter(rowCells => {
+        return rowCells.some(cellVal => {
+          if (cellVal === null || cellVal === undefined) return false;
+          // Eliminamos las comas para permitir buscar "1234" aunque en pantalla diga "1,234.00"
+          const cleanStr = String(cellVal).toLowerCase().replace(/,/g, '');
+          const normalStr = String(cellVal).toLowerCase();
+          return normalStr.includes(term) || cleanStr.includes(term);
+        });
+      });
+    }
+
     return {
       headers,
-      matrixRows,
+      matrixRows: finalMatrixRows,
       grandTotalRow,
       rowCount: filteredRows.length
     };

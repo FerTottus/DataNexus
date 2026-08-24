@@ -408,6 +408,7 @@ function createTableCardElement(config, index) {
           ${config.type === 'pivot' ? 'Dinámica (Pivot)' : 'Plana / Filtros'}
         </span>
         <input 
+          id="title_${config.id}"
           type="text" 
           class="table-title-input" 
           value="${escapeHtml(config.title)}" 
@@ -486,9 +487,10 @@ function createTableCardElement(config, index) {
         <div class="config-field">
           <label><i class="fa-solid fa-magnifying-glass"></i> Buscar en tabla:</label>
           <input 
+            id="search_${config.id}"
             type="text" 
             class="form-control" 
-            placeholder="Filtrar texto..." 
+            placeholder="Filtrar resultados..." 
             value="${escapeHtml(config.globalSearch || '')}"
             oninput="updateTableField('${config.id}', 'globalSearch', this.value)"
           >
@@ -531,9 +533,10 @@ function createTableCardElement(config, index) {
         <div class="config-field">
           <label><i class="fa-solid fa-magnifying-glass"></i> Buscar en tabla:</label>
           <input 
+            id="search_${config.id}"
             type="text" 
             class="form-control" 
-            placeholder="Filtrar texto..." 
+            placeholder="Filtrar resultados..." 
             value="${escapeHtml(config.globalSearch || '')}"
             oninput="updateTableField('${config.id}', 'globalSearch', this.value)"
           >
@@ -547,7 +550,7 @@ function createTableCardElement(config, index) {
     <div class="filters-container" style="margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
         <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);">
-          <i class="fa-solid fa-filter"></i> Filtros Específicos (${(config.filters || []).length}):
+          <i class="fa-solid fa-filter"></i> Filtros Específicos (Datos Base):
         </span>
         <button class="btn btn-xs btn-outline-primary" onclick="addFilterRow('${config.id}')">
           <i class="fa-solid fa-plus"></i> Añadir Filtro
@@ -571,6 +574,7 @@ function createTableCardElement(config, index) {
               <option value="lte" ${f.operator === 'lte' ? 'selected' : ''}>menor o igual (&le;)</option>
             </select>
             <input 
+              id="filter_${config.id}_${fIdx}"
               type="text" 
               class="form-control" 
               placeholder="Valor..." 
@@ -731,8 +735,34 @@ function reRenderSingleTable(tableId) {
     return;
   }
 
+  // Guardar elemento enfocado actualmente (para no perder foco al escribir)
+  const activeEl = document.activeElement;
+  const activeId = activeEl ? activeEl.id : null;
+  let cursorStart = null;
+  let cursorEnd = null;
+
+  if (activeId && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+    try {
+      cursorStart = activeEl.selectionStart;
+      cursorEnd = activeEl.selectionEnd;
+    } catch (e) {}
+  }
+
   const newCard = createTableCardElement(config, AppState.tables.indexOf(config));
   card.replaceWith(newCard);
+
+  // Restaurar foco y cursor
+  if (activeId) {
+    const newActiveEl = document.getElementById(activeId);
+    if (newActiveEl) {
+      newActiveEl.focus();
+      if (cursorStart !== null && newActiveEl.setSelectionRange) {
+        try {
+          newActiveEl.setSelectionRange(cursorStart, cursorEnd);
+        } catch (e) {}
+      }
+    }
+  }
 }
 
 /**
