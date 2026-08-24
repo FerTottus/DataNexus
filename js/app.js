@@ -366,15 +366,17 @@ function addNewTable(type = 'pivot') {
  */
 function renderAllTables() {
   const container = document.getElementById('tablesContainer');
-  const emptyState = document.getElementById('emptyWorkspaceState');
   const countBadge = document.getElementById('tableCountBadge');
 
   countBadge.innerText = `${AppState.tables.length} tabla${AppState.tables.length !== 1 ? 's' : ''}`;
 
   if (AppState.tables.length === 0) {
-    container.innerHTML = '';
-    container.appendChild(emptyState);
-    emptyState.classList.remove('hidden');
+    container.innerHTML = `
+      <div id="emptyWorkspaceState" class="empty-state">
+        <i class="fa-solid fa-table-cells-large empty-icon"></i>
+        <h3>No hay tablas creadas aún</h3>
+        <p>Conecta un Google Sheet o carga los datos de demostración, luego haz clic en <strong>+ Tabla Dinámica</strong> o <strong>+ Tabla Plana</strong> para comenzar a analizar tu información.</p>
+      </div>`;
     return;
   }
 

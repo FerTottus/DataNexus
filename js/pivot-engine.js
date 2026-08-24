@@ -192,21 +192,21 @@ const PivotEngine = {
 
           // Guardar para totales de columna
           if (cellValues.length > 0) {
-            colTotals[colIdx].push(...cellValues);
+            for (let v of cellValues) colTotals[colIdx].push(v);
           }
-          rowAggValues.push(...cellValues);
+          for (let v of cellValues) rowAggValues.push(v);
         });
 
         // Total de la fila
         const rowTotal = this.calculateAggregation(rowAggValues, aggFunc);
         matrixRow.push(this.formatNumber(rowTotal));
-        allRowTotals.push(...rowAggValues);
+        for (let v of rowAggValues) allRowTotals.push(v);
       } else {
         // Sin columnas pivot, solo métrica por fila
         const cellValues = groupRows.map(r => r[valField]);
         const calculated = this.calculateAggregation(cellValues, aggFunc);
         matrixRow.push(this.formatNumber(calculated));
-        allRowTotals.push(...cellValues);
+        for (let v of cellValues) allRowTotals.push(v);
       }
 
       matrixRows.push(matrixRow);
