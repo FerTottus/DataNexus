@@ -638,16 +638,13 @@ body {
   background-color: #f1f5f9;
 }
 
-/* Celdas clickeables para copiado rápido */
 .data-table td {
-  cursor: pointer;
   position: relative;
-  transition: background-color 0.1s, box-shadow 0.1s;
+  transition: background-color 0.1s;
 }
 
 .data-table td:hover {
-  background-color: #e0f2fe !important;
-  box-shadow: inset 0 0 0 1.5px var(--primary);
+  background-color: #f1f5f9;
 }
 
 .data-table td.numeric, .data-table th.numeric {

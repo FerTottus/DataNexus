@@ -345,7 +345,7 @@ const PivotEngine = {
           rowCells.forEach((cellVal, cIdx) => {
             const isNumeric = typeof cellVal === 'number' || (typeof cellVal === 'string' && /^-?[0-9,.]+$/.test(cellVal.trim()));
             const cssClass = isNumeric ? 'numeric' : '';
-            html += `<td class="${cssClass}" onclick="ClipboardUtil.copyCell(this.innerText)">${cellVal !== null && cellVal !== undefined ? cellVal : ''}</td>`;
+            html += `<td class="${cssClass}">${cellVal !== null && cellVal !== undefined ? cellVal : ''}</td>`;
           });
           html += `</tr>`;
         });
@@ -356,7 +356,7 @@ const PivotEngine = {
           grandTotalRow.forEach(val => {
             const isNumeric = typeof val === 'number' || (typeof val === 'string' && /^-?[0-9,.]+$/.test(val.trim()));
             const cssClass = isNumeric ? 'numeric' : '';
-            html += `<td class="${cssClass}" onclick="ClipboardUtil.copyCell(this.innerText)">${val}</td>`;
+            html += `<td class="${cssClass}">${val}</td>`;
           });
           html += `</tr>`;
         }
@@ -372,8 +372,9 @@ const PivotEngine = {
             const cellVal = rowObj[h];
             const isNumeric = typeof cellVal === 'number';
             const cssClass = isNumeric ? 'numeric' : '';
-            const displayVal = isNumeric ? this.formatNumber(cellVal) : (cellVal !== null && cellVal !== undefined ? cellVal : '');
-            html += `<td class="${cssClass}" onclick="ClipboardUtil.copyCell(this.innerText)">${displayVal}</td>`;
+            // No formateamos números en tabla plana, los dejamos crudos como en la base
+            const displayVal = (cellVal !== null && cellVal !== undefined) ? cellVal : '';
+            html += `<td class="${cssClass}">${displayVal}</td>`;
           });
           html += `</tr>`;
         });
