@@ -300,10 +300,10 @@ const PivotEngine = {
     if (num === null || num === undefined || isNaN(num)) return '-';
     // Si es entero, sin decimales
     if (Number.isInteger(num)) {
-      return num.toLocaleString('es-ES');
+      return num.toLocaleString('en-US');
     }
     // Si tiene decimales, redondear a 2 dígitos
-    return num.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   },
 
   /**
