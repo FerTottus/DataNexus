@@ -83,11 +83,13 @@ const ClipboardUtil = {
       const tsvLines = rows.map(row => {
         const cells = Array.from(row.querySelectorAll('th, td'));
         return cells.map(cell => {
-          // Obtener texto limpio sin botones de copia
-          const clone = cell.cloneNode(true);
-          const copyBtns = clone.querySelectorAll('.btn-col-copy');
-          copyBtns.forEach(b => b.remove());
-          let text = clone.innerText.trim();
+          let text = cell.getAttribute('data-value');
+          if (text === null) {
+            const clone = cell.cloneNode(true);
+            const copyBtns = clone.querySelectorAll('.btn-col-copy');
+            copyBtns.forEach(b => b.remove());
+            text = clone.innerText.trim();
+          }
           // Escapar comillas o tabulaciones
           if (text.includes('\t') || text.includes('\n') || text.includes('"')) {
             text = `"${text.replace(/"/g, '""')}"`;
@@ -100,6 +102,10 @@ const ClipboardUtil = {
       // 2. Extraer representación HTML limpia (para pegar con formato nativo de celdas)
       const tableClone = tableElement.cloneNode(true);
       tableClone.querySelectorAll('.btn-col-copy').forEach(b => b.remove());
+      // Reemplazar texto visual por valor crudo en HTML para Excel
+      tableClone.querySelectorAll('td[data-value]').forEach(td => {
+        td.innerText = td.getAttribute('data-value');
+      });
       const htmlText = tableClone.outerHTML;
 
       // 3. Escribir usando ClipboardItem si el navegador lo soporta

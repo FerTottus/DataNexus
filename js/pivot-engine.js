@@ -199,19 +199,18 @@ const PivotEngine = {
           const colKey = pivotColValues[j];
           const cellValues = rowMap.get(colKey) || [];
           const calculated = this.calculateAggregation(cellValues, aggFunc);
-          matrixRow.push(this.formatNumber(calculated));
+          matrixRow.push(calculated);
         }
+        // Añadir el total de la fila al final
+        const rowTotalVals = rowTotalsMap.get(rowKey) || [];
+        const rowTotal = this.calculateAggregation(rowTotalVals, aggFunc);
+        matrixRow.push(rowTotal);
       } else {
-        // Sin columnas, la celda es el total de la fila
+        // Sin columnas, la celda es el total de la fila (única columna de métrica)
         const cellValues = rowMap.get('Total') || [];
         const calculated = this.calculateAggregation(cellValues, aggFunc);
-        matrixRow.push(this.formatNumber(calculated));
+        matrixRow.push(calculated);
       }
-
-      // Añadir el total de la fila al final
-      const rowTotalVals = rowTotalsMap.get(rowKey) || [];
-      const rowTotal = this.calculateAggregation(rowTotalVals, aggFunc);
-      matrixRow.push(this.formatNumber(rowTotal));
 
       matrixRows.push(matrixRow);
     }
@@ -225,12 +224,12 @@ const PivotEngine = {
         const colKey = pivotColValues[j];
         const colVals = colTotalsMap.get(colKey) || [];
         const total = this.calculateAggregation(colVals, aggFunc);
-        grandTotalRow.push(this.formatNumber(total));
+        grandTotalRow.push(total);
       }
     }
 
     const grandTotal = this.calculateAggregation(allValues, aggFunc);
-    grandTotalRow.push(this.formatNumber(grandTotal));
+    grandTotalRow.push(grandTotal);
 
     // 6. Filtro Búsqueda Global (Aplicado a la matriz VISIBLE resultante)
     let finalMatrixRows = matrixRows;
@@ -356,7 +355,9 @@ const PivotEngine = {
           rowCells.forEach((cellVal, cIdx) => {
             const isNumeric = typeof cellVal === 'number' || (typeof cellVal === 'string' && /^-?[0-9,.]+$/.test(cellVal.trim()));
             const cssClass = isNumeric ? 'numeric' : '';
-            html += `<td class="${cssClass}">${cellVal !== null && cellVal !== undefined ? cellVal : ''}</td>`;
+            const rawAttr = isNumeric ? ` data-value="${cellVal}"` : '';
+            const displayVal = isNumeric ? this.formatNumber(Number(cellVal)) : (cellVal !== null && cellVal !== undefined ? cellVal : '');
+            html += `<td class="${cssClass}"${rawAttr}>${displayVal}</td>`;
           });
           html += `</tr>`;
         });
@@ -367,7 +368,9 @@ const PivotEngine = {
           grandTotalRow.forEach(val => {
             const isNumeric = typeof val === 'number' || (typeof val === 'string' && /^-?[0-9,.]+$/.test(val.trim()));
             const cssClass = isNumeric ? 'numeric' : '';
-            html += `<td class="${cssClass}">${val}</td>`;
+            const rawAttr = isNumeric ? ` data-value="${val}"` : '';
+            const displayVal = isNumeric ? this.formatNumber(Number(val)) : val;
+            html += `<td class="${cssClass}"${rawAttr}>${displayVal}</td>`;
           });
           html += `</tr>`;
         }
@@ -404,7 +407,10 @@ const PivotEngine = {
     if (!tableEl) return;
 
     const cells = Array.from(tableEl.querySelectorAll(`tbody tr:not(.total-row) td:nth-child(${colIndex + 1})`));
-    const values = cells.map(td => td.innerText.trim());
+    const values = cells.map(td => {
+      const rawVal = td.getAttribute('data-value');
+      return rawVal !== null ? rawVal : td.innerText.trim();
+    });
 
     if (window.ClipboardUtil) {
       window.ClipboardUtil.copyColumn(colName, values);

@@ -118,13 +118,16 @@
         for (let c = minCol; c <= maxCol; c++) {
           const td = tr.children[c];
           if (td) {
-            let val = td.innerText.trim();
+            let val = td.getAttribute('data-value');
+            if (val === null) val = td.innerText.trim();
             // Escapar formato TSV
-            if (val.includes('\\t') || val.includes('\\n') || val.includes('"')) {
+            if (val.includes('\t') || val.includes('\n') || val.includes('"')) {
               val = `"${val.replace(/"/g, '""')}"`;
             }
             rowText.push(val);
-            htmlText += `<td>${td.innerHTML}</td>`;
+            
+            // Para el portapapeles HTML, también inyectamos el valor crudo (algunos Excel leen el innerText)
+            htmlText += `<td>${val}</td>`;
           }
         }
         tsvText += rowText.join('\t') + '\n';
