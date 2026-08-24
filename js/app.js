@@ -608,16 +608,18 @@ function createTableCardElement(config, index) {
       type: 'pivot',
       headers: pivotResult.headers,
       matrixRows: pivotResult.matrixRows,
-      grandTotalRow: pivotResult.grandTotalRow
+      grandTotalRow: pivotResult.grandTotalRow,
+      formats: config.formats || {}
     });
-    footerInfo = `<span>Registros procesados: <strong>${pivotResult.rowCount}</strong></span><span>Haz clic en cualquier celda para copiar su valor</span>`;
+    footerInfo = `<span>Registros procesados: <strong>${pivotResult.rowCount}</strong></span><span>Arrastra el mouse para seleccionar celdas y presiona Ctrl+C</span>`;
   } else {
     const flatResult = PivotEngine.buildFlatData(AppState.dataset.rows, config);
     tableDataHtml = PivotEngine.renderTableHtml({
       id: config.id,
       type: 'flat',
       headers: flatResult.headers,
-      rows: flatResult.rows
+      rows: flatResult.rows,
+      formats: config.formats || {}
     });
     footerInfo = `<span>Mostrando <strong>${flatResult.rows.length}</strong> de <strong>${flatResult.totalCount}</strong> filas</span><span>Haz clic en un encabezado para copiar la columna</span>`;
   }
@@ -636,6 +638,15 @@ function createTableCardElement(config, index) {
 /**
  * Manejadores de cambios en la configuración de tablas
  */
+window.updateColumnFormat = function(tableId, colName, format) {
+  const table = AppState.tables.find(t => t.id === tableId);
+  if (!table) return;
+  if (!table.formats) table.formats = {};
+  table.formats[colName] = format;
+  reRenderSingleTable(tableId);
+  syncStateToUrl();
+};
+
 window.updateTableField = function(tableId, field, value) {
   const table = AppState.tables.find(t => t.id === tableId);
   if (!table) return;

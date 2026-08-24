@@ -616,6 +616,26 @@ body {
   gap: 0.5rem;
 }
 
+.th-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.format-select {
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  padding: 0.1rem;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.format-select:hover {
+  border-color: var(--border-color);
+  background: var(--bg-card);
+}
+
 .btn-col-copy {
   opacity: 0.35;
   background: transparent;

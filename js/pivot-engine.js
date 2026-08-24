@@ -28,42 +28,83 @@ const PivotEngine = {
       });
     }
 
-    // 2. Filtros específicos por columna
+    // 2. Filtros específicos por columna (Lógica BI: OR dentro del mismo campo, AND entre distintos campos)
     if (filters && filters.length > 0) {
-      filtered = filtered.filter(row => {
-        return filters.every(f => {
-          if (!f.field || f.value === undefined || f.value === '') return true;
-          const cellVal = row[f.field];
-          const filterVal = String(f.value).toLowerCase();
-          const targetStr = cellVal !== null && cellVal !== undefined ? String(cellVal).toLowerCase() : '';
-          const numCell = Number(cellVal);
-          const numFilter = Number(f.value);
-
-          switch (f.operator) {
-            case 'equals':
-              return targetStr === filterVal;
-            case 'contains':
-              return targetStr.includes(filterVal);
-            case 'starts_with':
-              return targetStr.startsWith(filterVal);
-            case 'not_equals':
-              return targetStr !== filterVal;
-            case 'gt': // Mayor que
-              return !isNaN(numCell) && !isNaN(numFilter) ? numCell > numFilter : false;
-            case 'gte': // Mayor o igual
-              return !isNaN(numCell) && !isNaN(numFilter) ? numCell >= numFilter : false;
-            case 'lt': // Menor que
-              return !isNaN(numCell) && !isNaN(numFilter) ? numCell < numFilter : false;
-            case 'lte': // Menor o igual
-              return !isNaN(numCell) && !isNaN(numFilter) ? numCell <= numFilter : false;
-            default:
-              return targetStr.includes(filterVal);
-          }
-        });
+      const filtersByField = {};
+      filters.forEach(f => {
+        if (!f.field || f.value === undefined || f.value === '') return;
+        if (!filtersByField[f.field]) filtersByField[f.field] = [];
+        filtersByField[f.field].push(f);
       });
+
+      const fieldKeys = Object.keys(filtersByField);
+
+      if (fieldKeys.length > 0) {
+        filtered = filtered.filter(row => {
+          // Debe cumplir TODOS los campos (AND)
+          return fieldKeys.every(field => {
+            const fieldFilters = filtersByField[field];
+            // Dentro del campo, debe cumplir AL MENOS UNA condición (OR)
+            return fieldFilters.some(f => {
+              const cellVal = row[f.field];
+              const filterVal = String(f.value).toLowerCase();
+              const targetStr = cellVal !== null && cellVal !== undefined ? String(cellVal).toLowerCase() : '';
+              const numCell = Number(cellVal);
+              const numFilter = Number(f.value);
+
+              switch (f.operator) {
+                case 'equals': return targetStr === filterVal;
+                case 'contains': return targetStr.includes(filterVal);
+                case 'starts_with': return targetStr.startsWith(filterVal);
+                case 'not_equals': return targetStr !== filterVal;
+                case 'gt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell > numFilter : false;
+                case 'gte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell >= numFilter : false;
+                case 'lt': return !isNaN(numCell) && !isNaN(numFilter) ? numCell < numFilter : false;
+                case 'lte': return !isNaN(numCell) && !isNaN(numFilter) ? numCell <= numFilter : false;
+                default: return targetStr.includes(filterVal);
+              }
+            });
+          });
+        });
+      }
     }
 
     return filtered;
+  },
+
+  /**
+   * Formatea un valor individual según el tipo solicitado
+   */
+  formatCellValue(val, format) {
+    if (val === null || val === undefined || val === '') return '';
+    
+    if (format === 'text') return String(val);
+    
+    if (format === 'num0' || format === 'num2' || format === 'auto') {
+      const num = Number(val);
+      if (!isNaN(num) && val !== true && val !== false) {
+        if (format === 'num0') return num.toLocaleString(undefined, { maximumFractionDigits: 0 });
+        if (format === 'num2') return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        // auto format (evitar formatear IDs o años largos si es auto, pero es difícil adivinar. Por defecto aplicamos formato de número)
+        return Number.isInteger(num) ? num.toLocaleString(undefined) : num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+    }
+    
+    if (format === 'datetime' || format === 'date') {
+      let d;
+      const num = Number(val);
+      if (!isNaN(num) && num > 20000 && num < 80000) {
+        // Serial de fecha de Excel (aprox 1954 a 2119)
+        d = new Date((num - 25569) * 86400 * 1000);
+      } else {
+        d = new Date(val);
+      }
+      if (!isNaN(d.getTime())) {
+        return format === 'date' ? d.toLocaleDateString() : d.toLocaleString();
+      }
+    }
+    
+    return val;
   },
 
   /**
@@ -322,7 +363,7 @@ const PivotEngine = {
    * @returns {string} HTML string
    */
   renderTableHtml(tableModel) {
-    const { id, type, headers, matrixRows, rows, grandTotalRow, totalCount } = tableModel;
+    const { id, type, headers, matrixRows, rows, grandTotalRow, totalCount, formats = {} } = tableModel;
 
     let html = `<div class="table-responsive-wrapper" id="wrapper_${id}">`;
     html += `<table class="data-table" id="table_${id}">`;
@@ -330,13 +371,23 @@ const PivotEngine = {
     // Encabezados
     html += `<thead><tr>`;
     headers.forEach((h, colIdx) => {
+      const currentFormat = formats[h] || 'auto';
       html += `
         <th data-col-index="${colIdx}" data-col-name="${h}">
           <div class="th-content">
             <span>${h}</span>
-            <button class="btn-col-copy" title="Copiar columna ${h}" onclick="PivotEngine.handleCopyColumnClick('${id}', ${colIdx}, '${h}')">
-              <i class="fa-solid fa-copy"></i>
-            </button>
+            <div class="th-actions">
+              <select class="format-select" onchange="window.updateColumnFormat('${id}', '${h}', this.value)" title="Formato de celda">
+                <option value="auto" ${currentFormat === 'auto' ? 'selected' : ''}>Auto</option>
+                <option value="text" ${currentFormat === 'text' ? 'selected' : ''}>Texto</option>
+                <option value="num0" ${currentFormat === 'num0' ? 'selected' : ''}>Num (0 dec)</option>
+                <option value="num2" ${currentFormat === 'num2' ? 'selected' : ''}>Num (2 dec)</option>
+                <option value="date" ${currentFormat === 'date' ? 'selected' : ''}>Fecha</option>
+              </select>
+              <button class="btn-col-copy" title="Copiar columna ${h}" onclick="PivotEngine.handleCopyColumnClick('${id}', ${colIdx}, '${h}')">
+                <i class="fa-solid fa-copy"></i>
+              </button>
+            </div>
           </div>
         </th>
       `;
@@ -353,10 +404,11 @@ const PivotEngine = {
         matrixRows.forEach(rowCells => {
           html += `<tr>`;
           rowCells.forEach((cellVal, cIdx) => {
+            const colName = headers[cIdx];
             const isNumeric = typeof cellVal === 'number' || (typeof cellVal === 'string' && /^-?[0-9,.]+$/.test(cellVal.trim()));
             const cssClass = isNumeric ? 'numeric' : '';
-            const rawAttr = isNumeric ? ` data-value="${cellVal}"` : '';
-            const displayVal = isNumeric ? this.formatNumber(Number(cellVal)) : (cellVal !== null && cellVal !== undefined ? cellVal : '');
+            const rawAttr = ` data-value="${cellVal !== null && cellVal !== undefined ? cellVal : ''}"`;
+            const displayVal = this.formatCellValue(cellVal, formats[colName] || 'auto');
             html += `<td class="${cssClass}"${rawAttr}>${displayVal}</td>`;
           });
           html += `</tr>`;
@@ -365,11 +417,12 @@ const PivotEngine = {
         // Total general
         if (grandTotalRow && grandTotalRow.length > 0) {
           html += `<tr class="total-row">`;
-          grandTotalRow.forEach(val => {
+          grandTotalRow.forEach((val, cIdx) => {
+            const colName = headers[cIdx];
             const isNumeric = typeof val === 'number' || (typeof val === 'string' && /^-?[0-9,.]+$/.test(val.trim()));
             const cssClass = isNumeric ? 'numeric' : '';
-            const rawAttr = isNumeric ? ` data-value="${val}"` : '';
-            const displayVal = isNumeric ? this.formatNumber(Number(val)) : val;
+            const rawAttr = ` data-value="${val !== null && val !== undefined ? val : ''}"`;
+            const displayVal = this.formatCellValue(val, formats[colName] || 'auto');
             html += `<td class="${cssClass}"${rawAttr}>${displayVal}</td>`;
           });
           html += `</tr>`;
@@ -386,9 +439,9 @@ const PivotEngine = {
             const cellVal = rowObj[h];
             const isNumeric = typeof cellVal === 'number';
             const cssClass = isNumeric ? 'numeric' : '';
-            // No formateamos números en tabla plana, los dejamos crudos como en la base
-            const displayVal = (cellVal !== null && cellVal !== undefined) ? cellVal : '';
-            html += `<td class="${cssClass}">${displayVal}</td>`;
+            const rawAttr = ` data-value="${cellVal !== null && cellVal !== undefined ? cellVal : ''}"`;
+            const displayVal = this.formatCellValue(cellVal, formats[h] || 'auto');
+            html += `<td class="${cssClass}"${rawAttr}>${displayVal}</td>`;
           });
           html += `</tr>`;
         });
