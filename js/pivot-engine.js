@@ -311,10 +311,10 @@ const PivotEngine = {
     if (num === null || num === undefined || isNaN(num)) return '-';
     // Si es entero, sin decimales
     if (Number.isInteger(num)) {
-      return num.toLocaleString('en-US');
+      return num.toLocaleString(undefined);
     }
     // Si tiene decimales, redondear a 2 dígitos
-    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   },
 
   /**
