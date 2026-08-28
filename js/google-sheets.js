@@ -243,7 +243,10 @@ const GoogleSheetsService = {
 
     if (!response.ok) {
       const errorJson = await response.json().catch(() => ({}));
-      const message = errorJson.error?.message || `Error HTTP ${response.status}: No se pudo leer el archivo. Verifica que haya sido compartido con tu cuenta.`;
+      let message = errorJson.error?.message || `Error HTTP ${response.status}: No se pudo leer el archivo. Verifica que haya sido compartido.`;
+      if (response.status === 400) {
+        message += " (Tip: Si tu archivo es un Excel .xlsx, debes abrirlo en Drive y darle a 'Archivo > Guardar como Hoja de cálculo de Google' para poder conectarlo).";
+      }
       throw new Error(message);
     }
 
@@ -281,7 +284,10 @@ const GoogleSheetsService = {
 
     if (!response.ok) {
       const errorJson = await response.json().catch(() => ({}));
-      const message = errorJson.error?.message || `Error al obtener datos de la hoja "${tabName}".`;
+      let message = errorJson.error?.message || `Error al obtener datos de la hoja "${tabName}".`;
+      if (response.status === 400) {
+        message += " (Tip: Si tu archivo es un Excel .xlsx, guárdalo como Hoja de cálculo de Google primero).";
+      }
       throw new Error(message);
     }
 

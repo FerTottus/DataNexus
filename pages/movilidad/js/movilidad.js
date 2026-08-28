@@ -207,12 +207,15 @@ async function loadAllSheets(sheetId) {
   badge.innerText = 'Descargando datos...';
 
   try {
-    // Descargar las 3 hojas concurrentemente
     const [secos, ppa, frescos] = await Promise.all([
-      GoogleSheetsService.fetchSheetData(sheetId, 'BD SECOS').catch(() => null),
-      GoogleSheetsService.fetchSheetData(sheetId, 'BD PPA').catch(() => null),
-      GoogleSheetsService.fetchSheetData(sheetId, 'BD FRESCOS').catch(() => null)
+      GoogleSheetsService.fetchSheetData(sheetId, 'BD SECOS').catch(e => null),
+      GoogleSheetsService.fetchSheetData(sheetId, 'BD PPA').catch(e => null),
+      GoogleSheetsService.fetchSheetData(sheetId, 'BD FRESCOS').catch(e => null)
     ]);
+
+    if (!secos && !ppa && !frescos) {
+      throw new Error("No se pudo leer la información. Si tu archivo es un Excel (.xlsx), debes abrirlo en Google Drive y darle a 'Archivo > Guardar como Hoja de cálculo de Google'. También verifica que existan las pestañas 'BD SECOS', 'BD PPA' o 'BD FRESCOS'.");
+    }
 
     let combined = [];
 
@@ -256,6 +259,11 @@ async function loadAllSheets(sheetId) {
     console.error(err);
     badge.className = 'badge badge-danger';
     badge.innerText = 'Error de conexión';
+    if(window.ClipboardUtil) {
+      ClipboardUtil.showToast(err.message, 'danger', 10000);
+    } else {
+      alert(err.message);
+    }
   }
 }
 
