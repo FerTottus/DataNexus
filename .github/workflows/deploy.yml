@@ -1,0 +1,36 @@
+name: Deploy Pages con Secreto
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+        
+      - name: Inyectar Secreto de Google
+        run: |
+          sed -i "s/TU_CLIENT_ID_AQUI/${{ secrets.GOOGLE_CLIENT_ID }}/g" js/config.js
+          
+      - name: Configurar Pages
+        uses: actions/configure-pages@v4
+        
+      - name: Subir archivos
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+          
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
