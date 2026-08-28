@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Extractor de Excel para IA</title>
+  <!-- Usamos SheetJS, la librería estándar para leer Excel en el navegador -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 30px; background: #f8fafc; color: #333; line-height: 1.5; }
+    .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    h2 { color: #1e293b; margin-top: 0; display: flex; align-items: center; gap: 10px; }
+    .drop-zone { 
+      border: 2px dashed #3b82f6; padding: 40px; text-align: center; 
+      border-radius: 8px; background: #eff6ff; cursor: pointer; 
+      margin-bottom: 20px; transition: all 0.2s; font-size: 1.1rem; font-weight: 500; color: #1d4ed8;
+    }
+    .drop-zone:hover { background: #dbeafe; }
+    textarea { width: 100%; height: 350px; font-family: 'JetBrains Mono', monospace; padding: 15px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f1f5f9; white-space: pre; overflow-wrap: normal; overflow-x: scroll; box-sizing: border-box; }
+    button { background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: background 0.2s; }
+    button:hover { background: #059669; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🤖 Extractor de Fórmulas y Datos Excel</h2>
+    <p>Esta herramienta procesa tu archivo de forma 100% segura en tu computadora (no sube nada a internet). Extrae las fórmulas de <b>ServicioMovilidad.xlsx</b> para que la IA pueda analizarlas.</p>
+    
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      📁 Haz clic aquí para seleccionar tu archivo Excel
+      <input type="file" id="file-input" style="display:none" accept=".xlsx, .xls, .xlsm">
+    </div>
+
+    <button id="copy-btn" onclick="copyToClipboard()" style="display:none; margin-bottom: 15px;">📋 Copiar Resultado para la IA</button>
+    <textarea id="output" placeholder="El análisis de tus hojas, fórmulas y datos aparecerá aquí..."></textarea>
+  </div>
+
+  <script>
+    document.getElementById('file-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      document.getElementById('drop-zone').innerHTML = "⏳ Procesando archivo...";
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type: 'array', cellFormula: true});
+        
+        let outputText = "=== RESUMEN DEL ARCHIVO: " + file.name + " ===\n\n";
+        
+        workbook.SheetNames.forEach(sheetName => {
+          outputText += "========================================\n";
+          outputText += "HOJA: " + sheetName + "\n";
+          outputText += "========================================\n";
+          
+          const worksheet = workbook.Sheets[sheetName];
+          if (!worksheet['!ref']) {
+            outputText += "Hoja vacía.\n\n";
+            return;
+          }
+
+          const range = XLSX.utils.decode_range(worksheet['!ref']);
+          let formulas = [];
+          let dataPreview = [];
+          
+          for (let R = range.s.r; R <= Math.min(range.e.r, 25); ++R) {
+            let rowData = [];
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+              const cellAddress = XLSX.utils.encode_cell({c:C, r:R});
+              const cell = worksheet[cellAddress];
+              
+              if (!cell) {
+                rowData.push("");
+                continue;
+              }
+              
+              if (cell.f) {
+                formulas.push(cellAddress + ": =" + cell.f + " (Valor: " + (cell.v || '') + ")");
+                rowData.push("=" + cell.f);
+              } else {
+                rowData.push(cell.v !== undefined ? cell.v : "");
+              }
+            }
+            if (rowData.some(val => val !== "")) {
+              dataPreview.push(rowData.join(" | "));
+            }
+          }
+          
+          outputText += "--- ESTRUCTURA Y DATOS (Primeras filas) ---\n";
+          outputText += dataPreview.join("\n") + "\n\n";
+          
+          if (formulas.length > 0) {
+            outputText += "--- FÓRMULAS DETECTADAS ---\n";
+            outputText += formulas.slice(0, 150).join("\n") + "\n";
+            if (formulas.length > 150) {
+              outputText += "... y " + (formulas.length - 150) + " fórmulas más omitidas.\n";
+            }
+          } else {
+            outputText += "No se detectaron fórmulas en estas filas.\n";
+          }
+          
+          outputText += "\n";
+        });
+        
+        const outputEl = document.getElementById('output');
+        outputEl.value = outputText;
+        
+        document.getElementById('copy-btn').style.display = 'inline-block';
+        document.getElementById('drop-zone').innerHTML = "✅ ¡Archivo procesado con éxito! Haz clic en Copiar.";
+        document.getElementById('drop-zone').style.background = "#d1fae5";
+        document.getElementById('drop-zone').style.borderColor = "#10b981";
+        document.getElementById('drop-zone').style.color = "#047857";
+      };
+      
+      reader.readAsArrayBuffer(file);
+    });
+
+    function copyToClipboard() {
+      const output = document.getElementById('output');
+      output.select();
+      document.execCommand('copy');
+      alert('¡Texto copiado al portapapeles!\n\nVuelve al chat de la Inteligencia Artificial y pégalo (Ctrl+V) en tu mensaje.');
+    }
+  </script>
+</body>
+</html>
