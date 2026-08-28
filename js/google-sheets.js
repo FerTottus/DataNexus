@@ -5,8 +5,8 @@
  */
 
 const GoogleSheetsService = {
-  // Scopes requeridos para leer hojas de cálculo de Google
-  SCOPES: 'https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/userinfo.email',
+  // Scopes requeridos para leer hojas de cálculo y listar archivos en Drive
+  SCOPES: 'https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.readonly',
   
   tokenClient: null,
   accessToken: null,
@@ -338,6 +338,35 @@ const GoogleSheetsService = {
       rows,
       rawValues: values
     };
+  },
+
+  /**
+   * Obtiene los archivos más recientes de tipo Spreadsheet del Drive del usuario
+   * @returns {Promise<Array>} Array de objetos archivo
+   */
+  async fetchRecentSpreadsheets() {
+    if (!this.accessToken) return null;
+    try {
+      const query = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+      const url = `https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=recency desc&fields=files(id, name, modifiedTime, owners)&pageSize=15`;
+      
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return data.files || [];
+      } else {
+        console.warn('Error fetching Drive files:', res.status, res.statusText);
+        return null;
+      }
+    } catch (e) {
+      console.error('Error in fetchRecentSpreadsheets:', e);
+      return null;
+    }
   }
 };
 

@@ -76,19 +76,23 @@
         <div class="input-group-grid">
           <div class="input-field full-width">
             <label for="sheetUrlInput">URL o ID del archivo de Google Sheets (compartido contigo):</label>
-            <div class="input-with-action">
+            <div class="input-with-action" style="display: flex; gap: 8px;">
               <input 
                 type="text" 
                 id="sheetUrlInput" 
-                placeholder="Ej: https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit o solo el ID"
+                placeholder="Ej: https://docs.google.com/spreadsheets/d/.../edit"
                 class="form-control"
+                style="flex-grow: 1;"
               >
+              <button id="btnBrowseDrive" class="btn btn-secondary">
+                <i class="fa-solid fa-folder-open"></i> Explorar Drive
+              </button>
               <button id="btnFetchSheets" class="btn btn-primary">
                 <i class="fa-solid fa-arrows-rotate"></i> Conectar y Cargar
               </button>
             </div>
             <small class="helper-text">
-              <i class="fa-solid fa-info-circle"></i> Pega el enlace de la hoja de cálculo que te compartieron e inicia sesión con tu cuenta de Google.
+              <i class="fa-solid fa-info-circle"></i> Pega el enlace de la hoja de cálculo o búscalo directamente en tu Drive.
             </small>
           </div>
 
@@ -122,6 +126,21 @@
         </div>
       </div>
     </section>
+
+    <!-- Modal del Explorador de Archivos (Oculto por defecto) -->
+    <div id="drive-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-folder-open text-primary"></i> Tus archivos recientes</h3>
+          <button id="close-modal-btn" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div id="drive-loading" class="hidden text-center"><i class="fa-solid fa-spinner fa-spin"></i> Cargando archivos...</div>
+          <ul id="drive-file-list" class="file-list"></ul>
+          <div id="drive-empty" class="hidden text-muted text-center mt-3">No se encontraron hojas de cálculo recientes.</div>
+        </div>
+      </div>
+    </div>
 
     <!-- Sección 2: Espacio de Trabajo / Tablas -->
     <section id="workspaceSection" class="workspace-section">

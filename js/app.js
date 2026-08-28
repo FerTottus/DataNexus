@@ -74,6 +74,31 @@ function initUIEvents() {
     fetchSheetWorkbook();
   });
 
+  // 3.1. Botón Explorar Drive
+  document.getElementById('btnBrowseDrive').addEventListener('click', () => {
+    if (!GoogleSheetsService.isAuthenticated()) {
+      GoogleSheetsService.requestAccessToken((success) => {
+        if (success) {
+          updateAuthUI(true);
+          openDriveModal();
+        }
+      });
+    } else {
+      openDriveModal();
+    }
+  });
+
+  document.getElementById('close-modal-btn').addEventListener('click', () => {
+    document.getElementById('drive-modal').classList.add('hidden');
+  });
+
+  // Cerrar modal haciendo clic afuera
+  document.getElementById('drive-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'drive-modal') {
+      e.target.classList.add('hidden');
+    }
+  });
+
   // Entrada con tecla Enter en el input de URL
   document.getElementById('sheetUrlInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -143,6 +168,65 @@ function updateAuthUI(isAuthenticated) {
     btnLogin.classList.remove('hidden');
     userInfo.classList.add('hidden');
   }
+}
+
+/**
+ * Abre el modal y carga los archivos recientes de Google Drive
+ */
+async function openDriveModal() {
+  const modal = document.getElementById('drive-modal');
+  const loading = document.getElementById('drive-loading');
+  const empty = document.getElementById('drive-empty');
+  const list = document.getElementById('drive-file-list');
+  
+  modal.classList.remove('hidden');
+  loading.classList.remove('hidden');
+  list.innerHTML = '';
+  empty.classList.add('hidden');
+
+  const files = await GoogleSheetsService.fetchRecentSpreadsheets();
+  
+  loading.classList.add('hidden');
+  
+  if (!files || files.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  files.forEach(file => {
+    const li = document.createElement('li');
+    const date = new Date(file.modifiedTime).toLocaleDateString();
+    
+    // Determinar propietario (si es propio o compartido)
+    let ownerText = 'Desconocido';
+    let iconClass = 'fa-file-excel text-success';
+    if (file.owners && file.owners.length > 0) {
+      if (file.owners[0].me) {
+        ownerText = 'Tú';
+      } else {
+        ownerText = file.owners[0].displayName || 'Compartido';
+        iconClass = 'fa-file-excel text-primary'; // Diferenciar los compartidos
+      }
+    }
+
+    li.innerHTML = `
+      <div class="file-title">
+        <i class="fa-solid ${iconClass}"></i> ${file.name}
+      </div>
+      <div class="file-meta">
+        <span><i class="fa-solid fa-user"></i> ${ownerText}</span>
+        <span><i class="fa-solid fa-calendar"></i> ${date}</span>
+      </div>
+    `;
+    
+    li.addEventListener('click', () => {
+      document.getElementById('sheetUrlInput').value = file.id;
+      modal.classList.add('hidden');
+      fetchSheetWorkbook(); // Cargar automáticamente
+    });
+    
+    list.appendChild(li);
+  });
 }
 
 /**
