@@ -138,7 +138,14 @@ body {
   padding: 1.5rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  min-height: 350px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-wrapper {
+  position: relative;
+  height: 350px;
+  width: 100%;
 }
 
 .chart-container h3 {
