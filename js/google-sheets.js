@@ -304,12 +304,31 @@ const GoogleSheetsService = {
       return { headers: [], rows: [], rawValues: [] };
     }
 
-    // La primera fila se asume como encabezados
-    const rawHeaders = values[0];
-    const headers = rawHeaders.map((h, idx) => {
+    // Identificar el último índice de columna que realmente contiene un título o datos
+    let lastValidColIndex = -1;
+    const rawHeaders = values[0] || [];
+    
+    // Primero, verificamos el ancho real buscando la última celda con datos en la cabecera
+    for (let i = 0; i < rawHeaders.length; i++) {
+      const h = rawHeaders[i];
+      if (h !== null && h !== undefined && String(h).trim() !== '') {
+        lastValidColIndex = i;
+      }
+    }
+
+    // Si la cabecera está totalmente vacía (ej. hoja en blanco), limitamos a 0 columnas
+    // para no crear un scroll infinito
+    if (lastValidColIndex === -1) {
+      return { headers: [], rows: [], rawValues: values };
+    }
+
+    // Construir cabeceras solo hasta la última columna válida
+    const headers = [];
+    for (let i = 0; i <= lastValidColIndex; i++) {
+      const h = rawHeaders[i];
       const title = h !== null && h !== undefined ? String(h).trim() : '';
-      return title || `Columna_${idx + 1}`;
-    });
+      headers.push(title || `Columna_${i + 1}`);
+    }
 
     // Filas subsiguientes
     const rows = [];
@@ -318,11 +337,13 @@ const GoogleSheetsService = {
       const rowObj = {};
       let hasData = false;
 
+      // Solo leer hasta el límite de cabeceras establecidas
       for (let c = 0; c < headers.length; c++) {
         const header = headers[c];
         const val = rowArr[c] !== undefined ? rowArr[c] : null;
         rowObj[header] = val;
-        if (val !== null && val !== '') {
+        
+        if (val !== null && val !== undefined && String(val).trim() !== '') {
           hasData = true;
         }
       }
@@ -347,7 +368,8 @@ const GoogleSheetsService = {
   async fetchRecentSpreadsheets() {
     if (!this.accessToken) return null;
     try {
-      const query = encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false");
+      // Incluimos tanto Google Sheets nativos como archivos de Excel (.xlsx) subidos a Drive
+      const query = encodeURIComponent("(mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') and trashed=false");
       const url = `https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=recency desc&fields=files(id, name, modifiedTime, owners)&pageSize=15`;
       
       const res = await fetch(url, {
