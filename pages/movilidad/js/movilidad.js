@@ -233,7 +233,8 @@ async function loadAllSheets(sheetId) {
           clasifCd: String(row['CLASIF. DIST. CD'] || '').trim(),
           distParadero: parseFloat(row['DIST. PARADERO (km)']) || 0,
           clasifParadero: String(row['CLASIF. DIST. PARADERO'] || '').trim(),
-          ruta: String(row['RUTA PARADERO'] || '').trim()
+          ruta: String(row['RUTA PARADERO'] || '').trim(),
+          paradero: String(row['PARADERO'] || row['PARADERO MÁS CERCANO'] || row['NOMBRE PARADERO'] || '').trim()
         });
       });
     };
@@ -359,6 +360,26 @@ function updateCharts() {
     .sort((a, b) => b.val - a.val)
     .slice(0, 10);
 
+  // Calcular Rutas Disponibles
+  const rutasCount = {};
+  const paraderosCount = {};
+  
+  AppState.filteredEmployees.forEach(emp => {
+    if (emp.ruta) rutasCount[emp.ruta] = (rutasCount[emp.ruta] || 0) + 1;
+    if (emp.paradero) paraderosCount[emp.paradero] = (paraderosCount[emp.paradero] || 0) + 1;
+  });
+
+  const totalEmps = AppState.filteredEmployees.length;
+
+  const rutasSorted = Object.keys(rutasCount)
+    .map(k => ({ name: k, val: rutasCount[k] }))
+    .sort((a, b) => b.val - a.val);
+
+  const paraderosSorted = Object.keys(paraderosCount)
+    .map(k => ({ name: k, val: paraderosCount[k] }))
+    .sort((a, b) => b.val - a.val)
+    .slice(0, 10);
+
   // Colores corporativos (semáforo)
   const colors = {
     'Muy Cerca': '#22c55e', // Verde
@@ -370,6 +391,34 @@ function updateCharts() {
   renderPieChart('chartDistCD', countCd, colors);
   renderPieChart('chartDistParadero', countParadero, colors);
   renderBarChart('chartDistritos', distritosSorted);
+
+  // Renderizar Tablas
+  renderTable('tableDistritos', distritosSorted, totalEmps);
+  renderTable('tableRutas', rutasSorted, totalEmps);
+  renderTable('tableParaderos', paraderosSorted, totalEmps);
+}
+
+function renderTable(tableId, dataArr, total) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (dataArr.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay datos disponibles</td></tr>';
+    return;
+  }
+
+  dataArr.forEach((item, index) => {
+    const pct = total > 0 ? ((item.val / total) * 100).toFixed(2) + '%' : '0%';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${index + 1}</td>
+      <td>${item.name}</td>
+      <td>${item.val}</td>
+      <td>${pct}</td>
+    `;
+    tbody.appendChild(tr);
+  });
 }
 
 function renderPieChart(canvasId, dataMap, colors) {
