@@ -2,8 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Extractor de Excel para IA</title>
-  <!-- Usamos SheetJS, la librería estándar para leer Excel en el navegador -->
+  <title>Extractor de Excel Inteligente para IA</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <style>
     body { font-family: system-ui, sans-serif; padding: 30px; background: #f8fafc; color: #333; line-height: 1.5; }
@@ -15,15 +14,15 @@
       margin-bottom: 20px; transition: all 0.2s; font-size: 1.1rem; font-weight: 500; color: #1d4ed8;
     }
     .drop-zone:hover { background: #dbeafe; }
-    textarea { width: 100%; height: 350px; font-family: 'JetBrains Mono', monospace; padding: 15px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f1f5f9; white-space: pre; overflow-wrap: normal; overflow-x: scroll; box-sizing: border-box; }
+    textarea { width: 100%; height: 400px; font-family: 'JetBrains Mono', monospace; padding: 15px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f1f5f9; white-space: pre; overflow-wrap: normal; overflow-x: scroll; box-sizing: border-box; }
     button { background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: background 0.2s; }
     button:hover { background: #059669; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>🤖 Extractor de Fórmulas y Datos Excel</h2>
-    <p>Esta herramienta procesa tu archivo de forma 100% segura en tu computadora (no sube nada a internet). Extrae las fórmulas de <b>ServicioMovilidad.xlsx</b> para que la IA pueda analizarlas.</p>
+    <h2>🤖 Extractor Inteligente (Escaneo Completo)</h2>
+    <p>Esta versión escanea <b>todas las filas de tu Excel</b>, saltándose los espacios en blanco para encontrar todas tus tablas y fórmulas sin importar dónde estén ubicadas.</p>
     
     <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
       📁 Haz clic aquí para seleccionar tu archivo Excel
@@ -31,7 +30,7 @@
     </div>
 
     <button id="copy-btn" onclick="copyToClipboard()" style="display:none; margin-bottom: 15px;">📋 Copiar Resultado para la IA</button>
-    <textarea id="output" placeholder="El análisis de tus hojas, fórmulas y datos aparecerá aquí..."></textarea>
+    <textarea id="output" placeholder="El mapa completo de tus hojas y fórmulas aparecerá aquí..."></textarea>
   </div>
 
   <script>
@@ -39,7 +38,7 @@
       const file = e.target.files[0];
       if (!file) return;
       
-      document.getElementById('drop-zone').innerHTML = "⏳ Procesando archivo...";
+      document.getElementById('drop-zone').innerHTML = "⏳ Procesando archivo de forma completa...";
       
       const reader = new FileReader();
       reader.onload = function(e) {
@@ -59,44 +58,63 @@
             return;
           }
 
-          const range = XLSX.utils.decode_range(worksheet['!ref']);
-          let formulas = [];
-          let dataPreview = [];
+          let rowsWithData = {};
+          let totalFormulas = 0;
           
-          for (let R = range.s.r; R <= Math.min(range.e.r, 25); ++R) {
-            let rowData = [];
-            for (let C = range.s.c; C <= range.e.c; ++C) {
-              const cellAddress = XLSX.utils.encode_cell({c:C, r:R});
-              const cell = worksheet[cellAddress];
-              
-              if (!cell) {
-                rowData.push("");
-                continue;
-              }
-              
-              if (cell.f) {
-                formulas.push(cellAddress + ": =" + cell.f + " (Valor: " + (cell.v || '') + ")");
-                rowData.push("=" + cell.f);
-              } else {
-                rowData.push(cell.v !== undefined ? cell.v : "");
-              }
+          // Escanear TODO el mapa de la hoja, ignorando metadatos (que empiezan con '!')
+          for (let z in worksheet) {
+            if (z[0] === '!') continue;
+            
+            const cell = worksheet[z];
+            const decoded = XLSX.utils.decode_cell(z); // {c: col, r: row}
+            
+            if (!rowsWithData[decoded.r]) {
+              rowsWithData[decoded.r] = [];
             }
-            if (rowData.some(val => val !== "")) {
-              dataPreview.push(rowData.join(" | "));
+            
+            const colLetter = XLSX.utils.encode_col(decoded.c);
+            let valStr = "";
+            
+            if (cell.f) {
+              valStr = `[FÓRMULA: =${cell.f}] (Valor: ${cell.v !== undefined ? cell.v : ''})`;
+              totalFormulas++;
+            } else {
+              valStr = cell.v !== undefined ? cell.v : "";
             }
+            
+            rowsWithData[decoded.r].push(`${colLetter}: ${valStr}`);
           }
           
-          outputText += "--- ESTRUCTURA Y DATOS (Primeras filas) ---\n";
-          outputText += dataPreview.join("\n") + "\n\n";
+          // Ordenar las filas encontradas
+          let sortedRows = Object.keys(rowsWithData).map(Number).sort((a, b) => a - b);
           
-          if (formulas.length > 0) {
-            outputText += "--- FÓRMULAS DETECTADAS ---\n";
-            outputText += formulas.slice(0, 150).join("\n") + "\n";
-            if (formulas.length > 150) {
-              outputText += "... y " + (formulas.length - 150) + " fórmulas más omitidas.\n";
+          if (sortedRows.length === 0) {
+            outputText += "No se encontró información legible en esta hoja.\n\n";
+            return;
+          }
+
+          outputText += `Total de filas con información: ${sortedRows.length}\n`;
+          outputText += `Fórmulas detectadas: ${totalFormulas}\n\n`;
+          outputText += "--- MAPA DE DATOS Y FÓRMULAS ---\n";
+          
+          // Limite de seguridad muy alto (3000 filas con datos) por si es un archivo monstruoso
+          const limit = Math.min(sortedRows.length, 3000);
+          
+          for (let i = 0; i < limit; i++) {
+            const r = sortedRows[i];
+            const rowNumber = r + 1; // Base 1 para Excel
+            
+            // Si hay un salto grande de filas, lo indicamos visualmente
+            if (i > 0 && r - sortedRows[i-1] > 1) {
+              const salto = (r - sortedRows[i-1]) - 1;
+              outputText += `\n   ... [${salto} fila(s) en blanco] ...\n\n`;
             }
-          } else {
-            outputText += "No se detectaron fórmulas en estas filas.\n";
+            
+            outputText += `Fila ${rowNumber} | ` + rowsWithData[r].join(" | ") + "\n";
+          }
+          
+          if (sortedRows.length > 3000) {
+            outputText += `\n... Y ${sortedRows.length - 3000} filas adicionales omitidas por límite de seguridad.\n`;
           }
           
           outputText += "\n";
@@ -106,7 +124,7 @@
         outputEl.value = outputText;
         
         document.getElementById('copy-btn').style.display = 'inline-block';
-        document.getElementById('drop-zone').innerHTML = "✅ ¡Archivo procesado con éxito! Haz clic en Copiar.";
+        document.getElementById('drop-zone').innerHTML = "✅ ¡Escaneo Completo finalizado! Haz clic en Copiar.";
         document.getElementById('drop-zone').style.background = "#d1fae5";
         document.getElementById('drop-zone').style.borderColor = "#10b981";
         document.getElementById('drop-zone').style.color = "#047857";
@@ -119,7 +137,7 @@
       const output = document.getElementById('output');
       output.select();
       document.execCommand('copy');
-      alert('¡Texto copiado al portapapeles!\n\nVuelve al chat de la Inteligencia Artificial y pégalo (Ctrl+V) en tu mensaje.');
+      alert('¡Texto copiado!\n\nPégalo en el chat de la IA.');
     }
   </script>
 </body>
