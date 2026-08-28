@@ -37,7 +37,125 @@ function initUIEvents() {
   document.getElementById('btnApplyFilters').addEventListener('click', () => {
     applyFilters();
   });
+
+  // Explorar Drive
+  document.getElementById('btnBrowseDrive').addEventListener('click', () => {
+    if (!GoogleSheetsService.isAuthenticated()) {
+      GoogleSheetsService.requestAccessToken((success) => {
+        if (success) {
+          updateAuthUI(true);
+          openDriveModal();
+        }
+      });
+    } else {
+      openDriveModal();
+    }
+  });
+
+  // Modal close
+  document.getElementById('close-modal-btn').addEventListener('click', () => {
+    document.getElementById('drive-modal').classList.add('hidden');
+  });
+
+  document.getElementById('drive-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'drive-modal') {
+      e.target.classList.add('hidden');
+    }
+  });
 }
+
+async function openDriveModal() {
+  const modal = document.getElementById('drive-modal');
+  const loading = document.getElementById('drive-loading');
+  const empty = document.getElementById('drive-empty');
+  const list = document.getElementById('drive-file-list');
+  const searchInput = document.getElementById('drive-search-input');
+  
+  modal.classList.remove('hidden');
+  loading.classList.remove('hidden');
+  list.innerHTML = '';
+  empty.classList.add('hidden');
+  if (searchInput) searchInput.value = '';
+
+  const files = await GoogleSheetsService.fetchRecentSpreadsheets();
+  
+  loading.classList.add('hidden');
+  
+  if (!files || files.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  files.forEach(file => {
+    const li = document.createElement('li');
+    li.className = 'file-list-item';
+    li.dataset.filename = file.name.toLowerCase();
+    
+    const date = new Date(file.modifiedTime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+    let isShared = true;
+    let ownerName = 'Desconocido';
+    
+    if (file.owners && file.owners.length > 0) {
+      if (file.owners[0].me) {
+        isShared = false;
+        ownerName = 'Tú';
+      } else {
+        ownerName = file.owners[0].displayName || 'Compartido';
+      }
+    }
+
+    const badgeClass = isShared ? 'badge-shared' : 'badge-owned';
+    const badgeText = isShared ? 'Compartido' : 'Mío';
+    const iconClass = isShared ? 'fa-file-excel file-icon-shared' : 'fa-file-excel file-icon-owned';
+    const ownerIcon = isShared ? 'fa-users' : 'fa-user';
+
+    li.innerHTML = `
+      <div class="file-item-icon">
+        <i class="fa-solid ${iconClass}"></i>
+      </div>
+      <div class="file-item-content">
+        <div class="file-item-title" title="${file.name}">${file.name}</div>
+        <div class="file-item-meta">
+          <span class="owner"><i class="fa-solid ${ownerIcon}"></i> ${ownerName}</span>
+          <span class="date"><i class="fa-regular fa-clock"></i> ${date}</span>
+        </div>
+      </div>
+      <div class="file-item-action">
+        <span class="file-badge ${badgeClass}">${badgeText}</span>
+      </div>
+    `;
+    
+    li.addEventListener('click', () => {
+      document.getElementById('sheetUrlInput').value = file.id;
+      modal.classList.add('hidden');
+      fetchData(); // Cargar automáticamente
+    });
+    
+    list.appendChild(li);
+  });
+}
+
+window.filterDriveList = function(searchTerm) {
+  const term = searchTerm.toLowerCase();
+  const items = document.querySelectorAll('#drive-file-list .file-list-item');
+  let hasVisible = false;
+  
+  items.forEach(item => {
+    if (item.dataset.filename.includes(term)) {
+      item.style.display = 'flex';
+      hasVisible = true;
+    } else {
+      item.style.display = 'none';
+    }
+  });
+  
+  const empty = document.getElementById('drive-empty');
+  if (hasVisible) {
+    empty.classList.add('hidden');
+  } else {
+    empty.classList.remove('hidden');
+  }
+};
 
 function checkAuthAndConfig() {
   const isAuth = GoogleSheetsService.isAuthenticated();

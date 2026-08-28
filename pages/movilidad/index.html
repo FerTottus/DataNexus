@@ -46,10 +46,27 @@
       <div class="card-body">
         <div class="input-with-action" style="display: flex; gap: 8px;">
           <input type="text" id="sheetUrlInput" class="form-control" placeholder="Pega el enlace del Excel..." style="flex-grow: 1;">
+          <button id="btnBrowseDrive" class="btn btn-secondary"><i class="fa-solid fa-folder-open"></i> Explorar Drive</button>
           <button id="btnFetchData" class="btn btn-primary"><i class="fa-solid fa-cloud-arrow-down"></i> Cargar Datos</button>
         </div>
       </div>
     </section>
+
+    <!-- Modal del Explorador de Archivos (Oculto por defecto) -->
+    <div id="drive-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-folder-open text-primary"></i> Tus archivos recientes</h3>
+          <button id="close-modal-btn" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <input type="text" id="drive-search-input" class="form-control" style="margin-bottom: 12px;" placeholder="🔍 Buscar archivo por nombre..." oninput="filterDriveList(this.value)">
+          <div id="drive-loading" class="hidden text-center"><i class="fa-solid fa-spinner fa-spin"></i> Cargando archivos...</div>
+          <ul id="drive-file-list" class="file-list"></ul>
+          <div id="drive-empty" class="hidden text-muted text-center mt-3">No se encontraron hojas de cálculo recientes.</div>
+        </div>
+      </div>
+    </div>
 
     <!-- Filtros del Dashboard -->
     <section id="dashboardFilters" class="filters-panel hidden">

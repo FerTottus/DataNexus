@@ -1088,8 +1088,18 @@ body {
   border: 1px solid var(--border-color);
   top: 100%;
   right: 0;
-  margin-top: 5px;
+  margin-top: 0; /* Soluciona el bug de que se cierra al bajar el mouse */
   overflow: hidden;
+}
+
+/* Puente invisible para evitar que se pierda el hover si hay un espacio */
+.nav-dropdown::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 10px;
 }
 
 .nav-dropdown-content a {
