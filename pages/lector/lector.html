@@ -21,7 +21,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>🤖 Extractor Inteligente (Escaneo Completo)</h2>
+    <h2>🤖 Extractor Inteligente v2 (Traducido)</h2>
     <p>Esta versión escanea <b>todas las filas de tu Excel</b>, saltándose los espacios en blanco para encontrar todas tus tablas y fórmulas sin importar dónde estén ubicadas.</p>
     
     <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
@@ -89,11 +89,11 @@
               let f_es = cell.f;
               // Reemplazar funciones por su equivalente en español
               for (const [eng, spa] of Object.entries(formulaDict)) {
-                const regex = new RegExp("\\b" + eng + "\\b", "g");
+                // 'gi' para case-insensitive por si acaso
+                const regex = new RegExp("\\b" + eng + "\\b", "gi");
                 f_es = f_es.replace(regex, spa);
               }
-              // También cambiar comas de los argumentos de funciones a punto y coma si se desea, 
-              // aunque Excel lo procesa nativamente; pero las letras importan más.
+              // También cambiar comas de los argumentos de funciones a punto y coma
               f_es = f_es.replace(/,/g, ";");
 
               valStr = `[FÓRMULA: =${f_es}] (Valor: ${cell.v !== undefined ? cell.v : ''})`;
