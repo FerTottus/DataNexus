@@ -9,9 +9,7 @@
  */
 
 window.APP_CONFIG = {
-  // Puedes pegar aquí tu Client ID para desarrollo local:
-  DEFAULT_GOOGLE_CLIENT_ID: '',
-
-  // Endpoint de función serverless en Netlify (opcional si usas variables de entorno)
-  NETLIFY_CONFIG_ENDPOINT: '/.netlify/functions/config'
+  // Pega aquí tu Client ID de Google Cloud Console:
+  // Ejemplo: '123456789-abcde.apps.googleusercontent.com'
+  DEFAULT_GOOGLE_CLIENT_ID: 'TU_CLIENT_ID_AQUI',
 };
