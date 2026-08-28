@@ -58,12 +58,12 @@ const GoogleSheetsService = {
   },
 
   /**
-   * Inicializa el estado desde sessionStorage para sobrevivir a los reinicios (F5)
+   * Inicializa el estado desde localStorage para sobrevivir a los reinicios (F5) y compartir entre pestañas
    */
   initAuth() {
-    const storedToken = sessionStorage.getItem('gapi_access_token');
-    const storedExpiry = sessionStorage.getItem('gapi_expires_at');
-    const storedEmail = sessionStorage.getItem('gapi_user_email');
+    const storedToken = localStorage.getItem('gapi_access_token');
+    const storedExpiry = localStorage.getItem('gapi_expires_at');
+    const storedEmail = localStorage.getItem('gapi_user_email');
     
     if (storedToken && storedExpiry && Date.now() < parseInt(storedExpiry, 10)) {
       this.accessToken = storedToken;
@@ -78,9 +78,9 @@ const GoogleSheetsService = {
     this.accessToken = null;
     this.tokenExpiresAt = null;
     this.userEmail = null;
-    sessionStorage.removeItem('gapi_access_token');
-    sessionStorage.removeItem('gapi_expires_at');
-    sessionStorage.removeItem('gapi_user_email');
+    localStorage.removeItem('gapi_access_token');
+    localStorage.removeItem('gapi_expires_at');
+    localStorage.removeItem('gapi_user_email');
   },
 
   /**
@@ -115,8 +115,8 @@ const GoogleSheetsService = {
           // Estimar expiración (normalmente 3600 segundos)
           this.tokenExpiresAt = Date.now() + (resp.expires_in || 3500) * 1000;
           
-          sessionStorage.setItem('gapi_access_token', this.accessToken);
-          sessionStorage.setItem('gapi_expires_at', this.tokenExpiresAt.toString());
+          localStorage.setItem('gapi_access_token', this.accessToken);
+          localStorage.setItem('gapi_expires_at', this.tokenExpiresAt.toString());
 
           // Obtener email del usuario
           await this.fetchUserProfile();
@@ -194,7 +194,7 @@ const GoogleSheetsService = {
         const data = await res.json();
         this.userEmail = data.email || null;
         if (this.userEmail) {
-          sessionStorage.setItem('gapi_user_email', this.userEmail);
+          localStorage.setItem('gapi_user_email', this.userEmail);
         }
         return data;
       }
