@@ -75,8 +75,28 @@
             const colLetter = XLSX.utils.encode_col(decoded.c);
             let valStr = "";
             
+            // Traductor básico de fórmulas Inglés -> Español
+            const formulaDict = {
+              "IF": "SI", "IFERROR": "SI.ERROR", "VLOOKUP": "BUSCARV", 
+              "SUM": "SUMA", "SUMIF": "SUMAR.SI", "SUMIFS": "SUMAR.SI.CONJUNTO",
+              "COUNT": "CONTAR", "COUNTA": "CONTARA", "COUNTIF": "CONTAR.SI", "COUNTIFS": "CONTAR.SI.CONJUNTO",
+              "AVERAGE": "PROMEDIO", "AVERAGEIF": "PROMEDIO.SI", "AVERAGEIFS": "PROMEDIO.SI.CONJUNTO",
+              "INDEX": "INDICE", "MATCH": "COINCIDIR", "SMALL": "K.ESIMO.MENOR", "LARGE": "K.ESIMO.MAYOR",
+              "ROUND": "REDONDEAR", "TEXT": "TEXTO", "AND": "Y", "OR": "O", "TODAY": "HOY"
+            };
+
             if (cell.f) {
-              valStr = `[FÓRMULA: =${cell.f}] (Valor: ${cell.v !== undefined ? cell.v : ''})`;
+              let f_es = cell.f;
+              // Reemplazar funciones por su equivalente en español
+              for (const [eng, spa] of Object.entries(formulaDict)) {
+                const regex = new RegExp("\\b" + eng + "\\b", "g");
+                f_es = f_es.replace(regex, spa);
+              }
+              // También cambiar comas de los argumentos de funciones a punto y coma si se desea, 
+              // aunque Excel lo procesa nativamente; pero las letras importan más.
+              f_es = f_es.replace(/,/g, ";");
+
+              valStr = `[FÓRMULA: =${f_es}] (Valor: ${cell.v !== undefined ? cell.v : ''})`;
               totalFormulas++;
             } else {
               valStr = cell.v !== undefined ? cell.v : "";
