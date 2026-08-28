@@ -195,27 +195,42 @@ async function openDriveModal() {
 
   files.forEach(file => {
     const li = document.createElement('li');
-    const date = new Date(file.modifiedTime).toLocaleDateString();
+    li.className = 'file-list-item';
+    
+    // Formato de fecha más legible (ej: 28 ago 2026)
+    const date = new Date(file.modifiedTime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
     
     // Determinar propietario (si es propio o compartido)
-    let ownerText = 'Desconocido';
-    let iconClass = 'fa-file-excel text-success';
+    let isShared = true;
+    let ownerName = 'Desconocido';
+    
     if (file.owners && file.owners.length > 0) {
       if (file.owners[0].me) {
-        ownerText = 'Tú';
+        isShared = false;
+        ownerName = 'Tú';
       } else {
-        ownerText = file.owners[0].displayName || 'Compartido';
-        iconClass = 'fa-file-excel text-primary'; // Diferenciar los compartidos
+        ownerName = file.owners[0].displayName || 'Compartido';
       }
     }
 
+    const badgeClass = isShared ? 'badge-shared' : 'badge-owned';
+    const badgeText = isShared ? 'Compartido' : 'Mío';
+    const iconClass = isShared ? 'fa-file-excel file-icon-shared' : 'fa-file-excel file-icon-owned';
+    const ownerIcon = isShared ? 'fa-users' : 'fa-user';
+
     li.innerHTML = `
-      <div class="file-title">
-        <i class="fa-solid ${iconClass}"></i> ${file.name}
+      <div class="file-item-icon">
+        <i class="fa-solid ${iconClass}"></i>
       </div>
-      <div class="file-meta">
-        <span><i class="fa-solid fa-user"></i> ${ownerText}</span>
-        <span><i class="fa-solid fa-calendar"></i> ${date}</span>
+      <div class="file-item-content">
+        <div class="file-item-title" title="${file.name}">${file.name}</div>
+        <div class="file-item-meta">
+          <span class="owner"><i class="fa-solid ${ownerIcon}"></i> ${ownerName}</span>
+          <span class="date"><i class="fa-regular fa-clock"></i> ${date}</span>
+        </div>
+      </div>
+      <div class="file-item-action">
+        <span class="file-badge ${badgeClass}">${badgeText}</span>
       </div>
     `;
     

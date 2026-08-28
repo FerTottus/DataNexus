@@ -976,36 +976,95 @@ body {
   list-style: none;
   padding: 0;
   margin: 0;
-}
-
-.file-list li {
-  padding: 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  margin-bottom: 0.5rem;
-  cursor: pointer;
   display: flex;
   flex-direction: column;
-  transition: all 0.2s;
-}
-
-.file-list li:hover {
-  background-color: #f1f5f9;
-  border-color: var(--primary-light);
-}
-
-.file-title {
-  font-weight: 500;
-  color: var(--text-dark);
-  margin-bottom: 0.25rem;
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
 
-.file-meta {
-  font-size: 0.85rem;
+.file-list-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #ffffff;
+  gap: 16px;
+}
+
+.file-list-item:hover {
+  background-color: #f8fafc;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transform: translateY(-1px);
+}
+
+.file-item-icon {
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #f1f5f9;
+}
+
+.file-icon-owned { color: #10b981; } /* Verde para los propios */
+.file-icon-shared { color: #3b82f6; } /* Azul para los compartidos */
+
+.file-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-item-title {
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.95rem;
+}
+
+.file-item-meta {
+  font-size: 0.8rem;
   color: var(--text-light);
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 16px;
+}
+
+.file-item-meta span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.file-item-action {
+  display: flex;
+  align-items: center;
+}
+
+.file-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-owned {
+  background: #d1fae5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-shared {
+  background: #dbeafe;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
 }
