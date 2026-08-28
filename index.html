@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SheetPivot - Tablas Dinámicas con Google Sheets</title>
+  <title>DataNexus - Tablas Dinámicas con Google Sheets</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -22,7 +22,7 @@
         <i class="fa-solid fa-table-cells text-primary"></i>
       </div>
       <div>
-        <h1 class="logo-title">SheetPivot</h1>
+        <h1 class="logo-title">DataNexus</h1>
         <span class="logo-subtitle">Tablas dinámicas y persistencia en URL</span>
       </div>
     </div>
@@ -135,6 +135,7 @@
           <button id="close-modal-btn" class="btn-close">&times;</button>
         </div>
         <div class="modal-body">
+          <input type="text" id="drive-search-input" class="form-control" style="margin-bottom: 12px;" placeholder="🔍 Buscar archivo por nombre..." oninput="filterDriveList(this.value)">
           <div id="drive-loading" class="hidden text-center"><i class="fa-solid fa-spinner fa-spin"></i> Cargando archivos...</div>
           <ul id="drive-file-list" class="file-list"></ul>
           <div id="drive-empty" class="hidden text-muted text-center mt-3">No se encontraron hojas de cálculo recientes.</div>

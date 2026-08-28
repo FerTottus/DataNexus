@@ -178,11 +178,13 @@ async function openDriveModal() {
   const loading = document.getElementById('drive-loading');
   const empty = document.getElementById('drive-empty');
   const list = document.getElementById('drive-file-list');
+  const searchInput = document.getElementById('drive-search-input');
   
   modal.classList.remove('hidden');
   loading.classList.remove('hidden');
   list.innerHTML = '';
   empty.classList.add('hidden');
+  if (searchInput) searchInput.value = ''; // Limpiar búsqueda al abrir
 
   const files = await GoogleSheetsService.fetchRecentSpreadsheets();
   
@@ -196,6 +198,7 @@ async function openDriveModal() {
   files.forEach(file => {
     const li = document.createElement('li');
     li.className = 'file-list-item';
+    li.dataset.filename = file.name.toLowerCase(); // Para búsqueda
     
     // Formato de fecha más legible (ej: 28 ago 2026)
     const date = new Date(file.modifiedTime).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -245,6 +248,31 @@ async function openDriveModal() {
 }
 
 /**
+ * Filtra la lista de archivos en el modal por nombre
+ */
+window.filterDriveList = function(searchTerm) {
+  const term = searchTerm.toLowerCase();
+  const items = document.querySelectorAll('#drive-file-list .file-list-item');
+  let hasVisible = false;
+  
+  items.forEach(item => {
+    if (item.dataset.filename.includes(term)) {
+      item.style.display = 'flex';
+      hasVisible = true;
+    } else {
+      item.style.display = 'none';
+    }
+  });
+  
+  const empty = document.getElementById('drive-empty');
+  if (hasVisible) {
+    empty.classList.add('hidden');
+  } else {
+    empty.classList.remove('hidden');
+  }
+};
+
+/**
  * Carga la información del libro de Google Sheets y sus pestañas
  */
 async function fetchSheetWorkbook() {
@@ -281,6 +309,13 @@ async function performFetchTabs(sheetId, originalInput) {
 
   try {
     const tabs = await GoogleSheetsService.fetchSheetTabs(sheetId);
+    
+    // Si estamos cambiando a un archivo DIFERENTE, limpiar las tablas previas
+    if (AppState.sheetId && AppState.sheetId !== sheetId) {
+      AppState.tables = [];
+      renderAllTables();
+    }
+    
     AppState.sheetId = sheetId;
     AppState.sheetUrl = originalInput;
     AppState.availableTabs = tabs;
@@ -438,7 +473,8 @@ function addNewTable(type = 'pivot') {
       aggFunc: 'SUM',
       filters: [],
       globalSearch: '',
-      isCollapsed: false
+      isCollapsed: false,
+      isDataCollapsed: false
     });
   } else {
     // Tabla plana
@@ -452,7 +488,8 @@ function addNewTable(type = 'pivot') {
       sortBy: '',
       sortOrder: 'asc',
       limit: 100,
-      isCollapsed: false
+      isCollapsed: false,
+      isDataCollapsed: false
     });
   }
 
@@ -519,8 +556,11 @@ function createTableCardElement(config, index) {
         <button class="btn btn-outline-primary btn-sm" onclick="copyEntireTable('${config.id}')" title="Copiar toda la tabla con formato Excel/Sheets">
           <i class="fa-solid fa-copy"></i> Copiar Tabla
         </button>
-        <button class="btn btn-icon btn-sm" onclick="toggleCollapseTable('${config.id}')" title="Colapsar / Expandir">
-          <i class="fa-solid ${config.isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}"></i>
+        <button class="btn btn-icon btn-sm" onclick="toggleCollapseTable('${config.id}')" title="Mostrar / Ocultar Filtros">
+          <i class="fa-solid fa-filter"></i> ${config.isCollapsed ? '<i class="fa-solid fa-chevron-down" style="font-size: 0.6em; vertical-align: top;"></i>' : '<i class="fa-solid fa-chevron-up" style="font-size: 0.6em; vertical-align: top;"></i>'}
+        </button>
+        <button class="btn btn-icon btn-sm" onclick="toggleCollapseData('${config.id}')" title="Mostrar / Ocultar Tabla de Datos">
+          <i class="fa-solid fa-table"></i> ${config.isDataCollapsed ? '<i class="fa-solid fa-chevron-down" style="font-size: 0.6em; vertical-align: top;"></i>' : '<i class="fa-solid fa-chevron-up" style="font-size: 0.6em; vertical-align: top;"></i>'}
         </button>
         <button class="btn btn-icon btn-sm text-danger" onclick="deleteTable('${config.id}')" title="Eliminar tabla">
           <i class="fa-solid fa-trash"></i>
@@ -728,7 +768,15 @@ function createTableCardElement(config, index) {
     </div>
   `;
 
-  card.innerHTML = headerHtml + configPanelHtml + tableDataHtml + footerHtml;
+  // 5. Panel de Datos (colapsable)
+  const dataPanelHtml = `
+    <div class="table-data-panel ${config.isDataCollapsed ? 'hidden' : ''}">
+      ${tableDataHtml}
+      ${footerHtml}
+    </div>
+  `;
+
+  card.innerHTML = headerHtml + configPanelHtml + dataPanelHtml;
   return card;
 }
 
@@ -846,6 +894,14 @@ window.toggleCollapseTable = function(tableId) {
   if (!table) return;
 
   table.isCollapsed = !table.isCollapsed;
+  reRenderSingleTable(tableId);
+};
+
+window.toggleCollapseData = function(tableId) {
+  const table = AppState.tables.find(t => t.id === tableId);
+  if (!table) return;
+
+  table.isDataCollapsed = !table.isDataCollapsed;
   reRenderSingleTable(tableId);
 };
 
