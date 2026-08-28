@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Servicio Movilidad - Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Estilos Globales de DataNexus (opcional, para botones y modal drive) -->
+  <link rel="stylesheet" href="../../css/styles.css">
+  
+  <!-- Estilos Específicos de este Dashboard -->
+  <link rel="stylesheet" href="css/movilidad.css">
+  
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Header Minimalista -->
+  <header class="movilidad-header">
+    <div class="logo-area">
+      <i class="fa-solid fa-van-shuttle text-primary"></i>
+      <h1>Dashboard Servicio Movilidad</h1>
+    </div>
+    <div class="auth-area">
+      <button id="btnGoogleLogin" class="btn btn-google">
+        <i class="fa-brands fa-google"></i> Acceder con Google
+      </button>
+      <div id="userInfo" class="user-profile hidden">
+        <span id="userEmail"></span>
+        <button id="btnGoogleLogout" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-right-from-bracket"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard-container">
+    <!-- Panel de Conexión -->
+    <section class="card connection-panel">
+      <div class="card-header">
+        <h2><i class="fa-solid fa-link"></i> Conectar a Google Sheet (ServicioMovilidad.xlsx)</h2>
+        <span id="connectionStatus" class="badge badge-warning">Esperando URL</span>
+      </div>
+      <div class="card-body">
+        <div class="input-with-action" style="display: flex; gap: 8px;">
+          <input type="text" id="sheetUrlInput" class="form-control" placeholder="Pega el enlace del Excel..." style="flex-grow: 1;">
+          <button id="btnFetchData" class="btn btn-primary"><i class="fa-solid fa-cloud-arrow-down"></i> Cargar Datos</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filtros del Dashboard -->
+    <section id="dashboardFilters" class="filters-panel hidden">
+      <div class="filter-group">
+        <label for="filterArea">Área:</label>
+        <select id="filterArea" class="form-control">
+          <option value="TODOS">TODOS</option>
+          <option value="SECOS">SECOS</option>
+          <option value="PPA">PPA</option>
+          <option value="FRESCOS">FRESCOS</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="filterTipo">Tipo de Empleado:</label>
+        <select id="filterTipo" class="form-control">
+          <option value="TODOS">TODOS</option>
+          <option value="STAFF">STAFF</option>
+          <option value="OPERARIO">OPERARIO</option>
+        </select>
+      </div>
+      <button id="btnApplyFilters" class="btn btn-success">Actualizar Gráficos</button>
+    </section>
+
+    <!-- Contenedor de Métricas y Gráficos (Oculto hasta cargar datos) -->
+    <section id="dashboardContent" class="dashboard-content hidden">
+      <!-- KPIs Principales -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-title">Total Empleados</div>
+          <div class="kpi-value" id="kpiTotal">-</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Dist. Promedio a CD</div>
+          <div class="kpi-value" id="kpiDistCD">-</div>
+          <div class="kpi-subtitle">km</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Dist. Promedio Paradero</div>
+          <div class="kpi-value" id="kpiDistParadero">-</div>
+          <div class="kpi-subtitle">km</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title">Total Distritos</div>
+          <div class="kpi-value" id="kpiDistritos">-</div>
+        </div>
+      </div>
+
+      <!-- Gráficos -->
+      <div class="charts-grid">
+        <div class="chart-container card">
+          <h3>Clasificación: Distancia al CD</h3>
+          <canvas id="chartDistCD"></canvas>
+        </div>
+        <div class="chart-container card">
+          <h3>Clasificación: Distancia a Paraderos</h3>
+          <canvas id="chartDistParadero"></canvas>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-container card" style="grid-column: span 2;">
+          <h3>Top Distritos (Volumen de Empleados)</h3>
+          <canvas id="chartDistritos"></canvas>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast / Notificaciones Flotantes -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts Globales (Módulos) -->
+  <script src="../../js/config.js"></script>
+  <script src="../../js/google-sheets.js"></script>
+  <script src="../../js/clipboard.js"></script> <!-- Reutilizado para Toasts -->
+  
+  <!-- Script Específico de Movilidad -->
+  <script src="js/movilidad.js"></script>
+</body>
+</html>

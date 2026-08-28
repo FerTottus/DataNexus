@@ -902,6 +902,7 @@ window.toggleCollapseData = function(tableId) {
   if (!table) return;
 
   table.isDataCollapsed = !table.isDataCollapsed;
+  table.isCollapsed = table.isDataCollapsed; // Oculta también los filtros
   reRenderSingleTable(tableId);
 };
 
