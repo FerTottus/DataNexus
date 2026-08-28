@@ -114,10 +114,8 @@ function initUIEvents() {
     }
   });
 
-  // 5. Botón Cargar Datos Demo
-  document.getElementById('btnDemoData').addEventListener('click', () => {
-    loadDemoDataset();
-  });
+  // 5. (Removido botón Demo, la funcionalidad ahora es un dropdown CSS)
+  // El botón Cargar Datos Demo fue reemplazado por el menú desplegable.
 
   // 6. Botón Compartir / Guardar URL
   document.getElementById('btnShareUrl').addEventListener('click', () => {

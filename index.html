@@ -28,10 +28,16 @@
     </div>
 
     <div class="nav-actions">
-      <!-- Botón Ver Graficos -->
-      <a href="pages/movilidad/index.html" target="_blank" id="btnVerGraficos" class="btn btn-outline-info btn-sm">
-        <i class="fa-solid fa-chart-pie"></i> Ver Graficos
-      </a>
+      <!-- Menú Desplegable de Gráficos/Páginas -->
+      <div class="nav-dropdown">
+        <button class="btn btn-outline-info btn-sm">
+          <i class="fa-solid fa-chart-pie"></i> Ver Graficos <i class="fa-solid fa-chevron-down" style="font-size: 0.8em; margin-left: 4px;"></i>
+        </button>
+        <div class="nav-dropdown-content">
+          <a href="pages/movilidad/index.html" target="_blank"><i class="fa-solid fa-van-shuttle"></i> Servicio Movilidad</a>
+          <a href="pages/lector.html" target="_blank"><i class="fa-solid fa-file-excel"></i> Lector (Extraer Excel)</a>
+        </div>
+      </div>
 
       <!-- Botón Guardar / Compartir enlace comprimido -->
       <button id="btnShareUrl" class="btn btn-outline-primary btn-sm" title="Guarda el estado actual en la URL y copia el enlace">
