@@ -214,10 +214,16 @@ async function openDriveModal() {
       }
     }
 
+    const isExcel = file.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.name.toLowerCase().endsWith('.xlsx');
+
     const badgeClass = isShared ? 'badge-shared' : 'badge-owned';
     const badgeText = isShared ? 'Compartido' : 'Mío';
-    const iconClass = isShared ? 'fa-file-excel file-icon-shared' : 'fa-file-excel file-icon-owned';
+    // Si es Excel, mostrar icono rojo de advertencia, si no el normal
+    const iconClass = isExcel ? 'fa-triangle-exclamation text-danger' : (isShared ? 'fa-file-excel file-icon-shared' : 'fa-file-excel file-icon-owned');
     const ownerIcon = isShared ? 'fa-users' : 'fa-user';
+    
+    // Alerta de Excel
+    const excelWarningHtml = isExcel ? `<span class="file-badge" style="background: #fee2e2; color: #ef4444; border: 1px solid #fecaca; margin-right: 5px;" title="Ábrelo en Drive y dale a 'Guardar como Hoja de cálculo de Google'">⚠️ Inválido (.xlsx)</span>` : '';
 
     li.innerHTML = `
       <div class="file-item-icon">
@@ -231,6 +237,7 @@ async function openDriveModal() {
         </div>
       </div>
       <div class="file-item-action">
+        ${excelWarningHtml}
         <span class="file-badge ${badgeClass}">${badgeText}</span>
       </div>
     `;

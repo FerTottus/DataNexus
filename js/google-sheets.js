@@ -376,7 +376,7 @@ const GoogleSheetsService = {
     try {
       // Incluimos tanto Google Sheets nativos como archivos de Excel (.xlsx) subidos a Drive
       const query = encodeURIComponent("(mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') and trashed=false");
-      const url = `https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=recency desc&fields=files(id, name, modifiedTime, owners)&pageSize=15`;
+      const url = `https://www.googleapis.com/drive/v3/files?q=${query}&orderBy=recency desc&fields=files(id, name, modifiedTime, owners, mimeType)&pageSize=15`;
       
       const res = await fetch(url, {
         headers: {

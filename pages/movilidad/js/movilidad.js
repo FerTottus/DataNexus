@@ -62,6 +62,38 @@ function initUIEvents() {
       e.target.classList.add('hidden');
     }
   });
+
+  // Toggle Connection Panel
+  const toggleConnectionBtn = document.getElementById('toggleConnectionBtn');
+  if (toggleConnectionBtn) {
+    toggleConnectionBtn.addEventListener('click', () => {
+      const body = document.getElementById('connectionCardBody');
+      const icon = toggleConnectionBtn.querySelector('i');
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+      } else {
+        body.style.display = 'none';
+        icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+      }
+    });
+  }
+
+  // Toggle Filters Panel
+  const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
+  if (toggleFiltersBtn) {
+    toggleFiltersBtn.addEventListener('click', () => {
+      const panel = document.getElementById('dashboardFilters');
+      const icon = toggleFiltersBtn.querySelector('i');
+      if (panel.style.display === 'none') {
+        panel.style.display = 'flex';
+        icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+      } else {
+        panel.style.display = 'none';
+        icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+      }
+    });
+  }
 }
 
 async function openDriveModal() {
@@ -104,10 +136,14 @@ async function openDriveModal() {
       }
     }
 
+    const isExcel = file.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.name.toLowerCase().endsWith('.xlsx');
+
     const badgeClass = isShared ? 'badge-shared' : 'badge-owned';
     const badgeText = isShared ? 'Compartido' : 'Mío';
-    const iconClass = isShared ? 'fa-file-excel file-icon-shared' : 'fa-file-excel file-icon-owned';
+    const iconClass = isExcel ? 'fa-triangle-exclamation text-danger' : (isShared ? 'fa-file-excel file-icon-shared' : 'fa-file-excel file-icon-owned');
     const ownerIcon = isShared ? 'fa-users' : 'fa-user';
+    
+    const excelWarningHtml = isExcel ? `<span class="file-badge" style="background: #fee2e2; color: #ef4444; border: 1px solid #fecaca; margin-right: 5px;" title="Ábrelo en Drive y dale a 'Guardar como Hoja de cálculo de Google'">⚠️ Inválido (.xlsx)</span>` : '';
 
     li.innerHTML = `
       <div class="file-item-icon">
@@ -121,6 +157,7 @@ async function openDriveModal() {
         </div>
       </div>
       <div class="file-item-action">
+        ${excelWarningHtml}
         <span class="file-badge ${badgeClass}">${badgeText}</span>
       </div>
     `;
@@ -249,7 +286,7 @@ async function loadAllSheets(sheetId) {
     badge.className = 'badge badge-success';
     badge.innerText = 'Conectado - ' + combined.length + ' regs';
 
-    document.getElementById('dashboardFilters').classList.remove('hidden');
+    document.getElementById('dashboardFiltersWrapper').classList.remove('hidden');
     document.getElementById('dashboardContent').classList.remove('hidden');
 
     applyFilters();
