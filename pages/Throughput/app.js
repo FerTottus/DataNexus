@@ -129,14 +129,31 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingIndicator.classList.remove('hidden');
     
     try {
+      // 1. Obtener lista de pestañas para resolver nombres exactos (evita errores de espacios al final o mayúsculas)
+      const tabs = await window.GoogleSheetsService.fetchSheetTabs(sheetId);
+      const tabNames = tabs.map(t => t.title);
+      
+      const sheetGrafico = tabNames.find(t => t.trim().toUpperCase() === 'BD_GRAFICO' || t.trim().toUpperCase() === 'BD_GRÁFICO');
+      const sheetBase = tabNames.find(t => t.trim().toUpperCase() === 'BASE');
+
+      if (!sheetGrafico) {
+          throw new Error(`No se encontró la hoja 'BD_Grafico'. Hojas disponibles: ${tabNames.join(', ')}`);
+      }
+      if (!sheetBase) {
+          throw new Error(`No se encontró la hoja 'BASE'. Hojas disponibles: ${tabNames.join(', ')}. Por favor verifica el nombre exacto en tu Google Sheet.`);
+      }
+
+      // Envolver en comillas simples por si el nombre tiene espacios
+      const safeGrafico = `'${sheetGrafico}'`;
+      const safeBase = `'${sheetBase}'`;
+
       // Data para los gráficos (Totales)
-      window.graficoFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!A5:P250");
-      window.graficoSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!R5:AH250");
+      window.graficoFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeGrafico}!A5:P250`);
+      window.graficoSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeGrafico}!R5:AH250`);
 
       // Data para las tablas de cajas (Divisiones)
-      // La hoja BASE tiene las tablas pre-calculadas de las últimas 7 semanas.
-      window.tablasFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BASE!A5:L109");
-      window.tablasSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BASE!R5:AA109");
+      window.tablasFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeBase}!A5:L109`);
+      window.tablasSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeBase}!R5:AA109`);
 
       connectBox.classList.add('hidden');
       connectionSuccessInfo.classList.remove('hidden');
@@ -146,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
       applyFiltersAndRender();
     } catch (e) {
       console.error(e);
+      // Extraemos solo el mensaje para que sea legible
       alert("Error: " + e.message);
     } finally {
       loadingIndicator.classList.add('hidden');
