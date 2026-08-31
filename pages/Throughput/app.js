@@ -130,8 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     try {
       // BD_Grafico contiene los totales por fecha
-      window.rawFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!A5:P150");
-      window.rawSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!R5:AH150");
+      window.rawFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!A5:P250");
+      window.rawSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!R5:AH250");
 
       connectBox.classList.add('hidden');
       connectionSuccessInfo.classList.remove('hidden');
@@ -165,52 +165,93 @@ document.addEventListener('DOMContentLoaded', () => {
   function processAndRenderSection(prefix, rawData, filterValue) {
     if(!rawData.rows || rawData.rows.length === 0) return;
 
-    // Las filas tienen el SemAño, DESPACHO, RECIBO, etc.
-    // Ej: row['SemAño'] = '[6-2026]'
-    
-    // Filtrar solo filas con SemAño válido
-    let validRows = rawData.rows.filter(r => r['SemAño'] && String(r['SemAño']).includes('-'));
+    // 1. Detectar dinámicamente cuál es la columna del Tiempo (Ej. "[6-2026]" o "32-2025")
+    let timeColName = null;
+    for (let h of rawData.headers) {
+      // Tomamos una muestra de las primeras 5 filas a ver si alguna tiene un formato de fecha/semana
+      for(let i=0; i<Math.min(5, rawData.rows.length); i++) {
+        let val = String(rawData.rows[i]?.[h] || '');
+        if (val.includes('-202') || (val.includes('[') && val.includes(']'))) {
+          timeColName = h;
+          break;
+        }
+      }
+      if(timeColName) break;
+    }
+    // Fallbacks si la autodetección falla
+    if (!timeColName) {
+       timeColName = rawData.headers.find(h => h.toUpperCase() === 'SEMANA2' || h.toUpperCase() === 'SEMANA' || h.toUpperCase() === 'SEMAÑO');
+    }
+    if (!timeColName) timeColName = rawData.headers[1] || rawData.headers[0]; // Último recurso
+
+    // 2. Extraer solo filas válidas
+    let validRows = rawData.rows.filter(r => r[timeColName] && String(r[timeColName]).trim() !== '');
+
+    // Para evitar filas de "Total general", filtramos filas donde la fecha diga Total
+    validRows = validRows.filter(r => !String(r[timeColName]).toUpperCase().includes('TOTAL'));
+
     let rowsToPlot = validRows;
 
-    // Lógica de Filtro: Últimas X semanas del año actual + Últimas X semanas del año anterior (secuencial)
+    // 3. Lógica de Filtro: Últimas X semanas del año actual + Últimas X semanas del año anterior
     if (filterValue !== 'all') {
         const numWeeks = parseInt(filterValue, 10);
         
+        // Encontrar el año máximo en los datos
         let maxYear = 0;
         validRows.forEach(r => {
-            const match = String(r['SemAño']).match(/-(\d{4})/);
+            const match = String(r[timeColName]).match(/-(\d{4})/);
             if (match) {
                 const y = parseInt(match[1]);
                 if (y > maxYear) maxYear = y;
             }
         });
         
-        // Obtener filas del año actual y tomar las últimas X
-        const currentYearRows = validRows.filter(r => String(r['SemAño']).includes(`-${maxYear}`));
-        const lastWeeksCurrentYear = currentYearRows.slice(-numWeeks);
-        
-        // Buscar su equivalente en el año anterior
-        const previousYearRows = [];
-        lastWeeksCurrentYear.forEach(cr => {
-            const prevLabel = String(cr['SemAño']).replace(`-${maxYear}`, `-${maxYear - 1}`);
-            const pr = validRows.find(r => String(r['SemAño']) === prevLabel);
-            if (pr) {
-                previousYearRows.push(pr);
-            }
-        });
-        
-        // Unir secuencialmente: primero las del año anterior, luego las de este año
-        rowsToPlot = [...previousYearRows, ...lastWeeksCurrentYear];
+        if (maxYear > 0) {
+            // Obtener filas del año actual y tomar las últimas X
+            const currentYearRows = validRows.filter(r => String(r[timeColName]).includes(`-${maxYear}`));
+            const lastWeeksCurrentYear = currentYearRows.slice(-numWeeks);
+            
+            // Buscar su equivalente en el año anterior
+            const previousYearRows = [];
+            lastWeeksCurrentYear.forEach(cr => {
+                const prevLabel = String(cr[timeColName]).replace(`-${maxYear}`, `-${maxYear - 1}`);
+                const pr = validRows.find(r => String(r[timeColName]) === prevLabel);
+                if (pr) {
+                    previousYearRows.push(pr);
+                }
+            });
+            
+            // Unir secuencialmente
+            rowsToPlot = [...previousYearRows, ...lastWeeksCurrentYear];
+        } else {
+            // Si no detectó año, simplemente tomar las ultimas N * 2 filas por si acaso
+            rowsToPlot = validRows.slice(-(numWeeks * 2));
+        }
     }
 
-    // Extraer Vectores de Datos para el Gráfico
-    const labels = rowsToPlot.map(r => r['SemAño']);
-    const inventario = rowsToPlot.map(r => parseFloat(r['INVENTARIO ACT']) || parseFloat(r['INVENTARIO']) || 0);
-    const recibo = rowsToPlot.map(r => parseFloat(r['RECIBO']) || 0);
-    const despacho = rowsToPlot.map(r => parseFloat(r['DESPACHO']) || 0);
-    const planInv = rowsToPlot.map(r => parseFloat(r['PLAN INV']) || 0);
-    const planRecibo = rowsToPlot.map(r => parseFloat(r['PLAN RECIBO']) || 0);
-    const planDespacho = rowsToPlot.map(r => parseFloat(r['PLAN DESPACHO']) || 0);
+    // Si luego del filtro no hay datos, dibujar vacío
+    if(rowsToPlot.length === 0) rowsToPlot = validRows;
+
+    // 4. Mapeo Flexible de Columnas (busca nombres que contengan las palabras clave)
+    const getCol = (keywords) => rawData.headers.find(h => keywords.some(k => h.toUpperCase().includes(k)));
+
+    const colInventario = getCol(['INVENTARIO ACT', 'INVENTARIO']);
+    const colRecibo = getCol(['RECIBO', 'INGRESO']);
+    const colDespacho = getCol(['DESPACHO', 'SALIDA']);
+    
+    // Si la data no tiene "PLAN INV", usamos el nombre tal cual
+    const colPlanInv = getCol(['PLAN INV', 'PLAN INVENTARIO']);
+    const colPlanRecibo = getCol(['PLAN RECIBO', 'PLAN INGRESO']);
+    const colPlanDespacho = getCol(['PLAN DESPACHO', 'PLAN SALIDA']);
+
+    const labels = rowsToPlot.map(r => r[timeColName]);
+    
+    const inventario = rowsToPlot.map(r => parseFloat(r[colInventario]) || 0);
+    const recibo = rowsToPlot.map(r => parseFloat(r[colRecibo]) || 0);
+    const despacho = rowsToPlot.map(r => parseFloat(r[colDespacho]) || 0);
+    const planInv = colPlanInv ? rowsToPlot.map(r => parseFloat(r[colPlanInv]) || 0) : [];
+    const planRecibo = colPlanRecibo ? rowsToPlot.map(r => parseFloat(r[colPlanRecibo]) || 0) : [];
+    const planDespacho = colPlanDespacho ? rowsToPlot.map(r => parseFloat(r[colPlanDespacho]) || 0) : [];
 
     renderMixedChart(prefix, labels, { inventario, recibo, despacho, planInv, planRecibo, planDespacho });
     renderDataTable(prefix, rawData.headers, rowsToPlot);
@@ -234,44 +275,11 @@ document.addEventListener('DOMContentLoaded', () => {
         order: 1
       },
       {
-        type: 'line',
-        label: 'PLAN INV',
-        data: data.planInv,
-        borderColor: '#2a9d8f', // Verde Plan
-        borderWidth: 2,
-        borderDash: [5, 5],
-        fill: false,
-        pointRadius: 0,
-        order: 2
-      },
-      {
-        type: 'line',
-        label: 'PLAN RECIBO',
-        data: data.planRecibo,
-        borderColor: '#457b9d', // Azul Plan
-        borderWidth: 2,
-        borderDash: [5, 5],
-        fill: false,
-        pointRadius: 0,
-        order: 3
-      },
-      {
-        type: 'line',
-        label: 'PLAN DESPACHO',
-        data: data.planDespacho,
-        borderColor: '#e76f51', // Naranja Plan
-        borderWidth: 2,
-        borderDash: [5, 5],
-        fill: false,
-        pointRadius: 0,
-        order: 4
-      },
-      {
         type: 'bar',
         label: 'RECIBO',
         data: data.recibo,
-        backgroundColor: '#6baed6', // Azul Barra
-        borderColor: '#3182bd',
+        backgroundColor: '#457b9d', // Azul Barra
+        borderColor: '#1d3557',
         borderWidth: 1,
         order: 5
       },
@@ -279,17 +287,59 @@ document.addEventListener('DOMContentLoaded', () => {
         type: 'bar',
         label: 'DESPACHO',
         data: data.despacho,
-        backgroundColor: '#fd8d3c', // Naranja Barra
-        borderColor: '#e6550d',
+        backgroundColor: '#e76f51', // Naranja Barra
+        borderColor: '#d00000',
         borderWidth: 1,
         order: 6
       }
     ];
 
+    if(data.planInv && data.planInv.length > 0 && data.planInv.some(v => v > 0)) {
+        datasets.push({
+            type: 'line',
+            label: 'PLAN INV',
+            data: data.planInv,
+            borderColor: '#2a9d8f', // Verde Plan
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            pointRadius: 0,
+            order: 2
+        });
+    }
+
+    if(data.planRecibo && data.planRecibo.length > 0 && data.planRecibo.some(v => v > 0)) {
+        datasets.push({
+            type: 'line',
+            label: 'PLAN RECIBO',
+            data: data.planRecibo,
+            borderColor: '#1d3557', // Azul Oscuro Plan
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            pointRadius: 0,
+            order: 3
+        });
+    }
+
+    if(data.planDespacho && data.planDespacho.length > 0 && data.planDespacho.some(v => v > 0)) {
+        datasets.push({
+            type: 'line',
+            label: 'PLAN DESPACHO',
+            data: data.planDespacho,
+            borderColor: '#9d0208', // Rojo Oscuro Plan
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            pointRadius: 0,
+            order: 4
+        });
+    }
+
     charts[canvasId] = new Chart(ctx, {
       data: {
         labels: labels,
-        datasets: datasets.filter(ds => ds.data.some(val => val > 0)) // Solo graficar los que tengan datos
+        datasets: datasets
       },
       options: {
         responsive: true,
@@ -328,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
 
     // Filtrar columnas vacías
-    const validHeaders = headers.filter(h => h.trim() !== '');
+    const validHeaders = headers.filter(h => h && h.trim() !== '');
 
     validHeaders.forEach(h => {
         const th = document.createElement('th');
