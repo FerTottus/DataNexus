@@ -13,13 +13,12 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    /* Estilos específicos para replicar el layout del dashboard */
     .dashboard-container { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-    .section-title { font-size: 2rem; color: #2c3e50; font-weight: 700; margin-bottom: 20px; text-transform: uppercase; }
+    .section-title { font-size: 2rem; color: #1a3a5c; font-weight: 700; margin-bottom: 20px; text-transform: uppercase; }
     
     .chart-container-large {
       position: relative;
-      height: 400px;
+      height: 450px;
       width: 100%;
       background: white;
       border: 1px solid var(--border-color);
@@ -29,53 +28,34 @@
       margin-bottom: 20px;
     }
     
-    .tables-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 15px;
-    }
-    
     .table-wrapper {
       background: white;
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 10px;
       overflow-x: auto;
-    }
-    
-    .table-title {
-      text-align: center;
-      color: #6c757d;
-      font-weight: 600;
-      margin-bottom: 10px;
-      font-size: 1.1rem;
+      margin-top: 20px;
     }
     
     .data-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
     }
     .data-table th, .data-table td {
       border: 1px solid #dee2e6;
-      padding: 6px;
+      padding: 8px;
       text-align: right;
     }
     .data-table th {
       background-color: #f8f9fa;
       font-weight: 600;
       text-align: center;
-    }
-    .data-table th.table-header-color {
-      color: white;
+      color: #333;
     }
     .data-table td:first-child, .data-table th:first-child {
       text-align: left;
       font-weight: bold;
-    }
-    .data-table tr.total-row {
-      font-weight: bold;
-      background-color: #f1f3f5;
     }
 
     .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -87,7 +67,6 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     
-    /* Layout de Conexion similar al global */
     .connection-flex {
         display: flex;
         justify-content: space-between;
@@ -106,7 +85,6 @@
   </style>
 </head>
 <body>
-  <!-- Header / Barra de Navegación -->
   <header class="navbar">
     <div class="nav-brand">
       <div class="logo-icon">
@@ -146,7 +124,6 @@
   </header>
 
   <main class="main-container">
-    <!-- Conexión con el Google Sheet -->
     <section class="card sheet-connector-card">
       <div class="card-header">
         <h2><i class="fa-solid fa-link text-primary"></i> Conectar a Google Sheet</h2>
@@ -200,14 +177,16 @@
       <div class="filters-section card" style="margin-bottom: 0;">
         <div class="card-body" style="display: flex; gap: 15px; align-items: center; padding: 15px;">
           <div>
-            <label for="timeFilter" style="font-weight: bold; margin-right: 10px;"><i class="fa-solid fa-filter"></i> Rango de Fechas:</label>
-            <select id="timeFilter" class="form-control" style="width: auto; display: inline-block;">
-              <option value="all">Mostrar todo</option>
-              <option value="last2months">Últimos meses (Actuales)</option>
-              <option value="last2months_yoy">Últimos meses (Año Anterior)</option>
+            <label for="weeksFilter" style="font-weight: bold; margin-right: 10px;"><i class="fa-solid fa-calendar-week"></i> Rango de Semanas:</label>
+            <select id="weeksFilter" class="form-control" style="width: auto; display: inline-block;">
+              <option value="all">Todas las semanas</option>
+              <option value="4">Últimas 4 semanas</option>
+              <option value="8">Últimas 8 semanas</option>
+              <option value="12">Últimas 12 semanas</option>
             </select>
           </div>
-          <button id="btnApplyFilters" class="btn btn-primary btn-sm"><i class="fa-solid fa-rotate"></i> Actualizar Vistas</button>
+          <button id="btnApplyFilters" class="btn btn-primary btn-sm"><i class="fa-solid fa-rotate"></i> Actualizar Gráfico</button>
+          <span style="font-size: 0.85rem; color: #666; margin-left: 10px;">* Se mostrará el rango seleccionado para el año actual y el año anterior secuencialmente.</span>
         </div>
       </div>
 
@@ -218,79 +197,37 @@
 
       <!-- Tab Secos -->
       <div id="tab-secos" class="tab-content active">
-        <h2 class="section-title">THROUGHPUT-CD SECOS 2026</h2>
+        <h2 class="section-title">THROUGHPUT-CD SECOS</h2>
         
         <div class="chart-container-large">
-          <canvas id="chartSecosCombined"></canvas>
+          <canvas id="chartSecos"></canvas>
         </div>
-
-        <div class="tables-grid">
-          <!-- Recibo -->
-          <div class="table-wrapper">
-            <div class="table-title">• Cajas (DIV) RECIBO</div>
-            <table class="data-table" id="tableSecosRecibo">
-              <thead><tr id="tableSecosReciboHeader" style="background:#f4a261;"></tr></thead>
-              <tbody id="tableSecosReciboBody"></tbody>
-              <tfoot id="tableSecosReciboFoot"></tfoot>
-            </table>
-          </div>
-          <!-- Despacho -->
-          <div class="table-wrapper">
-            <div class="table-title">• Cajas (DIV) DESPACHO</div>
-            <table class="data-table" id="tableSecosDespacho">
-              <thead><tr id="tableSecosDespachoHeader" style="background:#e76f51;"></tr></thead>
-              <tbody id="tableSecosDespachoBody"></tbody>
-              <tfoot id="tableSecosDespachoFoot"></tfoot>
-            </table>
-          </div>
-          <!-- Inventario -->
-          <div class="table-wrapper">
-            <div class="table-title">• Cajas (DIV) INVENTARIO</div>
-            <table class="data-table" id="tableSecosInventario">
-              <thead><tr id="tableSecosInventarioHeader" style="background:#2a9d8f;"></tr></thead>
-              <tbody id="tableSecosInventarioBody"></tbody>
-              <tfoot id="tableSecosInventarioFoot"></tfoot>
-            </table>
-          </div>
+        
+        <div class="table-wrapper">
+          <table class="data-table" id="tableSecos">
+            <thead>
+              <tr id="tableSecosHeader"></tr>
+            </thead>
+            <tbody id="tableSecosBody"></tbody>
+          </table>
         </div>
       </div>
 
       <!-- Tab Frescos -->
       <div id="tab-frescos" class="tab-content">
-        <h2 class="section-title">TROUGHPUT-CD FRESCOS 2026</h2>
+        <h2 class="section-title">THROUGHPUT-CD FRESCOS</h2>
         
         <div class="chart-container-large">
-          <canvas id="chartFrescosCombined"></canvas>
+          <canvas id="chartFrescos"></canvas>
         </div>
-
-        <div class="tables-grid">
-          <!-- Recibo -->
-          <div class="table-wrapper">
-            <div class="table-title">• Cajas (DIV) RECIBO</div>
-            <table class="data-table" id="tableFrescosRecibo">
-              <thead><tr id="tableFrescosReciboHeader" style="background:#457b9d;"></tr></thead>
-              <tbody id="tableFrescosReciboBody"></tbody>
-              <tfoot id="tableFrescosReciboFoot"></tfoot>
-            </table>
-          </div>
-          <!-- Despacho -->
-          <div class="table-wrapper">
-            <div class="table-title">• Cajas (DIV) DESPACHO</div>
-            <table class="data-table" id="tableFrescosDespacho">
-              <thead><tr id="tableFrescosDespachoHeader" style="background:#1d3557;"></tr></thead>
-              <tbody id="tableFrescosDespachoBody"></tbody>
-              <tfoot id="tableFrescosDespachoFoot"></tfoot>
-            </table>
-          </div>
-          <!-- Inventario -->
-          <div class="table-wrapper">
-            <div class="table-title">• Cajas (DIV) INVENTARIO</div>
-            <table class="data-table" id="tableFrescosInventario">
-              <thead><tr id="tableFrescosInventarioHeader" style="background:#8d99ae;"></tr></thead>
-              <tbody id="tableFrescosInventarioBody"></tbody>
-              <tfoot id="tableFrescosInventarioFoot"></tfoot>
-            </table>
-          </div>
+        
+        <div class="table-wrapper">
+          <table class="data-table" id="tableFrescos">
+            <thead>
+              <tr id="tableFrescosHeader"></tr>
+            </thead>
+            <tbody id="tableFrescosBody"></tbody>
+          </table>
         </div>
       </div>
 

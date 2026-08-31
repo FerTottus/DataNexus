@@ -1,11 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // Inicialización de Auth
   if (window.GoogleSheetsService) {
     window.GoogleSheetsService.initAuth();
     updateAuthUI();
   }
 
-  // UI Elements
   const btnGoogleLogin = document.getElementById('btnGoogleLogin');
   const btnGoogleLogout = document.getElementById('btnGoogleLogout');
   const btnFetchData = document.getElementById('btnFetchData');
@@ -39,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Explorador de Drive Modal
+  // Explorador Drive
   btnBrowseDrive?.addEventListener('click', () => {
     if (!window.GoogleSheetsService.isAuthenticated()) {
       window.GoogleSheetsService.requestAccessToken((success) => {
@@ -92,7 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
       li.addEventListener('click', () => {
         sheetUrlInput.value = file.id;
         document.getElementById('drive-modal').classList.add('hidden');
-        // Auto cargar datos si se selecciona un archivo
         btnFetchData.click();
       });
       fileList.appendChild(li);
@@ -106,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDriveFiles(filtered);
   };
 
-  // Cambio de Pestañas (Tabs)
+  // Tabs
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       tabBtns.forEach(b => b.classList.remove('active'));
@@ -121,20 +118,20 @@ document.addEventListener('DOMContentLoaded', () => {
     connectionSuccessInfo.classList.add('hidden');
   });
 
-  // Cargar Datos Global
+  // Fetch Data
   btnFetchData?.addEventListener('click', async () => {
     const urlOrId = sheetUrlInput.value.trim();
-    if (!urlOrId) return alert("Por favor, ingresa la URL o busca un archivo en tu Drive.");
+    if (!urlOrId) return alert("Por favor, ingresa la URL o busca un archivo.");
     const sheetId = window.GoogleSheetsService.extractSpreadsheetId(urlOrId);
-    if (!sheetId) return alert("ID inválido o URL no reconocida.");
-    if (!window.GoogleSheetsService.isAuthenticated()) return alert("Debes iniciar sesión con Google primero.");
+    if (!sheetId) return alert("ID inválido.");
+    if (!window.GoogleSheetsService.isAuthenticated()) return alert("Inicia sesión primero.");
 
     loadingIndicator.classList.remove('hidden');
     
     try {
-      // Ajustamos rangos más largos por si el usuario agregó más divisiones o semanas
-      window.rawFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!A5:P200");
-      window.rawSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!R5:AH200");
+      // BD_Grafico contiene los totales por fecha
+      window.rawFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!A5:P150");
+      window.rawSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!R5:AH150");
 
       connectBox.classList.add('hidden');
       connectionSuccessInfo.classList.remove('hidden');
@@ -144,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
       applyFiltersAndRender();
     } catch (e) {
       console.error(e);
-      alert("Error al cargar los datos: " + e.message);
+      alert("Error: " + e.message);
     } finally {
       loadingIndicator.classList.add('hidden');
     }
@@ -156,189 +153,143 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyFiltersAndRender() {
     if(!window.rawFrescos || !window.rawSecos) return;
-    const filterType = document.getElementById('timeFilter').value;
+    const filterValue = document.getElementById('weeksFilter').value;
     
-    processAndRenderSection('Secos', window.rawSecos, filterType);
-    processAndRenderSection('Frescos', window.rawFrescos, filterType);
+    processAndRenderSection('Secos', window.rawSecos, filterValue);
+    processAndRenderSection('Frescos', window.rawFrescos, filterValue);
   }
 
   // --- LÓGICA DE PROCESAMIENTO Y GRÁFICOS ---
   const charts = {};
 
-  function processAndRenderSection(prefix, rawData, filterType) {
+  function processAndRenderSection(prefix, rawData, filterValue) {
     if(!rawData.rows || rawData.rows.length === 0) return;
 
-    const firstCol = rawData.headers[0];
-    const timeCols = extractAndFilterTimeCols(rawData.headers, filterType);
-
-    // Separar datos en bloques según el Dashboard de ejemplo
-    const blocks = { RECIBO: [], DESPACHO: [], INVENTARIO: [] };
-    let currentBlock = 'RECIBO'; // por defecto el primero
-
-    rawData.rows.forEach(row => {
-      const label = String(row[firstCol] || '').toUpperCase();
-      if(label.includes('RECIBO') || label.includes('INGRESO')) currentBlock = 'RECIBO';
-      else if(label.includes('DESPACHO') || label.includes('SALIDA')) currentBlock = 'DESPACHO';
-      else if(label.includes('INVENTARIO')) currentBlock = 'INVENTARIO';
-      else if(label && !label.includes('TOTAL') && !label.includes('CAJAS') && !label.includes('DIVISION')) {
-        blocks[currentBlock].push(row);
-      }
-    });
-
-    // Calcular Totales por Columna para el gráfico principal
-    const totals = { RECIBO: [], DESPACHO: [], INVENTARIO: [] };
+    // Las filas tienen el SemAño, DESPACHO, RECIBO, etc.
+    // Ej: row['SemAño'] = '[6-2026]'
     
-    ['RECIBO', 'DESPACHO', 'INVENTARIO'].forEach(blockType => {
-        timeCols.forEach(col => {
-            let sum = 0;
-            blocks[blockType].forEach(row => {
-                sum += parseFloat(row[col]) || 0;
-            });
-            totals[blockType].push(sum);
-        });
-    });
+    // Filtrar solo filas con SemAño válido
+    let validRows = rawData.rows.filter(r => r['SemAño'] && String(r['SemAño']).includes('-'));
+    let rowsToPlot = validRows;
 
-    // Renderizar Tablas individuales
-    renderTableBlock(`${prefix}Recibo`, timeCols, blocks.RECIBO, firstCol, totals.RECIBO);
-    renderTableBlock(`${prefix}Despacho`, timeCols, blocks.DESPACHO, firstCol, totals.DESPACHO);
-    renderTableBlock(`${prefix}Inventario`, timeCols, blocks.INVENTARIO, firstCol, totals.INVENTARIO);
-
-    // Renderizar un único Gráfico Combinado
-    renderComboChart(prefix, timeCols, totals);
-  }
-
-  function extractAndFilterTimeCols(headers, filterType) {
-    let cols = headers.slice(1).filter(h => !h.toUpperCase().includes('TOTAL') && h.trim() !== '');
-    
-    if (filterType === 'all') return cols;
-
-    // "Ultimos 2 meses" -> Tomamos aproximadamente 8 o 9 semanas recientes
-    if (filterType === 'last2months') {
-        return cols.slice(-9); 
-    }
-
-    if (filterType === 'last2months_yoy') {
-        const recentCols = cols.slice(-9);
-        const lastYearCols = [];
+    // Lógica de Filtro: Últimas X semanas del año actual + Últimas X semanas del año anterior (secuencial)
+    if (filterValue !== 'all') {
+        const numWeeks = parseInt(filterValue, 10);
         
-        recentCols.forEach(col => {
-            // Ejemplo: "[6-2026]" -> "[6-2025]"
-            let match = col.match(/(\d{4})/);
+        let maxYear = 0;
+        validRows.forEach(r => {
+            const match = String(r['SemAño']).match(/-(\d{4})/);
             if (match) {
-                let year = parseInt(match[1]);
-                let prevYearCol = col.replace(year.toString(), (year-1).toString());
-                if(cols.includes(prevYearCol)) lastYearCols.push(prevYearCol);
+                const y = parseInt(match[1]);
+                if (y > maxYear) maxYear = y;
             }
         });
         
-        return lastYearCols.length > 0 ? lastYearCols : cols.slice(0, 9); 
+        // Obtener filas del año actual y tomar las últimas X
+        const currentYearRows = validRows.filter(r => String(r['SemAño']).includes(`-${maxYear}`));
+        const lastWeeksCurrentYear = currentYearRows.slice(-numWeeks);
+        
+        // Buscar su equivalente en el año anterior
+        const previousYearRows = [];
+        lastWeeksCurrentYear.forEach(cr => {
+            const prevLabel = String(cr['SemAño']).replace(`-${maxYear}`, `-${maxYear - 1}`);
+            const pr = validRows.find(r => String(r['SemAño']) === prevLabel);
+            if (pr) {
+                previousYearRows.push(pr);
+            }
+        });
+        
+        // Unir secuencialmente: primero las del año anterior, luego las de este año
+        rowsToPlot = [...previousYearRows, ...lastWeeksCurrentYear];
     }
 
-    return cols;
+    // Extraer Vectores de Datos para el Gráfico
+    const labels = rowsToPlot.map(r => r['SemAño']);
+    const inventario = rowsToPlot.map(r => parseFloat(r['INVENTARIO ACT']) || parseFloat(r['INVENTARIO']) || 0);
+    const recibo = rowsToPlot.map(r => parseFloat(r['RECIBO']) || 0);
+    const despacho = rowsToPlot.map(r => parseFloat(r['DESPACHO']) || 0);
+    const planInv = rowsToPlot.map(r => parseFloat(r['PLAN INV']) || 0);
+    const planRecibo = rowsToPlot.map(r => parseFloat(r['PLAN RECIBO']) || 0);
+    const planDespacho = rowsToPlot.map(r => parseFloat(r['PLAN DESPACHO']) || 0);
+
+    renderMixedChart(prefix, labels, { inventario, recibo, despacho, planInv, planRecibo, planDespacho });
+    renderDataTable(prefix, rawData.headers, rowsToPlot);
   }
 
-  function renderTableBlock(tableId, timeCols, rows, labelCol, totalsArr) {
-    const thead = document.getElementById(`table${tableId}Header`);
-    const tbody = document.getElementById(`table${tableId}Body`);
-    const tfoot = document.getElementById(`table${tableId}Foot`);
-    
-    if(!thead || !tbody || !tfoot) return;
-
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-    tfoot.innerHTML = '';
-
-    // Headers
-    const thEmpty = document.createElement('th');
-    thEmpty.textContent = ''; 
-    thead.appendChild(thEmpty);
-    
-    timeCols.forEach(col => {
-        const th = document.createElement('th');
-        th.className = 'table-header-color';
-        th.textContent = col;
-        thead.appendChild(th);
-    });
-
-    // Rows
-    rows.forEach(row => {
-        const tr = document.createElement('tr');
-        
-        // Division
-        const tdDiv = document.createElement('td');
-        tdDiv.textContent = row[labelCol] || '';
-        tr.appendChild(tdDiv);
-
-        // Valores
-        timeCols.forEach(col => {
-            const td = document.createElement('td');
-            const val = parseFloat(row[col]);
-            td.textContent = !isNaN(val) ? val.toLocaleString('es-PE', { maximumFractionDigits: 0 }) : '-';
-            tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-    });
-
-    // Footer (Total)
-    const trFoot = document.createElement('tr');
-    trFoot.className = 'total-row';
-    const tdTotalLabel = document.createElement('td');
-    tdTotalLabel.textContent = 'Total';
-    trFoot.appendChild(tdTotalLabel);
-
-    totalsArr.forEach(totalVal => {
-        const td = document.createElement('td');
-        td.textContent = totalVal.toLocaleString('es-PE', { maximumFractionDigits: 0 });
-        trFoot.appendChild(td);
-    });
-    tfoot.appendChild(trFoot);
-  }
-
-  function renderComboChart(prefix, xLabels, totals) {
-    const canvasId = `chart${prefix}Combined`;
+  function renderMixedChart(prefix, labels, data) {
+    const canvasId = `chart${prefix}`;
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
 
-    // Recreamos exactamente el gráfico de los mockups (Inventario como área, Recibo y Despacho como barras)
-    // El orden importa para la superposición: área primero (Inventario)
-    
     const datasets = [
       {
         type: 'line',
         label: 'INVENTARIO',
-        data: totals.INVENTARIO,
-        backgroundColor: 'rgba(169, 169, 169, 0.4)', // Gris semi-transparente
+        data: data.inventario,
+        backgroundColor: 'rgba(169, 169, 169, 0.4)', // Gris Área
         borderColor: '#7a7a7a',
         borderWidth: 2,
         fill: true,
-        tension: 0.3,
-        yAxisID: 'y'
+        order: 1
+      },
+      {
+        type: 'line',
+        label: 'PLAN INV',
+        data: data.planInv,
+        borderColor: '#2a9d8f', // Verde Plan
+        borderWidth: 2,
+        borderDash: [5, 5],
+        fill: false,
+        pointRadius: 0,
+        order: 2
+      },
+      {
+        type: 'line',
+        label: 'PLAN RECIBO',
+        data: data.planRecibo,
+        borderColor: '#457b9d', // Azul Plan
+        borderWidth: 2,
+        borderDash: [5, 5],
+        fill: false,
+        pointRadius: 0,
+        order: 3
+      },
+      {
+        type: 'line',
+        label: 'PLAN DESPACHO',
+        data: data.planDespacho,
+        borderColor: '#e76f51', // Naranja Plan
+        borderWidth: 2,
+        borderDash: [5, 5],
+        fill: false,
+        pointRadius: 0,
+        order: 4
       },
       {
         type: 'bar',
         label: 'RECIBO',
-        data: totals.RECIBO,
-        backgroundColor: '#457b9d', // Azul
-        borderColor: '#1d3557',
+        data: data.recibo,
+        backgroundColor: '#6baed6', // Azul Barra
+        borderColor: '#3182bd',
         borderWidth: 1,
-        yAxisID: 'y'
+        order: 5
       },
       {
         type: 'bar',
         label: 'DESPACHO',
-        data: totals.DESPACHO,
-        backgroundColor: '#e76f51', // Naranja/Rojo
-        borderColor: '#d00000',
+        data: data.despacho,
+        backgroundColor: '#fd8d3c', // Naranja Barra
+        borderColor: '#e6550d',
         borderWidth: 1,
-        yAxisID: 'y'
+        order: 6
       }
     ];
 
     charts[canvasId] = new Chart(ctx, {
       data: {
-        labels: xLabels,
-        datasets: datasets
+        labels: labels,
+        datasets: datasets.filter(ds => ds.data.some(val => val > 0)) // Solo graficar los que tengan datos
       },
       options: {
         responsive: true,
@@ -359,7 +310,6 @@ document.addEventListener('DOMContentLoaded', () => {
             stacked: false,
             beginAtZero: true,
             ticks: {
-               // Formatear números grandes con comas
                callback: function(value) {
                   return value.toLocaleString('es-PE');
                }
@@ -368,6 +318,37 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         interaction: { mode: 'index', intersect: false }
       }
+    });
+  }
+
+  function renderDataTable(prefix, headers, rows) {
+    const thead = document.getElementById(`table${prefix}Header`);
+    const tbody = document.getElementById(`table${prefix}Body`);
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    // Filtrar columnas vacías
+    const validHeaders = headers.filter(h => h.trim() !== '');
+
+    validHeaders.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        thead.appendChild(th);
+    });
+
+    rows.forEach(row => {
+        const tr = document.createElement('tr');
+        validHeaders.forEach(h => {
+            const td = document.createElement('td');
+            const val = row[h];
+            if(typeof val === 'number' || (typeof val === 'string' && !isNaN(parseFloat(val)) && val.trim() !== '')) {
+                td.textContent = parseFloat(val).toLocaleString('es-PE', { maximumFractionDigits: 0 });
+            } else {
+                td.textContent = val || '';
+            }
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
     });
   }
 });
