@@ -134,13 +134,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const tabNames = tabs.map(t => t.title);
       
       const sheetGrafico = tabNames.find(t => t.trim().toUpperCase() === 'BD_GRAFICO' || t.trim().toUpperCase() === 'BD_GRÁFICO');
-      const sheetBase = tabNames.find(t => t.trim().toUpperCase() === 'BASE');
+      const sheetBase = tabNames.find(t => {
+          const name = t.trim().toUpperCase();
+          return name === 'BASE' || name === 'BASES';
+      });
 
       if (!sheetGrafico) {
           throw new Error(`No se encontró la hoja 'BD_Grafico'. Hojas disponibles: ${tabNames.join(', ')}`);
       }
       if (!sheetBase) {
-          throw new Error(`No se encontró la hoja 'BASE'. Hojas disponibles: ${tabNames.join(', ')}. Por favor verifica el nombre exacto en tu Google Sheet.`);
+          throw new Error(`No se encontró la hoja 'BASE' o 'BASES'. Hojas disponibles: ${tabNames.join(', ')}. Por favor verifica el nombre exacto en tu Google Sheet.`);
       }
 
       // Envolver en comillas simples por si el nombre tiene espacios
