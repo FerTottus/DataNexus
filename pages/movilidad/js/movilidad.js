@@ -429,6 +429,8 @@ function renderTables() {
     return '🔴 Lejos';
   };
   const obsDistrito = (cd, par) => {
+    if (cd === 0 && par > 0) return '✈️ Provincia / Fuera de rango CD';
+    if (cd === 0 && par === 0) return '⚠️ Sin datos de ubicación';
     if (cd > 20 && par > 5) return '⚠️ Muy lejos del CD y paraderos';
     if (cd > 20) return '⚠️ Muy lejos del CD';
     if (par > 5) return '⚠️ Lejos de paraderos';
@@ -480,7 +482,7 @@ function renderTables() {
         <td>${d.promPar > 0 ? d.promPar.toFixed(2) : '-'}</td>
         <td>${d.promPar > 0 ? clasificarPar(d.promPar) : '-'}</td>
         <td>${d.ruta}</td>
-        <td>${d.promCd > 0 && d.promPar > 0 ? obsDistrito(d.promCd, d.promPar) : '-'}</td>
+        <td>${obsDistrito(d.promCd, d.promPar)}</td>
       </tr>
     `).join('');
   }
