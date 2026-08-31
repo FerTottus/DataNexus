@@ -153,11 +153,14 @@
         <h2><i class="fa-solid fa-link text-primary"></i> Conectar a Google Sheet (Throughput)</h2>
       </div>
       <div class="card-body">
-        <div class="input-group-grid">
+        <div class="input-group-grid" id="connectBox">
           <div class="input-field full-width">
             <label for="sheetUrlInput">URL o ID del archivo de Google Sheets:</label>
             <div class="input-with-action" style="display: flex; gap: 8px;">
               <input type="text" id="sheetUrlInput" placeholder="Ej: https://docs.google.com/spreadsheets/d/..." class="form-control" style="flex-grow: 1;">
+              <button id="btnBrowseDrive" class="btn btn-secondary">
+                <i class="fa-solid fa-folder-open"></i> Explorar Drive
+              </button>
               <button id="btnFetchData" class="btn btn-primary">
                 <i class="fa-solid fa-arrows-rotate"></i> Cargar Datos
               </button>
@@ -167,14 +170,52 @@
             </small>
           </div>
         </div>
+        <div id="connectionSuccessInfo" class="hidden" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #e8f5e9; border-radius: 8px; border: 1px solid #c8e6c9;">
+            <span><i class="fa-solid fa-check-circle text-success"></i> Conectado exitosamente. <strong id="connectedSheetName"></strong></span>
+            <button id="btnChangeSheet" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-pen"></i> Cambiar Archivo</button>
+        </div>
         <div id="loadingIndicator" class="hidden text-center" style="margin-top: 15px;">
           <i class="fa-solid fa-spinner fa-spin text-primary"></i> Cargando y procesando datos...
         </div>
       </div>
     </section>
 
+    <!-- Modal del Explorador de Archivos (Oculto por defecto) -->
+    <div id="drive-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-folder-open text-primary"></i> Tus archivos recientes</h3>
+          <button id="close-modal-btn" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <input type="text" id="drive-search-input" class="form-control" style="margin-bottom: 12px;" placeholder="🔍 Buscar archivo por nombre..." oninput="filterDriveList(this.value)">
+          <div id="drive-loading" class="hidden text-center"><i class="fa-solid fa-spinner fa-spin"></i> Cargando archivos...</div>
+          <ul id="drive-file-list" class="file-list"></ul>
+          <div id="drive-empty" class="hidden text-muted text-center mt-3">No se encontraron hojas de cálculo recientes.</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Dashboard -->
     <div id="dashboardSection" class="dashboard-container hidden">
+      <!-- Filtros Globales -->
+      <div class="filters-section card" style="margin-bottom: 0;">
+        <div class="card-header">
+          <h3><i class="fa-solid fa-filter"></i> Filtros de Tiempo</h3>
+        </div>
+        <div class="card-body" style="display: flex; gap: 15px; align-items: center;">
+          <div>
+            <label for="timeFilter" style="font-weight: 500; margin-right: 10px;">Rango de Análisis:</label>
+            <select id="timeFilter" class="form-control" style="width: auto; display: inline-block;">
+              <option value="all">Mostrar todo</option>
+              <option value="last2months">Últimos 2 meses (Actual)</option>
+              <option value="last2months_yoy">Últimos 2 meses (Año Anterior)</option>
+            </select>
+          </div>
+          <button id="btnApplyFilters" class="btn btn-primary btn-sm"><i class="fa-solid fa-check"></i> Aplicar</button>
+        </div>
+      </div>
+
       <div class="tab-buttons">
         <button class="tab-btn active" data-target="tab-frescos">Frescos</button>
         <button class="tab-btn" data-target="tab-secos">Secos</button>
