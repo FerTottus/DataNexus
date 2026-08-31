@@ -165,16 +165,6 @@ body {
   gap: 1.5rem;
 }
 
-.table-title {
-  margin-top: 0;
-  font-size: 1rem;
-  margin-bottom: 1rem;
-  color: #1e293b;
-  font-weight: 600;
-  border-bottom: 1px solid #f1f5f9;
-  padding-bottom: 0.5rem;
-}
-
 .table-responsive {
   overflow-x: auto;
 }
@@ -182,20 +172,42 @@ body {
 .data-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px #e2e8f0;
 }
 .data-table th, .data-table td {
-  padding: 10px;
+  padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #f1f5f9;
+}
+.data-table td:last-child, .data-table th:last-child {
+  border-right: none;
 }
 .data-table th {
-  background: #f8fafc;
+  background: #4f81bd;
   font-weight: 600;
-  color: #475569;
+  color: #ffffff;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
 }
-
-.data-table tr:hover {
-  background-color: #f1f5f9;
+.data-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+.data-table tbody tr:hover {
+  background-color: #e2e8f0;
+}
+.table-title {
+  margin-top: 0;
+  font-size: 1.05rem;
+  margin-bottom: 1rem;
+  color: #0f172a;
+  font-weight: 700;
+  border-bottom: 2px solid #4f81bd;
+  padding-bottom: 0.5rem;
 }
 
 /* Custom Tooltips (Instantáneos y Bonitos) */
@@ -276,7 +288,7 @@ body {
 .sticky-header th {
   position: sticky;
   top: 0;
-  background-color: #f8fafc;
+  background-color: #4f81bd;
   z-index: 10;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
