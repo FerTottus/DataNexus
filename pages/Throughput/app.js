@@ -129,9 +129,14 @@ document.addEventListener('DOMContentLoaded', () => {
     loadingIndicator.classList.remove('hidden');
     
     try {
-      // BD_Grafico contiene los totales por fecha
-      window.rawFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!A5:P250");
-      window.rawSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!R5:AH250");
+      // Data para los gráficos (Totales)
+      window.graficoFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!A5:P250");
+      window.graficoSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!R5:AH250");
+
+      // Data para las tablas de cajas (Divisiones)
+      // La hoja BASE tiene las tablas pre-calculadas de las últimas 7 semanas.
+      window.tablasFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BASE!A5:L109");
+      window.tablasSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BASE!R5:AA109");
 
       connectBox.classList.add('hidden');
       connectionSuccessInfo.classList.remove('hidden');
@@ -152,25 +157,24 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function applyFiltersAndRender() {
-    if(!window.rawFrescos || !window.rawSecos) return;
+    if(!window.graficoFrescos || !window.graficoSecos) return;
     const filterValue = document.getElementById('weeksFilter').value;
     
-    processAndRenderSection('Secos', window.rawSecos, filterValue);
-    processAndRenderSection('Frescos', window.rawFrescos, filterValue);
+    processAndRenderSection('Secos', window.graficoSecos, window.tablasSecos, filterValue);
+    processAndRenderSection('Frescos', window.graficoFrescos, window.tablasFrescos, filterValue);
   }
 
   // --- LÓGICA DE PROCESAMIENTO Y GRÁFICOS ---
   const charts = {};
 
-  function processAndRenderSection(prefix, rawData, filterValue) {
-    if(!rawData.rows || rawData.rows.length === 0) return;
+  function processAndRenderSection(prefix, chartData, tableData, filterValue) {
+    if(!chartData.rows || chartData.rows.length === 0) return;
 
-    // 1. Detectar dinámicamente cuál es la columna del Tiempo (Ej. "[6-2026]" o "32-2025")
+    // 1. Detectar columna de fecha (e.g. "[34-2026]")
     let timeColName = null;
-    for (let h of rawData.headers) {
-      // Tomamos una muestra de las primeras 5 filas a ver si alguna tiene un formato de fecha/semana
-      for(let i=0; i<Math.min(5, rawData.rows.length); i++) {
-        let val = String(rawData.rows[i]?.[h] || '');
+    for (let h of chartData.headers) {
+      for(let i=0; i<Math.min(5, chartData.rows.length); i++) {
+        let val = String(chartData.rows[i]?.[h] || '');
         if (val.includes('-202') || (val.includes('[') && val.includes(']'))) {
           timeColName = h;
           break;
@@ -178,74 +182,71 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if(timeColName) break;
     }
-    // Fallbacks si la autodetección falla
-    if (!timeColName) {
-       timeColName = rawData.headers.find(h => h.toUpperCase() === 'SEMANA2' || h.toUpperCase() === 'SEMANA' || h.toUpperCase() === 'SEMAÑO');
-    }
-    if (!timeColName) timeColName = rawData.headers[1] || rawData.headers[0]; // Último recurso
+    if (!timeColName) timeColName = chartData.headers[1] || chartData.headers[0];
 
-    // 2. Extraer solo filas válidas
-    let validRows = rawData.rows.filter(r => r[timeColName] && String(r[timeColName]).trim() !== '');
-
-    // Para evitar filas de "Total general", filtramos filas donde la fecha diga Total
-    validRows = validRows.filter(r => !String(r[timeColName]).toUpperCase().includes('TOTAL'));
-
-    let rowsToPlot = validRows;
-
-    // 3. Lógica de Filtro: Últimas X semanas del año actual + Últimas X semanas del año anterior
-    if (filterValue !== 'all') {
-        const numWeeks = parseInt(filterValue, 10);
-        
-        // Encontrar el año máximo en los datos
-        let maxYear = 0;
-        validRows.forEach(r => {
-            const match = String(r[timeColName]).match(/-(\d{4})/);
-            if (match) {
-                const y = parseInt(match[1]);
-                if (y > maxYear) maxYear = y;
-            }
-        });
-        
-        if (maxYear > 0) {
-            // Obtener filas del año actual y tomar las últimas X
-            const currentYearRows = validRows.filter(r => String(r[timeColName]).includes(`-${maxYear}`));
-            const lastWeeksCurrentYear = currentYearRows.slice(-numWeeks);
-            
-            // Buscar su equivalente en el año anterior
-            const previousYearRows = [];
-            lastWeeksCurrentYear.forEach(cr => {
-                const prevLabel = String(cr[timeColName]).replace(`-${maxYear}`, `-${maxYear - 1}`);
-                const pr = validRows.find(r => String(r[timeColName]) === prevLabel);
-                if (pr) {
-                    previousYearRows.push(pr);
-                }
-            });
-            
-            // Unir secuencialmente
-            rowsToPlot = [...previousYearRows, ...lastWeeksCurrentYear];
-        } else {
-            // Si no detectó año, simplemente tomar las ultimas N * 2 filas por si acaso
-            rowsToPlot = validRows.slice(-(numWeeks * 2));
-        }
-    }
-
-    // Si luego del filtro no hay datos, dibujar vacío
-    if(rowsToPlot.length === 0) rowsToPlot = validRows;
-
-    // 4. Mapeo Flexible de Columnas (busca nombres que contengan las palabras clave)
-    const getCol = (keywords) => rawData.headers.find(h => keywords.some(k => h.toUpperCase().includes(k)));
-
+    // Mapeo Flexible de Columnas de Métricas
+    const getCol = (keywords) => chartData.headers.find(h => keywords.some(k => h.toUpperCase().includes(k)));
     const colInventario = getCol(['INVENTARIO ACT', 'INVENTARIO']);
     const colRecibo = getCol(['RECIBO', 'INGRESO']);
     const colDespacho = getCol(['DESPACHO', 'SALIDA']);
-    
-    // Si la data no tiene "PLAN INV", usamos el nombre tal cual
     const colPlanInv = getCol(['PLAN INV', 'PLAN INVENTARIO']);
     const colPlanRecibo = getCol(['PLAN RECIBO', 'PLAN INGRESO']);
     const colPlanDespacho = getCol(['PLAN DESPACHO', 'PLAN SALIDA']);
 
-    const labels = rowsToPlot.map(r => r[timeColName]);
+    // 2. Extraer filas válidas (que tengan fecha y no sean totales)
+    let validRows = chartData.rows.filter(r => r[timeColName] && String(r[timeColName]).trim() !== '' && !String(r[timeColName]).toUpperCase().includes('TOTAL'));
+
+    // 3. Determinar el "HOY" (La última fila que tenga datos reales, no ceros)
+    // Buscamos desde el final hacia el principio hasta encontrar data > 0
+    let lastDataIndex = validRows.length - 1;
+    for(let i = validRows.length - 1; i >= 0; i--) {
+        const row = validRows[i];
+        const r = parseFloat(row[colRecibo]) || 0;
+        const d = parseFloat(row[colDespacho]) || 0;
+        const inv = parseFloat(row[colInventario]) || 0;
+        if (r > 0 || d > 0 || inv > 0) {
+            lastDataIndex = i;
+            break;
+        }
+    }
     
+    // Recortar filas futuras sin data
+    validRows = validRows.slice(0, lastDataIndex + 1);
+    let rowsToPlot = validRows;
+
+    // 4. Aplicar Filtro "Últimas X Semanas" + Año Anterior secuencial
+    if (filterValue !== 'all') {
+        const numWeeks = parseInt(filterValue, 10);
+        
+        // El año actual lo sacamos de la última fila válida
+        const lastValidRow = validRows[validRows.length - 1];
+        const match = String(lastValidRow[timeColName]).match(/-(\d{4})/);
+        
+        if (match) {
+            const currentYear = parseInt(match[1]);
+            
+            // Tomar las ultimas X semanas
+            const lastWeeksCurrentYear = validRows.slice(-numWeeks);
+            
+            // Buscar equivalentes del año pasado
+            const previousYearRows = [];
+            lastWeeksCurrentYear.forEach(cr => {
+                const prevLabel = String(cr[timeColName]).replace(`-${currentYear}`, `-${currentYear - 1}`);
+                const pr = chartData.rows.find(r => String(r[timeColName]) === prevLabel);
+                if (pr) previousYearRows.push(pr);
+            });
+            
+            rowsToPlot = [...previousYearRows, ...lastWeeksCurrentYear];
+        } else {
+            rowsToPlot = validRows.slice(-numWeeks * 2);
+        }
+    }
+
+    // Si la data está muy vacía, fallback
+    if(rowsToPlot.length === 0) rowsToPlot = validRows;
+
+    // Extraer vectores
+    const labels = rowsToPlot.map(r => r[timeColName]);
     const inventario = rowsToPlot.map(r => parseFloat(r[colInventario]) || 0);
     const recibo = rowsToPlot.map(r => parseFloat(r[colRecibo]) || 0);
     const despacho = rowsToPlot.map(r => parseFloat(r[colDespacho]) || 0);
@@ -254,7 +255,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const planDespacho = colPlanDespacho ? rowsToPlot.map(r => parseFloat(r[colPlanDespacho]) || 0) : [];
 
     renderMixedChart(prefix, labels, { inventario, recibo, despacho, planInv, planRecibo, planDespacho });
-    renderDataTable(prefix, rawData.headers, rowsToPlot);
+    
+    // Renderizar la tabla base inferior
+    renderBaseTables(prefix, tableData);
   }
 
   function renderMixedChart(prefix, labels, data) {
@@ -263,16 +266,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
 
+    // Notas de Order: En Chart.js, mayor `order` significa que se dibuja POR DEBAJO de los menores.
+    // Queremos:
+    // Fondo: INVENTARIO (Area) -> order: 10
+    // Medio: RECIBO y DESPACHO (Barras) -> order: 5
+    // Frente: PLAN (Líneas punteadas) -> order: 1
+
     const datasets = [
       {
         type: 'line',
         label: 'INVENTARIO',
         data: data.inventario,
-        backgroundColor: 'rgba(169, 169, 169, 0.4)', // Gris Área
-        borderColor: '#7a7a7a',
+        backgroundColor: 'rgba(211, 211, 211, 0.7)', // Gris Área más sólido
+        borderColor: '#9e9e9e',
         borderWidth: 2,
         fill: true,
-        order: 1
+        order: 10 
       },
       {
         type: 'bar',
@@ -290,11 +299,11 @@ document.addEventListener('DOMContentLoaded', () => {
         backgroundColor: '#e76f51', // Naranja Barra
         borderColor: '#d00000',
         borderWidth: 1,
-        order: 6
+        order: 5
       }
     ];
 
-    if(data.planInv && data.planInv.length > 0 && data.planInv.some(v => v > 0)) {
+    if(data.planInv && data.planInv.some(v => v > 0)) {
         datasets.push({
             type: 'line',
             label: 'PLAN INV',
@@ -304,11 +313,11 @@ document.addEventListener('DOMContentLoaded', () => {
             borderDash: [5, 5],
             fill: false,
             pointRadius: 0,
-            order: 2
+            order: 1
         });
     }
 
-    if(data.planRecibo && data.planRecibo.length > 0 && data.planRecibo.some(v => v > 0)) {
+    if(data.planRecibo && data.planRecibo.some(v => v > 0)) {
         datasets.push({
             type: 'line',
             label: 'PLAN RECIBO',
@@ -318,11 +327,11 @@ document.addEventListener('DOMContentLoaded', () => {
             borderDash: [5, 5],
             fill: false,
             pointRadius: 0,
-            order: 3
+            order: 1
         });
     }
 
-    if(data.planDespacho && data.planDespacho.length > 0 && data.planDespacho.some(v => v > 0)) {
+    if(data.planDespacho && data.planDespacho.some(v => v > 0)) {
         datasets.push({
             type: 'line',
             label: 'PLAN DESPACHO',
@@ -332,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
             borderDash: [5, 5],
             fill: false,
             pointRadius: 0,
-            order: 4
+            order: 1
         });
     }
 
@@ -353,11 +362,9 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         scales: {
           x: {
-             stacked: false,
              grid: { display: false }
           },
           y: {
-            stacked: false,
             beginAtZero: true,
             ticks: {
                callback: function(value) {
@@ -371,34 +378,43 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function renderDataTable(prefix, headers, rows) {
-    const thead = document.getElementById(`table${prefix}Header`);
-    const tbody = document.getElementById(`table${prefix}Body`);
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
+  function renderBaseTables(prefix, tableData) {
+      // Como el sheet BASE tiene las 3 tablas de cajas (Recibo, Despacho, Inventario)
+      // ya armadas y listas, simplemente vamos a escupir la data en HTML en su contenedor,
+      // respetando su formato natural y evitando ensuciar con columnas que no vienen.
+      
+      const container = document.getElementById(`table${prefix}Container`);
+      if (!container) return;
+      
+      if (!tableData || !tableData.rawValues || tableData.rawValues.length === 0) {
+          container.innerHTML = '<p>No se encontraron datos en la hoja BASE.</p>';
+          return;
+      }
 
-    // Filtrar columnas vacías
-    const validHeaders = headers.filter(h => h && h.trim() !== '');
+      let html = '<table class="data-table"><tbody>';
+      
+      tableData.rawValues.forEach(row => {
+          let hasData = row.some(cell => String(cell).trim() !== '');
+          if (!hasData) return; // Ignorar filas completamente vacías
 
-    validHeaders.forEach(h => {
-        const th = document.createElement('th');
-        th.textContent = h;
-        thead.appendChild(th);
-    });
+          html += '<tr>';
+          row.forEach(cell => {
+              // Dar formato a números
+              let text = cell;
+              if(typeof cell === 'number') {
+                  text = cell.toLocaleString('es-PE', { maximumFractionDigits: 0 });
+              }
+              
+              // Si es un header de semana como "[34-2026]" o "Cajas (DIV)"
+              let isHeader = String(cell).includes('Cajas') || String(cell).includes('-202');
+              let tag = isHeader ? 'th' : 'td';
+              
+              html += `<${tag}>${text !== undefined && text !== null ? text : ''}</${tag}>`;
+          });
+          html += '</tr>';
+      });
 
-    rows.forEach(row => {
-        const tr = document.createElement('tr');
-        validHeaders.forEach(h => {
-            const td = document.createElement('td');
-            const val = row[h];
-            if(typeof val === 'number' || (typeof val === 'string' && !isNaN(parseFloat(val)) && val.trim() !== '')) {
-                td.textContent = parseFloat(val).toLocaleString('es-PE', { maximumFractionDigits: 0 });
-            } else {
-                td.textContent = val || '';
-            }
-            tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-    });
+      html += '</tbody></table>';
+      container.innerHTML = html;
   }
 });
