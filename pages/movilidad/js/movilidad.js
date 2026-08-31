@@ -548,12 +548,12 @@ function renderTables() {
         else if (pOcup >= 0.5) estCap = '⚠️ Bajo';
         else estCap = '🔴 Muy Bajo';
 
-        return \`<tr>
-          <td>\${r.ruta}</td><td>\${r.viajes}</td><td>\${r.cap}</td><td>\${r.pasaj}</td>
-          <td>\${(pOcup*100).toFixed(2)}%</td><td>S/ \${r.costo.toFixed(2)}</td><td>S/ \${cProm.toFixed(2)}</td>
-          <td>\${estCap}</td><td>\${promPasaj.toFixed(2)}</td><td>S/ \${cViaje.toFixed(2)}</td>
-          <td>MAX: \${r.maxP === -Infinity ? 0 : r.maxP} - MIN: \${r.minP === Infinity ? 0 : r.minP}</td>
-        </tr>\`;
+        return `<tr>
+          <td>${r.ruta}</td><td>${r.viajes}</td><td>${r.cap}</td><td>${r.pasaj}</td>
+          <td>${(pOcup*100).toFixed(2)}%</td><td>S/ ${r.costo.toFixed(2)}</td><td>S/ ${cProm.toFixed(2)}</td>
+          <td>${estCap}</td><td>${promPasaj.toFixed(2)}</td><td>S/ ${cViaje.toFixed(2)}</td>
+          <td>MAX: ${r.maxP === -Infinity ? 0 : r.maxP} - MIN: ${r.minP === Infinity ? 0 : r.minP}</td>
+        </tr>`;
       }).join('');
     }
 
@@ -570,7 +570,7 @@ function renderTables() {
     document.getElementById('rdCapacidadDia').innerText = aggDia.cap;
     document.getElementById('rdOcupacionDia').innerText = formatPct(aggDia.pasaj, aggDia.cap);
     document.getElementById('rdCostoPasajeroDia').innerText = 'S/ ' + (aggDia.pasaj > 0 ? (aggDia.costo / aggDia.pasaj).toFixed(2) : '0.00');
-    document.getElementById('rdCapacidadUsadaDia').innerText = \`\${aggDia.pasaj} de \${aggDia.cap} (\${formatPct(aggDia.pasaj, aggDia.cap)})\`;
+    document.getElementById('rdCapacidadUsadaDia').innerText = `${aggDia.pasaj} de ${aggDia.cap} (${formatPct(aggDia.pasaj, aggDia.cap)})`;
 
     document.getElementById('rdViajesSem').innerText = aggSem.viajes;
     document.getElementById('rdPasajerosSem').innerText = aggSem.pasaj;
