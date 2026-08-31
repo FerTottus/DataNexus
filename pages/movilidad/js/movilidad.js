@@ -477,10 +477,10 @@ function renderTables() {
         <td>${d.nombre}</td>
         <td>${d.count}</td>
         <td>${formatPct(d.count, totalEmps)}</td>
-        <td>${d.promCd > 0 ? d.promCd.toFixed(2) : '-'}</td>
-        <td>${d.promCd > 0 ? clasificarCD(d.promCd) : '-'}</td>
-        <td>${d.promPar > 0 ? d.promPar.toFixed(2) : '-'}</td>
-        <td>${d.promPar > 0 ? clasificarPar(d.promPar) : '-'}</td>
+        <td>${d.promCd >= 0 ? d.promCd.toFixed(2) : '-'}</td>
+        <td>${d.promCd >= 0 ? clasificarCD(d.promCd) : '-'}</td>
+        <td>${d.promPar >= 0 ? d.promPar.toFixed(2) : '-'}</td>
+        <td>${d.promPar >= 0 ? clasificarPar(d.promPar) : '-'}</td>
         <td>${d.ruta}</td>
         <td>${obsDistrito(d.promCd, d.promPar)}</td>
       </tr>
