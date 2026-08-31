@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // Inicialización
+  // Inicialización de Auth
   if (window.GoogleSheetsService) {
     window.GoogleSheetsService.initAuth();
     updateAuthUI();
   }
 
-  // Elementos UI globales
+  // UI Elements
   const btnGoogleLogin = document.getElementById('btnGoogleLogin');
   const btnGoogleLogout = document.getElementById('btnGoogleLogout');
   const btnFetchData = document.getElementById('btnFetchData');
@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const tabBtns = document.querySelectorAll('.tab-btn');
   const btnApplyFilters = document.getElementById('btnApplyFilters');
 
-  // Autenticación
   btnGoogleLogin?.addEventListener('click', () => {
     window.GoogleSheetsService.requestAccessToken((success) => {
       if (success) updateAuthUI();
@@ -40,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Modal Explorador de Drive
+  // Explorador de Drive Modal
   btnBrowseDrive?.addEventListener('click', () => {
     if (!window.GoogleSheetsService.isAuthenticated()) {
       window.GoogleSheetsService.requestAccessToken((success) => {
@@ -93,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
       li.addEventListener('click', () => {
         sheetUrlInput.value = file.id;
         document.getElementById('drive-modal').classList.add('hidden');
+        // Auto cargar datos si se selecciona un archivo
         btnFetchData.click();
       });
       fileList.appendChild(li);
@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDriveFiles(filtered);
   };
 
-  // Tabs
+  // Cambio de Pestañas (Tabs)
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       tabBtns.forEach(b => b.classList.remove('active'));
@@ -116,34 +116,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Cargar Datos
   btnChangeSheet?.addEventListener('click', () => {
     connectBox.classList.remove('hidden');
     connectionSuccessInfo.classList.add('hidden');
   });
 
+  // Cargar Datos Global
   btnFetchData?.addEventListener('click', async () => {
     const urlOrId = sheetUrlInput.value.trim();
-    if (!urlOrId) return alert("Por favor, ingresa la URL del Google Sheet.");
+    if (!urlOrId) return alert("Por favor, ingresa la URL o busca un archivo en tu Drive.");
     const sheetId = window.GoogleSheetsService.extractSpreadsheetId(urlOrId);
-    if (!sheetId) return alert("ID inválido.");
-    if (!window.GoogleSheetsService.isAuthenticated()) return alert("Inicia sesión primero.");
+    if (!sheetId) return alert("ID inválido o URL no reconocida.");
+    if (!window.GoogleSheetsService.isAuthenticated()) return alert("Debes iniciar sesión con Google primero.");
 
     loadingIndicator.classList.remove('hidden');
     
     try {
-      window.rawFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!A5:L109");
-      window.rawSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!R5:AA109");
+      // Ajustamos rangos más largos por si el usuario agregó más divisiones o semanas
+      window.rawFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!A5:P200");
+      window.rawSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, "BD_Grafico!R5:AH200");
 
       connectBox.classList.add('hidden');
       connectionSuccessInfo.classList.remove('hidden');
-      document.getElementById('connectedSheetName').textContent = "ID: " + sheetId;
+      document.getElementById('connectedSheetName').textContent = `Documento cargado (ID: ${sheetId.substring(0, 8)}...)`;
       dashboardSection.classList.remove('hidden');
 
       applyFiltersAndRender();
     } catch (e) {
       console.error(e);
-      alert("Error: " + e.message);
+      alert("Error al cargar los datos: " + e.message);
     } finally {
       loadingIndicator.classList.add('hidden');
     }
@@ -157,8 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!window.rawFrescos || !window.rawSecos) return;
     const filterType = document.getElementById('timeFilter').value;
     
-    processAndRenderSection('Frescos', window.rawFrescos, filterType);
     processAndRenderSection('Secos', window.rawSecos, filterType);
+    processAndRenderSection('Frescos', window.rawFrescos, filterType);
   }
 
   // --- LÓGICA DE PROCESAMIENTO Y GRÁFICOS ---
@@ -167,13 +168,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function processAndRenderSection(prefix, rawData, filterType) {
     if(!rawData.rows || rawData.rows.length === 0) return;
 
-    // Asumimos tablas apiladas: RECIBO, DESPACHO, INVENTARIO
-    // Y asumimos X-Axis = Semanas/Meses (las columnas)
-    
     const firstCol = rawData.headers[0];
     const timeCols = extractAndFilterTimeCols(rawData.headers, filterType);
 
-    // Separar datos en 3 bloques
+    // Separar datos en bloques según el Dashboard de ejemplo
     const blocks = { RECIBO: [], DESPACHO: [], INVENTARIO: [] };
     let currentBlock = 'RECIBO'; // por defecto el primero
 
@@ -182,40 +180,49 @@ document.addEventListener('DOMContentLoaded', () => {
       if(label.includes('RECIBO') || label.includes('INGRESO')) currentBlock = 'RECIBO';
       else if(label.includes('DESPACHO') || label.includes('SALIDA')) currentBlock = 'DESPACHO';
       else if(label.includes('INVENTARIO')) currentBlock = 'INVENTARIO';
-      else if(label && !label.includes('TOTAL') && !label.includes('CAJAS')) {
+      else if(label && !label.includes('TOTAL') && !label.includes('CAJAS') && !label.includes('DIVISION')) {
         blocks[currentBlock].push(row);
       }
     });
 
-    renderDataChart(`${prefix}Recibo`, 'bar', timeCols, blocks.RECIBO, firstCol);
-    renderDataChart(`${prefix}Despacho`, 'line', timeCols, blocks.DESPACHO, firstCol);
-    renderDataChart(`${prefix}Inventario`, 'bar', timeCols, blocks.INVENTARIO, firstCol);
+    // Calcular Totales por Columna para el gráfico principal
+    const totals = { RECIBO: [], DESPACHO: [], INVENTARIO: [] };
+    
+    ['RECIBO', 'DESPACHO', 'INVENTARIO'].forEach(blockType => {
+        timeCols.forEach(col => {
+            let sum = 0;
+            blocks[blockType].forEach(row => {
+                sum += parseFloat(row[col]) || 0;
+            });
+            totals[blockType].push(sum);
+        });
+    });
 
-    renderFilteredTable(`table${prefix}`, rawData.headers, timeCols, blocks.RECIBO, blocks.DESPACHO, blocks.INVENTARIO, firstCol);
+    // Renderizar Tablas individuales
+    renderTableBlock(`${prefix}Recibo`, timeCols, blocks.RECIBO, firstCol, totals.RECIBO);
+    renderTableBlock(`${prefix}Despacho`, timeCols, blocks.DESPACHO, firstCol, totals.DESPACHO);
+    renderTableBlock(`${prefix}Inventario`, timeCols, blocks.INVENTARIO, firstCol, totals.INVENTARIO);
+
+    // Renderizar un único Gráfico Combinado
+    renderComboChart(prefix, timeCols, totals);
   }
 
   function extractAndFilterTimeCols(headers, filterType) {
-    // Extraer columnas omitiendo la primera (etiquetas) y el total general
-    let cols = headers.slice(1).filter(h => !h.toUpperCase().includes('TOTAL'));
+    let cols = headers.slice(1).filter(h => !h.toUpperCase().includes('TOTAL') && h.trim() !== '');
     
     if (filterType === 'all') return cols;
 
-    // Lógica simple: Últimos 2 meses => aprox últimas 8 columnas (si son semanas) o 2 (si son meses)
-    // Como no sabemos si la tabla está agrupada por semanas o meses, tomamos las últimas 8 columnas
-    // para representar "2 meses" (asumiendo formato semanal que es muy comun en throughput).
-    // Si la data tiene el formato "[6-2025]" podemos parsear.
-    
+    // "Ultimos 2 meses" -> Tomamos aproximadamente 8 o 9 semanas recientes
     if (filterType === 'last2months') {
-        return cols.slice(-8); // Tomamos las ultimas 8 columnas (aprox 2 meses si es semanal)
+        return cols.slice(-9); 
     }
 
     if (filterType === 'last2months_yoy') {
-        // Tratar de buscar el año anterior a las últimas columnas
-        const recentCols = cols.slice(-8);
+        const recentCols = cols.slice(-9);
         const lastYearCols = [];
         
         recentCols.forEach(col => {
-            // ej: "[6-2026]" -> buscamos "[6-2025]"
+            // Ejemplo: "[6-2026]" -> "[6-2025]"
             let match = col.match(/(\d{4})/);
             if (match) {
                 let year = parseInt(match[1]);
@@ -224,97 +231,143 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // Si falló el regex, regresamos simplemente las primeras 8 columnas asumiendo que son del año pasado
-        return lastYearCols.length > 0 ? lastYearCols : cols.slice(0, 8); 
+        return lastYearCols.length > 0 ? lastYearCols : cols.slice(0, 9); 
     }
 
     return cols;
   }
 
-  function renderDataChart(canvasId, type, xLabels, rows, labelCol) {
-    const ctx = document.getElementById('chart' + canvasId);
+  function renderTableBlock(tableId, timeCols, rows, labelCol, totalsArr) {
+    const thead = document.getElementById(`table${tableId}Header`);
+    const tbody = document.getElementById(`table${tableId}Body`);
+    const tfoot = document.getElementById(`table${tableId}Foot`);
+    
+    if(!thead || !tbody || !tfoot) return;
+
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    tfoot.innerHTML = '';
+
+    // Headers
+    const thEmpty = document.createElement('th');
+    thEmpty.textContent = ''; 
+    thead.appendChild(thEmpty);
+    
+    timeCols.forEach(col => {
+        const th = document.createElement('th');
+        th.className = 'table-header-color';
+        th.textContent = col;
+        thead.appendChild(th);
+    });
+
+    // Rows
+    rows.forEach(row => {
+        const tr = document.createElement('tr');
+        
+        // Division
+        const tdDiv = document.createElement('td');
+        tdDiv.textContent = row[labelCol] || '';
+        tr.appendChild(tdDiv);
+
+        // Valores
+        timeCols.forEach(col => {
+            const td = document.createElement('td');
+            const val = parseFloat(row[col]);
+            td.textContent = !isNaN(val) ? val.toLocaleString('es-PE', { maximumFractionDigits: 0 }) : '-';
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+
+    // Footer (Total)
+    const trFoot = document.createElement('tr');
+    trFoot.className = 'total-row';
+    const tdTotalLabel = document.createElement('td');
+    tdTotalLabel.textContent = 'Total';
+    trFoot.appendChild(tdTotalLabel);
+
+    totalsArr.forEach(totalVal => {
+        const td = document.createElement('td');
+        td.textContent = totalVal.toLocaleString('es-PE', { maximumFractionDigits: 0 });
+        trFoot.appendChild(td);
+    });
+    tfoot.appendChild(trFoot);
+  }
+
+  function renderComboChart(prefix, xLabels, totals) {
+    const canvasId = `chart${prefix}Combined`;
+    const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
 
-    const colors = [
-      '#4285F4', '#34A853', '#FBBC05', '#EA4335', '#673AB7', '#3F51B5', '#009688', '#FF9800', '#795548', '#607D8B'
+    // Recreamos exactamente el gráfico de los mockups (Inventario como área, Recibo y Despacho como barras)
+    // El orden importa para la superposición: área primero (Inventario)
+    
+    const datasets = [
+      {
+        type: 'line',
+        label: 'INVENTARIO',
+        data: totals.INVENTARIO,
+        backgroundColor: 'rgba(169, 169, 169, 0.4)', // Gris semi-transparente
+        borderColor: '#7a7a7a',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        yAxisID: 'y'
+      },
+      {
+        type: 'bar',
+        label: 'RECIBO',
+        data: totals.RECIBO,
+        backgroundColor: '#457b9d', // Azul
+        borderColor: '#1d3557',
+        borderWidth: 1,
+        yAxisID: 'y'
+      },
+      {
+        type: 'bar',
+        label: 'DESPACHO',
+        data: totals.DESPACHO,
+        backgroundColor: '#e76f51', // Naranja/Rojo
+        borderColor: '#d00000',
+        borderWidth: 1,
+        yAxisID: 'y'
+      }
     ];
 
-    // Datasets: Cada fila (Ej. J01, J02) es una línea/barra en el gráfico
-    const datasets = rows.map((row, index) => {
-      return {
-        label: row[labelCol] || `División ${index}`,
-        data: xLabels.map(col => parseFloat(row[col]) || 0),
-        backgroundColor: colors[index % colors.length] + '80', // Opacidad 50%
-        borderColor: colors[index % colors.length],
-        borderWidth: 2,
-        tension: 0.3,
-        fill: type === 'line' ? false : true
-      };
-    });
-
     charts[canvasId] = new Chart(ctx, {
-      type: type,
       data: {
-        labels: xLabels, // Eje X = Tiempo
+        labels: xLabels,
         datasets: datasets
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'right' }
+          legend: { 
+            position: 'top',
+            labels: { usePointStyle: true, boxWidth: 10 }
+          },
+          tooltip: { mode: 'index', intersect: false }
         },
         scales: {
-          x: { stacked: false },
-          y: { beginAtZero: true }
-        }
+          x: {
+             stacked: false,
+             grid: { display: false }
+          },
+          y: {
+            stacked: false,
+            beginAtZero: true,
+            ticks: {
+               // Formatear números grandes con comas
+               callback: function(value) {
+                  return value.toLocaleString('es-PE');
+               }
+            }
+          }
+        },
+        interaction: { mode: 'index', intersect: false }
       }
     });
-  }
-
-  function renderFilteredTable(tableId, allHeaders, timeCols, rRows, dRows, iRows, labelCol) {
-    const thead = document.getElementById(`${tableId}Header`);
-    const tbody = document.getElementById(`${tableId}Body`);
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-
-    // Headers: [Categoria] [Division] [Fechas...]
-    const finalHeaders = ['CATEGORÍA', labelCol, ...timeCols];
-    finalHeaders.forEach(h => {
-        const th = document.createElement('th');
-        th.textContent = h;
-        thead.appendChild(th);
-    });
-
-    const appendRows = (rows, categoryName) => {
-        rows.forEach(row => {
-            const tr = document.createElement('tr');
-            
-            // Categoria
-            const tdCat = document.createElement('td');
-            tdCat.textContent = categoryName;
-            tdCat.style.fontWeight = 'bold';
-            tr.appendChild(tdCat);
-
-            // Division
-            const tdDiv = document.createElement('td');
-            tdDiv.textContent = row[labelCol] || '';
-            tr.appendChild(tdDiv);
-
-            // Valores de tiempo
-            timeCols.forEach(col => {
-                const td = document.createElement('td');
-                const val = parseFloat(row[col]);
-                td.textContent = !isNaN(val) ? val.toLocaleString('es-PE', { maximumFractionDigits: 0 }) : '-';
-                tr.appendChild(td);
-            });
-            tbody.appendChild(tr);
-        });
-    };
-
-    appendRows(rRows, 'RECIBO');
-    appendRows(dRows, 'DESPACHO');
-    appendRows(iRows, 'INVENTARIO');
   }
 });

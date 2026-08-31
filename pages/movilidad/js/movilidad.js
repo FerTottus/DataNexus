@@ -428,9 +428,9 @@ function renderTables() {
     if (km <= 5) return '🟠 Moderada';
     return '🔴 Lejos';
   };
+
   const obsDistrito = (cd, par) => {
-    if (cd === 0 && par > 0) return '✈️ Provincia / Fuera de rango CD';
-    if (cd === 0 && par === 0) return '⚠️ Sin datos de ubicación';
+    // Lógica original de Excel provista por el usuario
     if (cd > 20 && par > 5) return '⚠️ Muy lejos del CD y paraderos';
     if (cd > 20) return '⚠️ Muy lejos del CD';
     if (par > 5) return '⚠️ Lejos de paraderos';

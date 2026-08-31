@@ -10,98 +10,98 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="../../css/styles.css">
-  <!-- Chart.js para los gráficos -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Google Identity Services (GSI) para OAuth 2.0 -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    /* Estilos específicos para el Throughput Dashboard */
-    .dashboard-container {
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-    .section-title {
-      font-size: 1.5rem;
-      color: var(--primary-color);
-      border-bottom: 2px solid var(--border-color);
-      padding-bottom: 10px;
-      margin-top: 20px;
-    }
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 20px;
-    }
-    .kpi-card {
+    /* Estilos específicos para replicar el layout del dashboard */
+    .dashboard-container { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+    .section-title { font-size: 2rem; color: #2c3e50; font-weight: 700; margin-bottom: 20px; text-transform: uppercase; }
+    
+    .chart-container-large {
+      position: relative;
+      height: 400px;
+      width: 100%;
       background: white;
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 15px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
     }
-    .kpi-card h3 {
-      margin-top: 0;
-      font-size: 1.1rem;
-      color: var(--text-color);
-      margin-bottom: 15px;
+    
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
     }
-    .data-table-container {
-      overflow-x: auto;
+    
+    .table-wrapper {
       background: white;
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 15px;
+      padding: 10px;
+      overflow-x: auto;
     }
+    
+    .table-title {
+      text-align: center;
+      color: #6c757d;
+      font-weight: 600;
+      margin-bottom: 10px;
+      font-size: 1.1rem;
+    }
+    
     .data-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
     }
     .data-table th, .data-table td {
-      border: 1px solid var(--border-color);
-      padding: 8px;
+      border: 1px solid #dee2e6;
+      padding: 6px;
       text-align: right;
     }
     .data-table th {
-      background-color: var(--bg-color);
+      background-color: #f8f9fa;
       font-weight: 600;
       text-align: center;
     }
-    .data-table td:first-child, .data-table th:first-child {
-      text-align: left;
-      font-weight: 500;
-    }
-    .tab-buttons {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .tab-btn {
-      padding: 8px 16px;
-      border: 1px solid var(--primary-color);
-      background: white;
-      color: var(--primary-color);
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: 500;
-      transition: all 0.2s;
-    }
-    .tab-btn.active {
-      background: var(--primary-color);
+    .data-table th.table-header-color {
       color: white;
     }
-    .tab-content {
-      display: none;
+    .data-table td:first-child, .data-table th:first-child {
+      text-align: left;
+      font-weight: bold;
     }
-    .tab-content.active {
-      display: block;
+    .data-table tr.total-row {
+      font-weight: bold;
+      background-color: #f1f3f5;
     }
-    .chart-container {
-      position: relative;
-      height: 300px;
-      width: 100%;
+
+    .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-btn {
+      padding: 8px 16px; border: 1px solid var(--primary-color); background: white;
+      color: var(--primary-color); border-radius: 4px; cursor: pointer; font-weight: 500;
+    }
+    .tab-btn.active { background: var(--primary-color); color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    /* Layout de Conexion similar al global */
+    .connection-flex {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .connection-input-area {
+        flex: 1;
+        min-width: 300px;
+    }
+    .connection-buttons {
+        display: flex;
+        gap: 10px;
     }
   </style>
 </head>
@@ -113,8 +113,8 @@
         <i class="fa-solid fa-boxes-stacked text-primary"></i>
       </div>
       <div>
-        <h1 class="logo-title">Throughput</h1>
-        <span class="logo-subtitle">Análisis de Secos y Frescos</span>
+        <h1 class="logo-title">DataNexus</h1>
+        <span class="logo-subtitle">Throughput Secos y Frescos</span>
       </div>
     </div>
 
@@ -122,7 +122,6 @@
       <a href="../../index.html" class="btn btn-outline-secondary btn-sm">
         <i class="fa-solid fa-arrow-left"></i> Volver al Inicio
       </a>
-      <!-- Estado de Autenticación de Google -->
       <div id="authContainer" class="auth-box">
         <button id="btnGoogleLogin" class="btn btn-google">
           <svg class="google-icon" viewBox="0 0 24 24">
@@ -150,37 +149,35 @@
     <!-- Conexión con el Google Sheet -->
     <section class="card sheet-connector-card">
       <div class="card-header">
-        <h2><i class="fa-solid fa-link text-primary"></i> Conectar a Google Sheet (Throughput)</h2>
+        <h2><i class="fa-solid fa-link text-primary"></i> Conectar a Google Sheet</h2>
       </div>
       <div class="card-body">
-        <div class="input-group-grid" id="connectBox">
-          <div class="input-field full-width">
-            <label for="sheetUrlInput">URL o ID del archivo de Google Sheets:</label>
-            <div class="input-with-action" style="display: flex; gap: 8px;">
-              <input type="text" id="sheetUrlInput" placeholder="Ej: https://docs.google.com/spreadsheets/d/..." class="form-control" style="flex-grow: 1;">
-              <button id="btnBrowseDrive" class="btn btn-secondary">
-                <i class="fa-solid fa-folder-open"></i> Explorar Drive
-              </button>
-              <button id="btnFetchData" class="btn btn-primary">
-                <i class="fa-solid fa-arrows-rotate"></i> Cargar Datos
-              </button>
-            </div>
-            <small class="helper-text">
-              <i class="fa-solid fa-info-circle"></i> Se extraerán las celdas A5:L109 (Frescos) y R5:AA109 (Secos) de la hoja "BD_Grafico".
-            </small>
+        <div id="connectBox" class="connection-flex">
+          <div class="connection-input-area">
+            <input type="text" id="sheetUrlInput" placeholder="Pega el enlace del Excel..." class="form-control" style="width: 100%;">
+          </div>
+          <div class="connection-buttons">
+            <button id="btnBrowseDrive" class="btn btn-secondary">
+              <i class="fa-solid fa-folder-open"></i> Explorar Drive
+            </button>
+            <button id="btnFetchData" class="btn btn-primary">
+              <i class="fa-solid fa-cloud-arrow-down"></i> Cargar Datos
+            </button>
           </div>
         </div>
-        <div id="connectionSuccessInfo" class="hidden" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #e8f5e9; border-radius: 8px; border: 1px solid #c8e6c9;">
-            <span><i class="fa-solid fa-check-circle text-success"></i> Conectado exitosamente. <strong id="connectedSheetName"></strong></span>
+        
+        <div id="connectionSuccessInfo" class="hidden" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
+            <span><i class="fa-solid fa-check-circle text-success"></i> Conectado al documento exitosamente. <strong id="connectedSheetName"></strong></span>
             <button id="btnChangeSheet" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-pen"></i> Cambiar Archivo</button>
         </div>
+        
         <div id="loadingIndicator" class="hidden text-center" style="margin-top: 15px;">
-          <i class="fa-solid fa-spinner fa-spin text-primary"></i> Cargando y procesando datos...
+          <i class="fa-solid fa-spinner fa-spin text-primary"></i> Procesando datos del Dashboard...
         </div>
       </div>
     </section>
 
-    <!-- Modal del Explorador de Archivos (Oculto por defecto) -->
+    <!-- Modal del Explorador de Archivos -->
     <div id="drive-modal" class="modal-overlay hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -198,98 +195,102 @@
 
     <!-- Dashboard -->
     <div id="dashboardSection" class="dashboard-container hidden">
+      
       <!-- Filtros Globales -->
       <div class="filters-section card" style="margin-bottom: 0;">
-        <div class="card-header">
-          <h3><i class="fa-solid fa-filter"></i> Filtros de Tiempo</h3>
-        </div>
-        <div class="card-body" style="display: flex; gap: 15px; align-items: center;">
+        <div class="card-body" style="display: flex; gap: 15px; align-items: center; padding: 15px;">
           <div>
-            <label for="timeFilter" style="font-weight: 500; margin-right: 10px;">Rango de Análisis:</label>
+            <label for="timeFilter" style="font-weight: bold; margin-right: 10px;"><i class="fa-solid fa-filter"></i> Rango de Fechas:</label>
             <select id="timeFilter" class="form-control" style="width: auto; display: inline-block;">
               <option value="all">Mostrar todo</option>
-              <option value="last2months">Últimos 2 meses (Actual)</option>
-              <option value="last2months_yoy">Últimos 2 meses (Año Anterior)</option>
+              <option value="last2months">Últimos meses (Actuales)</option>
+              <option value="last2months_yoy">Últimos meses (Año Anterior)</option>
             </select>
           </div>
-          <button id="btnApplyFilters" class="btn btn-primary btn-sm"><i class="fa-solid fa-check"></i> Aplicar</button>
+          <button id="btnApplyFilters" class="btn btn-primary btn-sm"><i class="fa-solid fa-rotate"></i> Actualizar Vistas</button>
         </div>
       </div>
 
       <div class="tab-buttons">
-        <button class="tab-btn active" data-target="tab-frescos">Frescos</button>
-        <button class="tab-btn" data-target="tab-secos">Secos</button>
-      </div>
-
-      <!-- Tab Frescos -->
-      <div id="tab-frescos" class="tab-content active">
-        <h2 class="section-title"><i class="fa-solid fa-apple-whole"></i> Throughput Frescos</h2>
-        
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <h3>Gráfico Recibo (Cajas)</h3>
-            <div class="chart-container">
-              <canvas id="chartFrescosRecibo"></canvas>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <h3>Gráfico Despacho (Cajas)</h3>
-            <div class="chart-container">
-              <canvas id="chartFrescosDespacho"></canvas>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <h3>Gráfico Inventario (Cajas)</h3>
-            <div class="chart-container">
-              <canvas id="chartFrescosInventario"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <h3 style="margin-top: 20px;">Datos Detallados (A5:L109)</h3>
-        <div class="data-table-container">
-          <table class="data-table" id="tableFrescos">
-            <thead>
-              <tr id="tableFrescosHeader"></tr>
-            </thead>
-            <tbody id="tableFrescosBody"></tbody>
-          </table>
-        </div>
+        <button class="tab-btn active" data-target="tab-secos">THROUGHPUT-CD SECOS</button>
+        <button class="tab-btn" data-target="tab-frescos">THROUGHPUT-CD FRESCOS</button>
       </div>
 
       <!-- Tab Secos -->
-      <div id="tab-secos" class="tab-content">
-        <h2 class="section-title"><i class="fa-solid fa-box-open"></i> Throughput Secos</h2>
+      <div id="tab-secos" class="tab-content active">
+        <h2 class="section-title">THROUGHPUT-CD SECOS 2026</h2>
         
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <h3>Gráfico Recibo (Cajas)</h3>
-            <div class="chart-container">
-              <canvas id="chartSecosRecibo"></canvas>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <h3>Gráfico Despacho (Cajas)</h3>
-            <div class="chart-container">
-              <canvas id="chartSecosDespacho"></canvas>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <h3>Gráfico Inventario (Cajas)</h3>
-            <div class="chart-container">
-              <canvas id="chartSecosInventario"></canvas>
-            </div>
-          </div>
+        <div class="chart-container-large">
+          <canvas id="chartSecosCombined"></canvas>
         </div>
 
-        <h3 style="margin-top: 20px;">Datos Detallados (R5:AA109)</h3>
-        <div class="data-table-container">
-          <table class="data-table" id="tableSecos">
-            <thead>
-              <tr id="tableSecosHeader"></tr>
-            </thead>
-            <tbody id="tableSecosBody"></tbody>
-          </table>
+        <div class="tables-grid">
+          <!-- Recibo -->
+          <div class="table-wrapper">
+            <div class="table-title">• Cajas (DIV) RECIBO</div>
+            <table class="data-table" id="tableSecosRecibo">
+              <thead><tr id="tableSecosReciboHeader" style="background:#f4a261;"></tr></thead>
+              <tbody id="tableSecosReciboBody"></tbody>
+              <tfoot id="tableSecosReciboFoot"></tfoot>
+            </table>
+          </div>
+          <!-- Despacho -->
+          <div class="table-wrapper">
+            <div class="table-title">• Cajas (DIV) DESPACHO</div>
+            <table class="data-table" id="tableSecosDespacho">
+              <thead><tr id="tableSecosDespachoHeader" style="background:#e76f51;"></tr></thead>
+              <tbody id="tableSecosDespachoBody"></tbody>
+              <tfoot id="tableSecosDespachoFoot"></tfoot>
+            </table>
+          </div>
+          <!-- Inventario -->
+          <div class="table-wrapper">
+            <div class="table-title">• Cajas (DIV) INVENTARIO</div>
+            <table class="data-table" id="tableSecosInventario">
+              <thead><tr id="tableSecosInventarioHeader" style="background:#2a9d8f;"></tr></thead>
+              <tbody id="tableSecosInventarioBody"></tbody>
+              <tfoot id="tableSecosInventarioFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Frescos -->
+      <div id="tab-frescos" class="tab-content">
+        <h2 class="section-title">TROUGHPUT-CD FRESCOS 2026</h2>
+        
+        <div class="chart-container-large">
+          <canvas id="chartFrescosCombined"></canvas>
+        </div>
+
+        <div class="tables-grid">
+          <!-- Recibo -->
+          <div class="table-wrapper">
+            <div class="table-title">• Cajas (DIV) RECIBO</div>
+            <table class="data-table" id="tableFrescosRecibo">
+              <thead><tr id="tableFrescosReciboHeader" style="background:#457b9d;"></tr></thead>
+              <tbody id="tableFrescosReciboBody"></tbody>
+              <tfoot id="tableFrescosReciboFoot"></tfoot>
+            </table>
+          </div>
+          <!-- Despacho -->
+          <div class="table-wrapper">
+            <div class="table-title">• Cajas (DIV) DESPACHO</div>
+            <table class="data-table" id="tableFrescosDespacho">
+              <thead><tr id="tableFrescosDespachoHeader" style="background:#1d3557;"></tr></thead>
+              <tbody id="tableFrescosDespachoBody"></tbody>
+              <tfoot id="tableFrescosDespachoFoot"></tfoot>
+            </table>
+          </div>
+          <!-- Inventario -->
+          <div class="table-wrapper">
+            <div class="table-title">• Cajas (DIV) INVENTARIO</div>
+            <table class="data-table" id="tableFrescosInventario">
+              <thead><tr id="tableFrescosInventarioHeader" style="background:#8d99ae;"></tr></thead>
+              <tbody id="tableFrescosInventarioBody"></tbody>
+              <tfoot id="tableFrescosInventarioFoot"></tfoot>
+            </table>
+          </div>
         </div>
       </div>
 
