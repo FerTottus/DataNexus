@@ -182,19 +182,16 @@ body {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.85rem;
 }
-
 .data-table th, .data-table td {
-  padding: 0.5rem;
+  padding: 10px;
   text-align: left;
   border-bottom: 1px solid #e2e8f0;
 }
-
 .data-table th {
-  background-color: #f8fafc;
-  color: #475569;
+  background: #f8fafc;
   font-weight: 600;
+  color: #475569;
 }
 
 .data-table tr:hover {
@@ -253,3 +250,34 @@ body {
   opacity: 1;
   visibility: visible;
 }
+
+/* Nuevas clases para Layout Igual al Mockup */
+.row-3-cols {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
+@media (max-width: 1024px) {
+  .row-3-cols {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.dashboard-buses-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 768px) {
+  .dashboard-buses-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sticky-header th {
+  position: sticky;
+  top: 0;
+  background-color: #f8fafc;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
