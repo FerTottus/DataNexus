@@ -16,6 +16,7 @@
   <!-- Estilos Específicos de este Dashboard -->
   <link rel="stylesheet" href="css/movilidad.css">
   
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://apis.google.com/js/api.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -106,59 +107,79 @@
       </section>
     </div> <!-- End sticky-filters-wrapper -->
 
+    </div> <!-- End sticky-filters-wrapper -->
+
     <!-- Contenedor de Métricas y Gráficos (Oculto hasta cargar datos) -->
     <section id="dashboardContent" class="dashboard-content hidden">
       
-      <!-- Fila 1: Resumen y Clasificaciones (3 Tablas) -->
-      <div class="tables-grid row-3-cols mt-4">
-        <!-- Tabla: Resumen -->
-        <div class="card p-3">
-          <h3 class="table-title">RESUMEN</h3>
-          <div class="table-responsive">
-            <table class="data-table" id="tableResumen">
-              <tbody>
-                <tr><td>Total Empleados Analizados</td><td id="resTotalEmp">-</td></tr>
-                <tr><td>Total Distritos</td><td id="resTotalDist">-</td></tr>
-                <tr><td>Distancia Promedio al CD</td><td id="resDistCD">-</td></tr>
-                <tr><td>Distancia Promedio a Paradero</td><td id="resDistPar">-</td></tr>
-                <tr><td>Total Rutas Utilizadas</td><td id="resTotalRutas">-</td></tr>
-              </tbody>
-            </table>
-          </div>
+      <!-- NIVEL 1: KPIs Ejecutivos (El Qué y Cuánto) -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-title"><i class="fa-solid fa-money-bill-wave"></i> Costo del Día</div>
+          <div class="kpi-value" id="kpiCostoDia">S/ 0.00</div>
+          <div class="kpi-subtitle">Total invertido hoy</div>
         </div>
-        <!-- Tabla: Clasificación Dist CD -->
-        <div class="card p-3">
-          <h3 class="table-title">DIST. AL CENTRO DE DISTRIBUCIÓN</h3>
-          <div class="table-responsive">
-            <table class="data-table" id="tableClasifCD">
-              <thead><tr><th>Clasificación</th><th>Empleados</th><th>%</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
+        <div class="kpi-card">
+          <div class="kpi-title"><i class="fa-solid fa-users"></i> % Ocupación Día</div>
+          <div class="kpi-value" id="kpiOcupacionDia">0%</div>
+          <div class="kpi-subtitle">Capacidad utilizada</div>
         </div>
-        <!-- Tabla: Clasificación Dist Paradero -->
-        <div class="card p-3">
-          <h3 class="table-title">DIST. A PARADEROS MÁS CERCANOS</h3>
-          <div class="table-responsive">
-            <table class="data-table" id="tableClasifParadero">
-              <thead><tr><th>Clasificación</th><th>Empleados</th><th>%</th></tr></thead>
-              <tbody></tbody>
-            </table>
+        <div class="kpi-card">
+          <div class="kpi-title"><i class="fa-solid fa-user-check"></i> Total Empleados</div>
+          <div class="kpi-value" id="kpiTotalEmps">-</div>
+          <div class="kpi-subtitle">Personal analizado</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-title"><i class="fa-solid fa-route"></i> Dist. Prom. a CD</div>
+          <div class="kpi-value" id="kpiDistPromCD">-</div>
+          <div class="kpi-subtitle">Kilómetros</div>
+        </div>
+      </div>
+
+      <!-- NIVEL 2: El Pulso de la Operación (Buses diarios) -->
+      <div class="card p-3 mt-4" id="seccionDashboardBuses" style="display: none;">
+        <h3 class="table-title mb-3">📊 ESTADO DE OPERACIÓN DIARIA DE BUSES</h3>
+        <div class="dashboard-buses-grid">
+          <div>
+            <h4 class="mb-2"><i class="fa-regular fa-calendar-days"></i> RESUMEN DEL DÍA</h4>
+            <div class="table-responsive">
+              <table class="data-table" id="tableResumenDia">
+                <tbody>
+                  <tr><td>Total Buses del Día:</td><td id="rdBusesDia">-</td></tr>
+                  <tr><td>Total Pasajeros:</td><td id="rdPasajerosDia">-</td></tr>
+                  <tr><td>Costo Promedio/Pasajero:</td><td id="rdCostoPasajeroDia">-</td></tr>
+                  <tr><td>Capacidad Total:</td><td id="rdCapacidadDia">-</td></tr>
+                  <tr><td>Capacidad Utilizada:</td><td id="rdCapacidadUsadaDia">-</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h4 class="mb-2"><i class="fa-solid fa-calendar-week"></i> RESUMEN SEMANAL</h4>
+            <div class="table-responsive">
+              <table class="data-table" id="tableResumenSemana">
+                <tbody>
+                  <tr><td>Total Viajes Semana:</td><td id="rdViajesSem">-</td></tr>
+                  <tr><td>Total Pasajeros Semana:</td><td id="rdPasajerosSem">-</td></tr>
+                  <tr><td>Costo Total Semana:</td><td id="rdCostoSem">-</td></tr>
+                  <tr><td>% Ocupación Prom. Sem.:</td><td id="rdOcupacionSem">-</td></tr>
+                  <tr><td>Costo Prom./Pasaj. Sem.:</td><td id="rdCostoPasajeroSem">-</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Fila 2: Análisis Detallado por Distrito -->
-      <div class="card p-3 mt-4">
-        <h3 class="table-title">ANÁLISIS DETALLADO POR DISTRITO</h3>
-        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-          <table class="data-table sticky-header" id="tableDetalleDistritos">
+      <div class="card p-3 mt-4" id="seccionRegistroDiario" style="display: none;">
+        <h3 class="table-title">EFICIENCIA Y COSTO POR RUTA (DÍA ACTUAL)</h3>
+        <div class="table-responsive">
+          <table class="data-table" id="tableRegistroDiario">
             <thead>
               <tr>
-                <th>#</th><th>Distrito</th><th>Empleados</th><th>% Total</th>
-                <th>Dist. Prom. CD (km)</th><th>Clasif. CD</th>
-                <th>Dist. Prom. Paradero (km)</th><th>Clasif. Paradero</th>
-                <th>Ruta Principal</th><th>Observación</th>
+                <th>Ruta</th><th>Total Viajes</th><th>Capacidad Asignada</th><th>Total Pasajeros</th>
+                <th>% Ocupación</th><th>Estado Capacidad</th><th>Costo Total</th><th>Costo Prom./Pasajero</th>
+                <th>Costo/Viaje</th><th>Máx - Mín Pasajeros</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -166,17 +187,33 @@
         </div>
       </div>
 
-      <!-- Fila 3: Top 10 y Rutas -->
-      <div class="tables-grid row-3-cols mt-4">
-        <div class="card p-3">
-          <h3 class="table-title">TOP 10 DISTRITOS (MAYOR VOLUMEN)</h3>
-          <div class="table-responsive">
-            <table class="data-table" id="tableTopDistritos">
-              <thead><tr><th>#</th><th>Distrito</th><th>Empleados</th><th>%</th></tr></thead>
-              <tbody></tbody>
-            </table>
+      <!-- NIVEL 3: Distribución Demográfica -->
+      <h3 class="mt-4 mb-3" style="color: #1e293b; font-size: 1.1rem;"><i class="fa-solid fa-chart-pie"></i> DISTRIBUCIÓN DEMOGRÁFICA</h3>
+      <div class="charts-grid">
+        <div class="chart-container card">
+          <h3>Clasificación: Distancia al CD</h3>
+          <div class="chart-wrapper">
+            <canvas id="chartDistCD"></canvas>
           </div>
         </div>
+        <div class="chart-container card">
+          <h3>Clasificación: Distancia a Paraderos</h3>
+          <div class="chart-wrapper">
+            <canvas id="chartDistParadero"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-container card" style="grid-column: span 2;">
+          <h3>Top Distritos por Volumen de Empleados</h3>
+          <div class="chart-wrapper">
+            <canvas id="chartTopDistritos"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="tables-grid mt-4" style="grid-template-columns: 1fr 1fr;">
         <div class="card p-3">
           <h3 class="table-title">RUTAS DISPONIBLES</h3>
           <div class="table-responsive">
@@ -197,60 +234,30 @@
         </div>
       </div>
 
-      <!-- Fila 4: Registro Diario -->
-      <div class="card p-3 mt-4" id="seccionRegistroDiario" style="display: none;">
-        <h3 class="table-title">RESUMEN POR RUTA - REGISTRO DIARIO</h3>
-        <div class="table-responsive">
-          <table class="data-table" id="tableRegistroDiario">
-            <thead>
-              <tr>
-                <th>Ruta</th><th>Total Viajes</th><th>Capacidad Asignada</th><th>Total Pasajeros</th>
-                <th>% Ocupación</th><th>Costo Total</th><th>Costo Prom./Pasajero</th>
-                <th>Estado Capacidad</th><th>Prom. Pasaj.</th><th>Costo/Viaje</th><th>Máx y Mín Pasajeros</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+      <!-- NIVEL 4: Detalles Operativos (Anexo) -->
+      <div class="card p-3 mt-4">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+          <h3 class="table-title" style="border: none; margin: 0; padding: 0;"><i class="fa-solid fa-list"></i> ANEXO: ANÁLISIS DETALLADO POR DISTRITO</h3>
+          <button id="btnToggleDetalle" class="btn btn-secondary btn-sm">Mostrar / Ocultar</button>
         </div>
-      </div>
-      
-      <!-- Fila 5: Dashboard Turno Mañana -->
-      <div class="card p-3 mt-4" id="seccionDashboardBuses" style="display: none;">
-        <h3 class="table-title mb-3">📊 DASHBOARD DE REGISTRO DIARIO DE BUSES - TURNO MAÑANA</h3>
-        <div class="dashboard-buses-grid">
-          <div>
-            <h4 class="mb-2"><i class="fa-regular fa-calendar-days"></i> RESUMEN DEL DÍA</h4>
-            <div class="table-responsive">
-              <table class="data-table" id="tableResumenDia">
-                <tbody>
-                  <tr><td>Total Buses del Día:</td><td id="rdBusesDia">-</td></tr>
-                  <tr><td>Total Pasajeros:</td><td id="rdPasajerosDia">-</td></tr>
-                  <tr><td>Costo Total del Día:</td><td id="rdCostoDia">-</td></tr>
-                  <tr><td>Capacidad Total:</td><td id="rdCapacidadDia">-</td></tr>
-                  <tr><td>% Ocupación Promedio:</td><td id="rdOcupacionDia">-</td></tr>
-                  <tr><td>Costo Promedio/Pasajero:</td><td id="rdCostoPasajeroDia">-</td></tr>
-                  <tr><td>Capacidad Utilizada:</td><td id="rdCapacidadUsadaDia">-</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div>
-            <h4 class="mb-2"><i class="fa-solid fa-calendar-week"></i> RESUMEN SEMANAL</h4>
-            <div class="table-responsive">
-              <table class="data-table" id="tableResumenSemana">
-                <tbody>
-                  <tr><td>Total Viajes Semana:</td><td id="rdViajesSem">-</td></tr>
-                  <tr><td>Total Pasajeros Semana:</td><td id="rdPasajerosSem">-</td></tr>
-                  <tr><td>Costo Total Semana:</td><td id="rdCostoSem">-</td></tr>
-                  <tr><td>Capacidad Total Semana:</td><td id="rdCapacidadSem">-</td></tr>
-                  <tr><td>% Ocupación Prom. Sem.:</td><td id="rdOcupacionSem">-</td></tr>
-                  <tr><td>Costo Prom./Pasaj. Sem.:</td><td id="rdCostoPasajeroSem">-</td></tr>
-                </tbody>
-              </table>
-            </div>
+        
+        <div id="contenedorDetalleDistritos" style="display: none;">
+          <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="data-table sticky-header" id="tableDetalleDistritos">
+              <thead>
+                <tr>
+                  <th>#</th><th>Distrito</th><th>Empleados</th><th>% Total</th>
+                  <th>Dist. Prom. CD (km)</th><th>Clasif. CD</th>
+                  <th>Dist. Prom. Paradero (km)</th><th>Clasif. Paradero</th>
+                  <th>Ruta Principal</th><th>Observación</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
           </div>
         </div>
       </div>
+
     </section>
 
   </main>

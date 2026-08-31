@@ -38,6 +38,18 @@ function initUIEvents() {
     applyFilters();
   });
 
+  const btnToggle = document.getElementById('btnToggleDetalle');
+  if(btnToggle) {
+    btnToggle.addEventListener('click', () => {
+      const container = document.getElementById('contenedorDetalleDistritos');
+      if (container.style.display === 'none') {
+        container.style.display = 'block';
+      } else {
+        container.style.display = 'none';
+      }
+    });
+  }
+
   // Explorar Drive
   document.getElementById('btnBrowseDrive').addEventListener('click', () => {
     if (!GoogleSheetsService.isAuthenticated()) {
@@ -395,14 +407,11 @@ function renderTables() {
     }
   });
 
-  // 1. Tabla RESUMEN
-  const elResTotalEmp = document.getElementById('resTotalEmp');
+  // 1. Tabla RESUMEN (Ahora KPIs Superiores)
+  const elResTotalEmp = document.getElementById('kpiTotalEmps');
   if(elResTotalEmp) {
     elResTotalEmp.innerText = totalEmps;
-    document.getElementById('resTotalDist').innerText = distritosSet.size;
-    document.getElementById('resDistCD').innerText = countValidCd > 0 ? (sumDistCd / countValidCd).toFixed(2) : '0';
-    document.getElementById('resDistPar').innerText = countValidParadero > 0 ? (sumDistParadero / countValidParadero).toFixed(2) : '0';
-    document.getElementById('resTotalRutas').innerText = rutasSet.size;
+    document.getElementById('kpiDistPromCD').innerText = countValidCd > 0 ? (sumDistCd / countValidCd).toFixed(2) : '0';
   }
 
   // Helpers de Formato
@@ -426,16 +435,15 @@ function renderTables() {
     return '📍 Normal';
   };
 
-  // 2 y 3. Tablas Clasificación
-  const buildClasifHtml = (countsObj, total) => {
-    return Object.keys(countsObj).map(k => `<tr><td>${k}</td><td>${countsObj[k]}</td><td>${formatPct(countsObj[k], total)}</td></tr>`).join('');
+  // 2 y 3. Gráficos de Clasificación
+  const colors = {
+    '🟢 Muy Cerca': '#22c55e', 
+    '🟡 Cerca': '#eab308',     
+    '🟠 Moderada': '#f97316',  
+    '🔴 Lejos': '#ef4444'      
   };
-  
-  const elTbCd = document.querySelector('#tableClasifCD tbody');
-  if(elTbCd) elTbCd.innerHTML = buildClasifHtml(countCd, totalEmps);
-  
-  const elTbPar = document.querySelector('#tableClasifParadero tbody');
-  if(elTbPar) elTbPar.innerHTML = buildClasifHtml(countParadero, totalEmps);
+  renderPieChart('chartDistCD', countCd, colors);
+  renderPieChart('chartDistParadero', countParadero, colors);
 
   // 4. Tabla Análisis Detallado por Distrito
   const distritosArr = Object.keys(distritosStats).map(d => {
@@ -478,12 +486,8 @@ function renderTables() {
   }
 
   // 5. TOP 10 Distritos (re-uso de distritosArr)
-  const elTbTop = document.querySelector('#tableTopDistritos tbody');
-  if(elTbTop) {
-    elTbTop.innerHTML = distritosArr.slice(0, 10).map((d, i) => `
-      <tr><td>${i + 1}</td><td>${d.nombre}</td><td>${d.count}</td><td>${formatPct(d.count, totalEmps)}</td></tr>
-    `).join('');
-  }
+  const top10Distritos = distritosArr.slice(0, 10);
+  renderBarChart('chartTopDistritos', top10Distritos);
 
   // 6. Rutas Disponibles
   const rutasSorted = Object.keys(rutasCount).map(k => ({ nombre: k, count: rutasCount[k] })).sort((a, b) => b.count - a.count);
@@ -564,25 +568,102 @@ function renderTables() {
     const aggSem = { viajes: 0, pasaj: 0, costo: 0, cap: 0 };
     datosSemana.forEach(r => { aggSem.viajes++; aggSem.pasaj += r.pasajeros; aggSem.costo += r.costo; aggSem.cap += r.capacidad; });
 
-    document.getElementById('rdBusesDia').innerText = aggDia.viajes;
-    document.getElementById('rdPasajerosDia').innerText = aggDia.pasaj;
-    document.getElementById('rdCostoDia').innerText = 'S/ ' + aggDia.costo.toFixed(2);
-    document.getElementById('rdCapacidadDia').innerText = aggDia.cap;
-    document.getElementById('rdOcupacionDia').innerText = formatPct(aggDia.pasaj, aggDia.cap);
-    document.getElementById('rdCostoPasajeroDia').innerText = 'S/ ' + (aggDia.pasaj > 0 ? (aggDia.costo / aggDia.pasaj).toFixed(2) : '0.00');
-    document.getElementById('rdCapacidadUsadaDia').innerText = `${aggDia.pasaj} de ${aggDia.cap} (${formatPct(aggDia.pasaj, aggDia.cap)})`;
+    // Actualizar KPIs de la parte superior
+    document.getElementById('kpiCostoDia').innerText = 'S/ ' + aggDia.costo.toFixed(2);
+    document.getElementById('kpiOcupacionDia').innerText = formatPct(aggDia.pasaj, aggDia.cap);
 
-    document.getElementById('rdViajesSem').innerText = aggSem.viajes;
-    document.getElementById('rdPasajerosSem').innerText = aggSem.pasaj;
-    document.getElementById('rdCostoSem').innerText = 'S/ ' + aggSem.costo.toFixed(2);
-    document.getElementById('rdCapacidadSem').innerText = aggSem.cap;
-    document.getElementById('rdOcupacionSem').innerText = formatPct(aggSem.pasaj, aggSem.cap);
-    document.getElementById('rdCostoPasajeroSem').innerText = 'S/ ' + (aggSem.pasaj > 0 ? (aggSem.costo / aggSem.pasaj).toFixed(2) : '0.00');
+    // Tablas de Dashboard
+    const elRdBusesDia = document.getElementById('rdBusesDia');
+    if(elRdBusesDia) {
+      elRdBusesDia.innerText = aggDia.viajes;
+      document.getElementById('rdPasajerosDia').innerText = aggDia.pasaj;
+      document.getElementById('rdCapacidadDia').innerText = aggDia.cap;
+      document.getElementById('rdCostoPasajeroDia').innerText = 'S/ ' + (aggDia.pasaj > 0 ? (aggDia.costo / aggDia.pasaj).toFixed(2) : '0.00');
+      document.getElementById('rdCapacidadUsadaDia').innerText = `${aggDia.pasaj} de ${aggDia.cap} (${formatPct(aggDia.pasaj, aggDia.cap)})`;
+
+      document.getElementById('rdViajesSem').innerText = aggSem.viajes;
+      document.getElementById('rdPasajerosSem').innerText = aggSem.pasaj;
+      document.getElementById('rdCostoSem').innerText = 'S/ ' + aggSem.costo.toFixed(2);
+      document.getElementById('rdOcupacionSem').innerText = formatPct(aggSem.pasaj, aggSem.cap);
+      document.getElementById('rdCostoPasajeroSem').innerText = 'S/ ' + (aggSem.pasaj > 0 ? (aggSem.costo / aggSem.pasaj).toFixed(2) : '0.00');
+    }
   } else {
     const s1 = document.getElementById('seccionRegistroDiario');
     const s2 = document.getElementById('seccionDashboardBuses');
     if(s1) s1.style.display = 'none';
     if(s2) s2.style.display = 'none';
   }
+}
+
+function initCharts() {
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color = '#475569';
+}
+
+function renderPieChart(canvasId, dataMap, colors) {
+  const ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  
+  const labels = Object.keys(dataMap);
+  const data = labels.map(k => dataMap[k]);
+  const bgColors = labels.map(k => colors[k] || '#cbd5e1');
+
+  if (AppState.charts[canvasId]) {
+    AppState.charts[canvasId].destroy();
+  }
+
+  AppState.charts[canvasId] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: bgColors,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' }
+      }
+    }
+  });
+}
+
+function renderBarChart(canvasId, dataArr) {
+  const ctx = document.getElementById(canvasId);
+  if(!ctx) return;
+  
+  const labels = dataArr.map(d => d.nombre);
+  const data = dataArr.map(d => d.count);
+
+  if (AppState.charts[canvasId]) {
+    AppState.charts[canvasId].destroy();
+  }
+
+  AppState.charts[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Volumen de Empleados',
+        data: data,
+        backgroundColor: '#3b82f6',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
 }
 
