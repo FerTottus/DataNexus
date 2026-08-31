@@ -154,10 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
       window.graficoFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeGrafico}!A5:P250`);
       window.graficoSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeGrafico}!R5:AH250`);
 
-      // Data para las tablas de cajas (Divisiones)
-      window.tablasFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeBase}!A5:L109`);
-      window.tablasSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeBase}!R5:AA109`);
-
       connectBox.classList.add('hidden');
       connectionSuccessInfo.classList.remove('hidden');
       document.getElementById('connectedSheetName').textContent = `Documento cargado (ID: ${sheetId.substring(0, 8)}...)`;
@@ -181,14 +177,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if(!window.graficoFrescos || !window.graficoSecos) return;
     const filterValue = document.getElementById('weeksFilter').value;
     
-    processAndRenderSection('Secos', window.graficoSecos, window.tablasSecos, filterValue);
-    processAndRenderSection('Frescos', window.graficoFrescos, window.tablasFrescos, filterValue);
+    processAndRenderSection('Secos', window.graficoSecos, filterValue);
+    processAndRenderSection('Frescos', window.graficoFrescos, filterValue);
   }
 
   // --- LÓGICA DE PROCESAMIENTO Y GRÁFICOS ---
   const charts = {};
 
-  function processAndRenderSection(prefix, chartData, tableData, filterValue) {
+  function processAndRenderSection(prefix, chartData, filterValue) {
     if(!chartData.rows || chartData.rows.length === 0) return;
 
     // 1. Detectar columna de fecha (e.g. "[34-2026]")
@@ -277,8 +273,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderMixedChart(prefix, labels, { inventario, recibo, despacho, planInv, planRecibo, planDespacho });
     
-    // Renderizar la tabla base inferior
-    renderBaseTables(prefix, tableData);
+    // Renderizar la tabla limpia solo con las columnas solicitadas
+    renderCleanTable(prefix, timeColName, colRecibo, colDespacho, colInventario, rowsToPlot);
   }
 
   function renderMixedChart(prefix, labels, data) {
@@ -399,39 +395,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function renderBaseTables(prefix, tableData) {
-      // Como el sheet BASE tiene las 3 tablas de cajas (Recibo, Despacho, Inventario)
-      // ya armadas y listas, simplemente vamos a escupir la data en HTML en su contenedor,
-      // respetando su formato natural y evitando ensuciar con columnas que no vienen.
-      
+  function renderCleanTable(prefix, timeCol, reciboCol, despachoCol, invCol, rows) {
       const container = document.getElementById(`table${prefix}Container`);
       if (!container) return;
       
-      if (!tableData || !tableData.rawValues || tableData.rawValues.length === 0) {
-          container.innerHTML = '<p>No se encontraron datos en la hoja BASE.</p>';
+      if (!rows || rows.length === 0) {
+          container.innerHTML = '<p>No hay datos disponibles para mostrar.</p>';
           return;
       }
 
-      let html = '<table class="data-table"><tbody>';
+      let html = '<table class="data-table"><thead><tr>';
+      html += `<th>Semana</th><th>RECIBO</th><th>DESPACHO</th><th>INVENTARIO</th>`;
+      html += '</tr></thead><tbody>';
       
-      tableData.rawValues.forEach(row => {
-          let hasData = row.some(cell => String(cell).trim() !== '');
-          if (!hasData) return; // Ignorar filas completamente vacías
-
+      rows.forEach(row => {
           html += '<tr>';
-          row.forEach(cell => {
-              // Dar formato a números
-              let text = cell;
-              if(typeof cell === 'number') {
-                  text = cell.toLocaleString('es-PE', { maximumFractionDigits: 0 });
-              }
-              
-              // Si es un header de semana como "[34-2026]" o "Cajas (DIV)"
-              let isHeader = String(cell).includes('Cajas') || String(cell).includes('-202');
-              let tag = isHeader ? 'th' : 'td';
-              
-              html += `<${tag}>${text !== undefined && text !== null ? text : ''}</${tag}>`;
-          });
+          html += `<td><strong>${row[timeCol] || ''}</strong></td>`;
+          html += `<td>${(parseFloat(row[reciboCol]) || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 })}</td>`;
+          html += `<td>${(parseFloat(row[despachoCol]) || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 })}</td>`;
+          html += `<td>${(parseFloat(row[invCol]) || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 })}</td>`;
           html += '</tr>';
       });
 
