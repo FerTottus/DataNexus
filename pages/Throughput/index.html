@@ -14,49 +14,31 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     .dashboard-container { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-    .section-title { font-size: 2rem; color: #1a3a5c; font-weight: 700; margin-bottom: 20px; text-transform: uppercase; }
-    
-    .chart-container-large {
-      position: relative;
-      height: 450px;
-      width: 100%;
-      background: white;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 15px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-      margin-bottom: 20px;
+    .section-title { font-size: 1.8rem; color: #1a3a5c; font-weight: 700; margin-bottom: 15px; text-transform: uppercase; }
+
+    .chart-block { margin-bottom: 25px; }
+    .chart-block-title {
+      font-size: 1.1rem; font-weight: 700; color: #333;
+      margin-bottom: 8px; padding-left: 5px;
+      border-left: 4px solid #0d6efd; padding-left: 10px;
     }
-    
+    .chart-container-medium {
+      position: relative; height: 320px; width: 100%;
+      background: white; border: 1px solid #dee2e6; border-radius: 8px;
+      padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
     .table-wrapper {
-      background: white;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 10px;
-      overflow-x: auto;
-      margin-top: 20px;
+      background: white; border: 1px solid #dee2e6; border-radius: 8px;
+      padding: 15px; overflow-x: auto; margin-top: 20px;
     }
-    
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
+    .table-wrapper-title {
+      font-size: 1rem; font-weight: 700; color: #555; margin-bottom: 10px;
     }
-    .data-table th, .data-table td {
-      border: 1px solid #dee2e6;
-      padding: 8px;
-      text-align: right;
-    }
-    .data-table th {
-      background-color: #f8f9fa;
-      font-weight: 600;
-      text-align: center;
-      color: #333;
-    }
-    .data-table td:first-child, .data-table th:first-child {
-      text-align: left;
-      font-weight: bold;
-    }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .data-table th, .data-table td { border: 1px solid #dee2e6; padding: 8px; text-align: right; }
+    .data-table th { background-color: #f8f9fa; font-weight: 600; text-align: center; color: #333; }
+    .data-table td:first-child, .data-table th:first-child { text-align: left; font-weight: bold; }
 
     .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
     .tab-btn {
@@ -68,36 +50,24 @@
     .tab-btn.active { background: #0d6efd; color: white; border-color: #0d6efd; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    
+
     .connection-flex {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 20px; flex-wrap: wrap;
     }
-    .connection-input-area {
-        flex: 1;
-        min-width: 300px;
-    }
-    .connection-buttons {
-        display: flex;
-        gap: 10px;
-    }
+    .connection-input-area { flex: 1; min-width: 300px; }
+    .connection-buttons { display: flex; gap: 10px; }
   </style>
 </head>
 <body>
   <header class="navbar">
     <div class="nav-brand">
-      <div class="logo-icon">
-        <i class="fa-solid fa-boxes-stacked text-primary"></i>
-      </div>
+      <div class="logo-icon"><i class="fa-solid fa-boxes-stacked text-primary"></i></div>
       <div>
         <h1 class="logo-title">DataNexus</h1>
         <span class="logo-subtitle">Throughput Secos y Frescos</span>
       </div>
     </div>
-
     <div class="nav-actions">
       <a href="../../index.html" class="btn btn-outline-secondary btn-sm">
         <i class="fa-solid fa-arrow-left"></i> Volver al Inicio
@@ -126,6 +96,7 @@
   </header>
 
   <main class="main-container">
+    <!-- Conexión -->
     <section class="card sheet-connector-card">
       <div class="card-header">
         <h2><i class="fa-solid fa-link text-primary"></i> Conectar a Google Sheet</h2>
@@ -136,27 +107,21 @@
             <input type="text" id="sheetUrlInput" placeholder="Pega el enlace del Excel..." class="form-control" style="width: 100%;">
           </div>
           <div class="connection-buttons">
-            <button id="btnBrowseDrive" class="btn btn-secondary">
-              <i class="fa-solid fa-folder-open"></i> Explorar Drive
-            </button>
-            <button id="btnFetchData" class="btn btn-primary">
-              <i class="fa-solid fa-cloud-arrow-down"></i> Cargar Datos
-            </button>
+            <button id="btnBrowseDrive" class="btn btn-secondary"><i class="fa-solid fa-folder-open"></i> Explorar Drive</button>
+            <button id="btnFetchData" class="btn btn-primary"><i class="fa-solid fa-cloud-arrow-down"></i> Cargar Datos</button>
           </div>
         </div>
-        
-        <div id="connectionSuccessInfo" class="hidden" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
-            <span><i class="fa-solid fa-check-circle text-success"></i> Conectado al documento exitosamente. <strong id="connectedSheetName"></strong></span>
-            <button id="btnChangeSheet" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-pen"></i> Cambiar Archivo</button>
+        <div id="connectionSuccessInfo" class="hidden" style="display:flex;justify-content:space-between;align-items:center;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #dee2e6;">
+          <span><i class="fa-solid fa-check-circle text-success"></i> Conectado exitosamente. <strong id="connectedSheetName"></strong></span>
+          <button id="btnChangeSheet" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-pen"></i> Cambiar</button>
         </div>
-        
-        <div id="loadingIndicator" class="hidden text-center" style="margin-top: 15px;">
-          <i class="fa-solid fa-spinner fa-spin text-primary"></i> Procesando datos del Dashboard...
+        <div id="loadingIndicator" class="hidden text-center" style="margin-top:15px;">
+          <i class="fa-solid fa-spinner fa-spin text-primary"></i> Procesando datos...
         </div>
       </div>
     </section>
 
-    <!-- Modal del Explorador de Archivos -->
+    <!-- Modal Drive -->
     <div id="drive-modal" class="modal-overlay hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -164,31 +129,34 @@
           <button id="close-modal-btn" class="btn-close">&times;</button>
         </div>
         <div class="modal-body">
-          <input type="text" id="drive-search-input" class="form-control" style="margin-bottom: 12px;" placeholder="🔍 Buscar archivo por nombre..." oninput="filterDriveList(this.value)">
-          <div id="drive-loading" class="hidden text-center"><i class="fa-solid fa-spinner fa-spin"></i> Cargando archivos...</div>
+          <input type="text" id="drive-search-input" class="form-control" style="margin-bottom:12px;" placeholder="🔍 Buscar archivo..." oninput="filterDriveList(this.value)">
+          <div id="drive-loading" class="hidden text-center"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>
           <ul id="drive-file-list" class="file-list"></ul>
-          <div id="drive-empty" class="hidden text-muted text-center mt-3">No se encontraron hojas de cálculo recientes.</div>
+          <div id="drive-empty" class="hidden text-muted text-center mt-3">No se encontraron hojas de cálculo.</div>
         </div>
       </div>
     </div>
 
     <!-- Dashboard -->
     <div id="dashboardSection" class="dashboard-container hidden">
-      
-      <!-- Filtros Globales -->
-      <div class="filters-section card" style="margin-bottom: 0;">
-        <div class="card-body" style="display: flex; gap: 15px; align-items: center; padding: 15px;">
+
+      <!-- Filtros -->
+      <div class="card" style="margin-bottom:0;">
+        <div class="card-body" style="display:flex;gap:15px;align-items:center;padding:15px;flex-wrap:wrap;">
           <div>
-            <label for="weeksFilter" style="font-weight: bold; margin-right: 10px;"><i class="fa-solid fa-calendar-week"></i> Rango de Semanas:</label>
-            <select id="weeksFilter" class="form-control" style="width: auto; display: inline-block;">
-              <option value="all">Todas las semanas</option>
+            <label for="weeksFilter" style="font-weight:bold;margin-right:10px;">
+              <i class="fa-solid fa-calendar-week"></i> Últimas semanas:
+            </label>
+            <select id="weeksFilter" class="form-control" style="width:auto;display:inline-block;">
+              <option value="all">Todas</option>
               <option value="4">Últimas 4 semanas</option>
-              <option value="8">Últimas 8 semanas</option>
+              <option value="8" selected>Últimas 8 semanas</option>
               <option value="12">Últimas 12 semanas</option>
+              <option value="16">Últimas 16 semanas</option>
             </select>
           </div>
-          <button id="btnApplyFilters" class="btn btn-primary btn-sm"><i class="fa-solid fa-rotate"></i> Actualizar Gráfico</button>
-          <span style="font-size: 0.85rem; color: #666; margin-left: 10px;">* Se mostrará el rango seleccionado para el año actual y el año anterior secuencialmente.</span>
+          <button id="btnApplyFilters" class="btn btn-primary btn-sm"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+          <span style="font-size:0.8rem;color:#888;">Se comparan las mismas semanas del año actual vs. año anterior.</span>
         </div>
       </div>
 
@@ -200,29 +168,42 @@
       <!-- Tab Secos -->
       <div id="tab-secos" class="tab-content active">
         <h2 class="section-title">THROUGHPUT-CD SECOS</h2>
-        
-        <div class="chart-container-large">
-          <canvas id="chartSecos"></canvas>
+
+        <div class="chart-block">
+          <div class="chart-block-title">📦 Entradas (Recibo)</div>
+          <div class="chart-container-medium"><canvas id="chartSecosRecibo"></canvas></div>
         </div>
-        
-        <div class="table-wrapper" id="tableSecosContainer">
-          <!-- La tabla de cajas se renderiza aquí desde la hoja BASE -->
+        <div class="chart-block">
+          <div class="chart-block-title">🚛 Salidas (Despacho)</div>
+          <div class="chart-container-medium"><canvas id="chartSecosDespacho"></canvas></div>
         </div>
+        <div class="chart-block">
+          <div class="chart-block-title">📊 Inventario</div>
+          <div class="chart-container-medium"><canvas id="chartSecosInventario"></canvas></div>
+        </div>
+
+        <div class="table-wrapper" id="tableSecosContainer"></div>
       </div>
 
       <!-- Tab Frescos -->
       <div id="tab-frescos" class="tab-content">
         <h2 class="section-title">THROUGHPUT-CD FRESCOS</h2>
-        
-        <div class="chart-container-large">
-          <canvas id="chartFrescos"></canvas>
-        </div>
-        
-        <div class="table-wrapper" id="tableFrescosContainer">
-          <!-- La tabla de cajas se renderiza aquí desde la hoja BASE -->
-        </div>
-      </div>
 
+        <div class="chart-block">
+          <div class="chart-block-title">📦 Entradas (Recibo)</div>
+          <div class="chart-container-medium"><canvas id="chartFrescosRecibo"></canvas></div>
+        </div>
+        <div class="chart-block">
+          <div class="chart-block-title">🚛 Salidas (Despacho)</div>
+          <div class="chart-container-medium"><canvas id="chartFrescosDespacho"></canvas></div>
+        </div>
+        <div class="chart-block">
+          <div class="chart-block-title">📊 Inventario</div>
+          <div class="chart-container-medium"><canvas id="chartFrescosInventario"></canvas></div>
+        </div>
+
+        <div class="table-wrapper" id="tableFrescosContainer"></div>
+      </div>
     </div>
   </main>
 

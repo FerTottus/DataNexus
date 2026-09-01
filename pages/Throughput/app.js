@@ -1,32 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // ══════════════════════════════════════════════
+  // AUTH
+  // ══════════════════════════════════════════════
   if (window.GoogleSheetsService) {
     window.GoogleSheetsService.initAuth();
     updateAuthUI();
   }
-
-  const btnGoogleLogin = document.getElementById('btnGoogleLogin');
-  const btnGoogleLogout = document.getElementById('btnGoogleLogout');
-  const btnFetchData = document.getElementById('btnFetchData');
-  const btnBrowseDrive = document.getElementById('btnBrowseDrive');
-  const sheetUrlInput = document.getElementById('sheetUrlInput');
-  const loadingIndicator = document.getElementById('loadingIndicator');
-  const dashboardSection = document.getElementById('dashboardSection');
-  const connectBox = document.getElementById('connectBox');
-  const connectionSuccessInfo = document.getElementById('connectionSuccessInfo');
-  const btnChangeSheet = document.getElementById('btnChangeSheet');
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  const btnApplyFilters = document.getElementById('btnApplyFilters');
-
-  btnGoogleLogin?.addEventListener('click', () => {
-    window.GoogleSheetsService.requestAccessToken((success) => {
-      if (success) updateAuthUI();
-    });
-  });
-
-  btnGoogleLogout?.addEventListener('click', () => {
-    window.GoogleSheetsService.logout();
-    updateAuthUI();
-  });
 
   function updateAuthUI() {
     const isAuth = window.GoogleSheetsService.isAuthenticated();
@@ -37,21 +16,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Explorador Drive
-  btnBrowseDrive?.addEventListener('click', () => {
-    if (!window.GoogleSheetsService.isAuthenticated()) {
-      window.GoogleSheetsService.requestAccessToken((success) => {
-        if (success) { updateAuthUI(); openDriveModal(); }
-      });
-    } else {
-      openDriveModal();
-    }
+  document.getElementById('btnGoogleLogin')?.addEventListener('click', () => {
+    window.GoogleSheetsService.requestAccessToken((ok) => { if (ok) updateAuthUI(); });
+  });
+  document.getElementById('btnGoogleLogout')?.addEventListener('click', () => {
+    window.GoogleSheetsService.logout(); updateAuthUI();
   });
 
+  // ══════════════════════════════════════════════
+  // DRIVE MODAL
+  // ══════════════════════════════════════════════
+  document.getElementById('btnBrowseDrive')?.addEventListener('click', () => {
+    if (!window.GoogleSheetsService.isAuthenticated()) {
+      window.GoogleSheetsService.requestAccessToken((ok) => { if (ok) { updateAuthUI(); openDriveModal(); } });
+    } else { openDriveModal(); }
+  });
   document.getElementById('close-modal-btn')?.addEventListener('click', () => {
     document.getElementById('drive-modal').classList.add('hidden');
   });
-
   document.getElementById('drive-modal')?.addEventListener('click', (e) => {
     if (e.target.id === 'drive-modal') e.target.classList.add('hidden');
   });
@@ -61,18 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileList = document.getElementById('drive-file-list');
     const loading = document.getElementById('drive-loading');
     const emptyMsg = document.getElementById('drive-empty');
-    
-    fileList.innerHTML = '';
-    loading.classList.remove('hidden');
-    emptyMsg.classList.add('hidden');
-
+    fileList.innerHTML = ''; loading.classList.remove('hidden'); emptyMsg.classList.add('hidden');
     const files = await window.GoogleSheetsService.fetchRecentSpreadsheets();
     loading.classList.add('hidden');
-
-    if (!files || files.length === 0) {
-      emptyMsg.classList.remove('hidden');
-      return;
-    }
+    if (!files || files.length === 0) { emptyMsg.classList.remove('hidden'); return; }
     window._driveFiles = files;
     renderDriveFiles(files);
   }
@@ -82,342 +56,346 @@ document.addEventListener('DOMContentLoaded', () => {
     fileList.innerHTML = '';
     files.forEach(file => {
       const li = document.createElement('li');
-      li.className = 'file-item';
-      li.style.cursor = 'pointer';
-      li.style.padding = '10px';
-      li.style.borderBottom = '1px solid #eee';
+      li.className = 'file-item'; li.style.cursor = 'pointer'; li.style.padding = '10px'; li.style.borderBottom = '1px solid #eee';
       li.innerHTML = `<i class="fa-solid fa-file-excel text-success"></i> <span style="margin-left:8px;">${file.name}</span>`;
       li.addEventListener('click', () => {
-        sheetUrlInput.value = file.id;
+        document.getElementById('sheetUrlInput').value = file.id;
         document.getElementById('drive-modal').classList.add('hidden');
-        btnFetchData.click();
+        document.getElementById('btnFetchData').click();
       });
       fileList.appendChild(li);
     });
   }
-
   window.filterDriveList = function(text) {
     if (!window._driveFiles) return;
-    const lower = text.toLowerCase();
-    const filtered = window._driveFiles.filter(f => f.name.toLowerCase().includes(lower));
-    renderDriveFiles(filtered);
+    renderDriveFiles(window._driveFiles.filter(f => f.name.toLowerCase().includes(text.toLowerCase())));
   };
 
-  // Tabs
-  tabBtns.forEach(btn => {
+  // ══════════════════════════════════════════════
+  // TABS
+  // ══════════════════════════════════════════════
+  document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      tabBtns.forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(btn.dataset.target).classList.add('active');
     });
   });
-
-  btnChangeSheet?.addEventListener('click', () => {
-    connectBox.classList.remove('hidden');
-    connectionSuccessInfo.classList.add('hidden');
+  document.getElementById('btnChangeSheet')?.addEventListener('click', () => {
+    document.getElementById('connectBox').classList.remove('hidden');
+    document.getElementById('connectionSuccessInfo').classList.add('hidden');
   });
 
-  // Fetch Data
-  btnFetchData?.addEventListener('click', async () => {
-    const urlOrId = sheetUrlInput.value.trim();
-    if (!urlOrId) return alert("Por favor, ingresa la URL o busca un archivo.");
+  // ══════════════════════════════════════════════
+  // FETCH DATA
+  // ══════════════════════════════════════════════
+  document.getElementById('btnFetchData')?.addEventListener('click', async () => {
+    const urlOrId = document.getElementById('sheetUrlInput').value.trim();
+    if (!urlOrId) return alert("Ingresa la URL o busca un archivo.");
     const sheetId = window.GoogleSheetsService.extractSpreadsheetId(urlOrId);
     if (!sheetId) return alert("ID inválido.");
     if (!window.GoogleSheetsService.isAuthenticated()) return alert("Inicia sesión primero.");
 
-    loadingIndicator.classList.remove('hidden');
-    
+    document.getElementById('loadingIndicator').classList.remove('hidden');
+
     try {
-      // 1. Obtener lista de pestañas para resolver nombres exactos (evita errores de espacios al final o mayúsculas)
+      // Resolver nombre exacto de BD_Grafico
       const tabs = await window.GoogleSheetsService.fetchSheetTabs(sheetId);
       const tabNames = tabs.map(t => t.title);
-      
-      const sheetGrafico = tabNames.find(t => t.trim().toUpperCase() === 'BD_GRAFICO' || t.trim().toUpperCase() === 'BD_GRÁFICO');
-      const sheetBase = tabNames.find(t => {
-          const name = t.trim().toUpperCase();
-          return name === 'BASE' || name === 'BASES';
-      });
+      const sheetGrafico = tabNames.find(t => t.trim().toUpperCase().replace('Á','A') === 'BD_GRAFICO');
+      if (!sheetGrafico) throw new Error(`No se encontró 'BD_Grafico'. Hojas: ${tabNames.join(', ')}`);
+      const sg = `'${sheetGrafico}'`;
 
-      if (!sheetGrafico) {
-          throw new Error(`No se encontró la hoja 'BD_Grafico'. Hojas disponibles: ${tabNames.join(', ')}`);
-      }
-      if (!sheetBase) {
-          throw new Error(`No se encontró la hoja 'BASE' o 'BASES'. Hojas disponibles: ${tabNames.join(', ')}. Por favor verifica el nombre exacto en tu Google Sheet.`);
-      }
+      // Rangos CORRECTOS según estructura real del archivo
+      // Frescos: Columnas A-L, Filas 5-109
+      // Secos:   Columnas V-AE, Filas 5-109
+      window.dataFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!A5:L109`);
+      window.dataSecos   = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!V5:AE109`);
 
-      // Envolver en comillas simples por si el nombre tiene espacios
-      const safeGrafico = `'${sheetGrafico}'`;
-      const safeBase = `'${sheetBase}'`;
+      document.getElementById('connectBox').classList.add('hidden');
+      document.getElementById('connectionSuccessInfo').classList.remove('hidden');
+      document.getElementById('connectedSheetName').textContent = `ID: ${sheetId.substring(0, 10)}...`;
+      document.getElementById('dashboardSection').classList.remove('hidden');
 
-      // Data para los gráficos (Totales)
-      window.graficoFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeGrafico}!A5:P250`);
-      window.graficoSecos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${safeGrafico}!R5:AH250`);
-
-      connectBox.classList.add('hidden');
-      connectionSuccessInfo.classList.remove('hidden');
-      document.getElementById('connectedSheetName').textContent = `Documento cargado (ID: ${sheetId.substring(0, 8)}...)`;
-      dashboardSection.classList.remove('hidden');
-
-      applyFiltersAndRender();
+      renderAll();
     } catch (e) {
       console.error(e);
-      // Extraemos solo el mensaje para que sea legible
       alert("Error: " + e.message);
     } finally {
-      loadingIndicator.classList.add('hidden');
+      document.getElementById('loadingIndicator').classList.add('hidden');
     }
   });
 
-  btnApplyFilters?.addEventListener('click', () => {
-    applyFiltersAndRender();
-  });
+  document.getElementById('btnApplyFilters')?.addEventListener('click', renderAll);
 
-  function applyFiltersAndRender() {
-    if(!window.graficoFrescos || !window.graficoSecos) return;
-    const filterValue = document.getElementById('weeksFilter').value;
-    
-    processAndRenderSection('Secos', window.graficoSecos, filterValue);
-    processAndRenderSection('Frescos', window.graficoFrescos, filterValue);
+  function renderAll() {
+    if (!window.dataFrescos || !window.dataSecos) return;
+    const numWeeks = document.getElementById('weeksFilter').value;
+
+    // Frescos: col A = Semana (time key), cols D-I = métricas
+    renderSection('Frescos', window.dataFrescos, {
+      timeCol: 'Semana',
+      recibo: 'RECIBO',
+      despacho: 'DESPACHO',
+      inventario: 'INVENTARIO ACT',
+      planRecibo: 'PLAN RECIBO',
+      planDespacho: 'PLAN DESPACHO',
+      planInv: 'PLAN INV'
+    }, numWeeks);
+
+    // Secos: col W = SEMANA (time key), cols X-AC = métricas
+    renderSection('Secos', window.dataSecos, {
+      timeCol: 'SEMANA',
+      recibo: 'RECIBO',
+      despacho: 'DESPACHO',
+      inventario: 'INVENTARIO ACT',
+      planRecibo: 'PLAN RECIBO',
+      planDespacho: 'PLAN DESPACHO',
+      planInv: 'PLAN INV'
+    }, numWeeks);
   }
 
-  // --- LÓGICA DE PROCESAMIENTO Y GRÁFICOS ---
+  // ══════════════════════════════════════════════
+  // CORE LOGIC
+  // ══════════════════════════════════════════════
   const charts = {};
 
-  function processAndRenderSection(prefix, chartData, filterValue) {
-    if(!chartData.rows || chartData.rows.length === 0) return;
-
-    // 1. Detectar columna de fecha (e.g. "[34-2026]")
-    let timeColName = null;
-    for (let h of chartData.headers) {
-      for(let i=0; i<Math.min(5, chartData.rows.length); i++) {
-        let val = String(chartData.rows[i]?.[h] || '');
-        if (val.includes('-202') || (val.includes('[') && val.includes(']'))) {
-          timeColName = h;
-          break;
-        }
-      }
-      if(timeColName) break;
-    }
-    if (!timeColName) timeColName = chartData.headers[1] || chartData.headers[0];
-
-    // Mapeo Flexible de Columnas de Métricas
-    const getCol = (keywords) => chartData.headers.find(h => keywords.some(k => h.toUpperCase().includes(k)));
-    const colInventario = getCol(['INVENTARIO ACT', 'INVENTARIO']);
-    const colRecibo = getCol(['RECIBO', 'INGRESO']);
-    const colDespacho = getCol(['DESPACHO', 'SALIDA']);
-    const colPlanInv = getCol(['PLAN INV', 'PLAN INVENTARIO']);
-    const colPlanRecibo = getCol(['PLAN RECIBO', 'PLAN INGRESO']);
-    const colPlanDespacho = getCol(['PLAN DESPACHO', 'PLAN SALIDA']);
-
-    // 2. Extraer filas válidas (que tengan fecha y no sean totales)
-    let validRows = chartData.rows.filter(r => r[timeColName] && String(r[timeColName]).trim() !== '' && !String(r[timeColName]).toUpperCase().includes('TOTAL'));
-
-    // 3. Determinar el "HOY" (La última fila que tenga datos reales, no ceros)
-    // Buscamos desde el final hacia el principio hasta encontrar data > 0
-    let lastDataIndex = validRows.length - 1;
-    for(let i = validRows.length - 1; i >= 0; i--) {
-        const row = validRows[i];
-        const r = parseFloat(row[colRecibo]) || 0;
-        const d = parseFloat(row[colDespacho]) || 0;
-        const inv = parseFloat(row[colInventario]) || 0;
-        if (r > 0 || d > 0 || inv > 0) {
-            lastDataIndex = i;
-            break;
-        }
-    }
-    
-    // Recortar filas futuras sin data
-    validRows = validRows.slice(0, lastDataIndex + 1);
-    let rowsToPlot = validRows;
-
-    // 4. Aplicar Filtro "Últimas X Semanas" + Año Anterior secuencial
-    if (filterValue !== 'all') {
-        const numWeeks = parseInt(filterValue, 10);
-        
-        // El año actual lo sacamos de la última fila válida
-        const lastValidRow = validRows[validRows.length - 1];
-        const match = String(lastValidRow[timeColName]).match(/-(\d{4})/);
-        
-        if (match) {
-            const currentYear = parseInt(match[1]);
-            
-            // Tomar las ultimas X semanas
-            const lastWeeksCurrentYear = validRows.slice(-numWeeks);
-            
-            // Buscar equivalentes del año pasado
-            const previousYearRows = [];
-            lastWeeksCurrentYear.forEach(cr => {
-                const prevLabel = String(cr[timeColName]).replace(`-${currentYear}`, `-${currentYear - 1}`);
-                const pr = chartData.rows.find(r => String(r[timeColName]) === prevLabel);
-                if (pr) previousYearRows.push(pr);
-            });
-            
-            rowsToPlot = [...previousYearRows, ...lastWeeksCurrentYear];
-        } else {
-            rowsToPlot = validRows.slice(-numWeeks * 2);
-        }
-    }
-
-    // Si la data está muy vacía, fallback
-    if(rowsToPlot.length === 0) rowsToPlot = validRows;
-
-    // Extraer vectores
-    const labels = rowsToPlot.map(r => r[timeColName]);
-    const inventario = rowsToPlot.map(r => parseFloat(r[colInventario]) || 0);
-    const recibo = rowsToPlot.map(r => parseFloat(r[colRecibo]) || 0);
-    const despacho = rowsToPlot.map(r => parseFloat(r[colDespacho]) || 0);
-    const planInv = colPlanInv ? rowsToPlot.map(r => parseFloat(r[colPlanInv]) || 0) : [];
-    const planRecibo = colPlanRecibo ? rowsToPlot.map(r => parseFloat(r[colPlanRecibo]) || 0) : [];
-    const planDespacho = colPlanDespacho ? rowsToPlot.map(r => parseFloat(r[colPlanDespacho]) || 0) : [];
-
-    renderMixedChart(prefix, labels, { inventario, recibo, despacho, planInv, planRecibo, planDespacho });
-    
-    // Renderizar la tabla limpia solo con las columnas solicitadas
-    renderCleanTable(prefix, timeColName, colRecibo, colDespacho, colInventario, rowsToPlot);
+  /**
+   * Parsea "[34-2026]" → { week: 34, year: 2026 }
+   */
+  function parseWeekLabel(label) {
+    const s = String(label).replace(/[\[\]]/g, '');
+    const parts = s.split('-');
+    if (parts.length !== 2) return null;
+    return { week: parseInt(parts[0], 10), year: parseInt(parts[1], 10) };
   }
 
-  function renderMixedChart(prefix, labels, data) {
-    const canvasId = `chart${prefix}`;
+  function renderSection(prefix, data, cols, filterValue) {
+    if (!data.rows || data.rows.length === 0) return;
+
+    // 1. Parsear todas las filas con su semana/año
+    const allParsed = [];
+    data.rows.forEach(row => {
+      const label = row[cols.timeCol];
+      if (!label) return;
+      const parsed = parseWeekLabel(label);
+      if (!parsed || isNaN(parsed.week) || isNaN(parsed.year)) return;
+
+      allParsed.push({
+        label,
+        week: parsed.week,
+        year: parsed.year,
+        recibo:       parseFloat(row[cols.recibo]) || 0,
+        despacho:     parseFloat(row[cols.despacho]) || 0,
+        inventario:   parseFloat(row[cols.inventario]) || 0,
+        planRecibo:   parseFloat(row[cols.planRecibo]) || 0,
+        planDespacho: parseFloat(row[cols.planDespacho]) || 0,
+        planInv:      parseFloat(row[cols.planInv]) || 0
+      });
+    });
+
+    if (allParsed.length === 0) return;
+
+    // 2. Determinar año actual = el mayor año en los datos
+    const currentYear = Math.max(...allParsed.map(r => r.year));
+    const prevYear = currentYear - 1;
+
+    // 3. Encontrar la última semana con datos reales en el año actual
+    const currentYearRows = allParsed
+      .filter(r => r.year === currentYear)
+      .sort((a, b) => a.week - b.week);
+
+    let lastDataWeek = 0;
+    for (let i = currentYearRows.length - 1; i >= 0; i--) {
+      const r = currentYearRows[i];
+      if (r.recibo > 0 || r.despacho > 0 || r.inventario > 0) {
+        lastDataWeek = r.week;
+        break;
+      }
+    }
+    if (lastDataWeek === 0 && currentYearRows.length > 0) {
+      lastDataWeek = currentYearRows[currentYearRows.length - 1].week;
+    }
+
+    // 4. Determinar rango de semanas a mostrar
+    let weekNumbers;
+    if (filterValue === 'all') {
+      // Mostrar todas las semanas que tengan data en el año actual
+      weekNumbers = currentYearRows
+        .filter(r => r.recibo > 0 || r.despacho > 0 || r.inventario > 0)
+        .map(r => r.week);
+    } else {
+      const n = parseInt(filterValue, 10);
+      const startWeek = Math.max(1, lastDataWeek - n + 1);
+      weekNumbers = [];
+      for (let w = startWeek; w <= lastDataWeek; w++) weekNumbers.push(w);
+    }
+
+    if (weekNumbers.length === 0) return;
+
+    // 5. Indexar datos por (año, semana) para acceso rápido
+    const dataMap = {};
+    allParsed.forEach(r => {
+      dataMap[`${r.year}-${r.week}`] = r;
+    });
+
+    // 6. Construir arrays alineados por semana
+    const labels = weekNumbers.map(w => `S${w}`);
+    const get = (year, week, field) => {
+      const key = `${year}-${week}`;
+      return dataMap[key] ? dataMap[key][field] : 0;
+    };
+
+    const prevRecibo =       weekNumbers.map(w => get(prevYear, w, 'recibo'));
+    const currRecibo =       weekNumbers.map(w => get(currentYear, w, 'recibo'));
+    const planRecibo =       weekNumbers.map(w => get(currentYear, w, 'planRecibo'));
+
+    const prevDespacho =     weekNumbers.map(w => get(prevYear, w, 'despacho'));
+    const currDespacho =     weekNumbers.map(w => get(currentYear, w, 'despacho'));
+    const planDespacho =     weekNumbers.map(w => get(currentYear, w, 'planDespacho'));
+
+    const prevInventario =   weekNumbers.map(w => get(prevYear, w, 'inventario'));
+    const currInventario =   weekNumbers.map(w => get(currentYear, w, 'inventario'));
+    const planInv =          weekNumbers.map(w => get(currentYear, w, 'planInv'));
+
+    // 7. Renderizar los 3 gráficos
+    renderBarChart(`chart${prefix}Recibo`, '📦 Recibo', labels, [
+      { label: `Recibo ${prevYear}`, data: prevRecibo, bg: 'rgba(100,149,237,0.5)', border: '#6495ED' },
+      { label: `Recibo ${currentYear}`, data: currRecibo, bg: '#1d3557', border: '#1d3557' },
+    ], planRecibo.some(v => v > 0) ? { label: 'PLAN RECIBO', data: planRecibo, color: '#457b9d' } : null);
+
+    renderBarChart(`chart${prefix}Despacho`, '🚛 Despacho', labels, [
+      { label: `Despacho ${prevYear}`, data: prevDespacho, bg: 'rgba(233,150,122,0.6)', border: '#E9967A' },
+      { label: `Despacho ${currentYear}`, data: currDespacho, bg: '#e76f51', border: '#e76f51' },
+    ], planDespacho.some(v => v > 0) ? { label: 'PLAN DESPACHO', data: planDespacho, color: '#9d0208' } : null);
+
+    renderAreaChart(`chart${prefix}Inventario`, '📊 Inventario', labels, [
+      { label: `Inventario ${prevYear}`, data: prevInventario, bg: 'rgba(200,200,200,0.4)', border: '#bbb' },
+      { label: `Inventario ${currentYear}`, data: currInventario, bg: 'rgba(100,100,100,0.3)', border: '#555' },
+    ], planInv.some(v => v > 0) ? { label: 'PLAN INV', data: planInv, color: '#2a9d8f' } : null);
+
+    // 8. Tabla resumen (últimas 7 semanas del año actual)
+    const tableWeeks = weekNumbers.slice(-7);
+    renderTable(prefix, tableWeeks, currentYear, dataMap);
+  }
+
+  // ══════════════════════════════════════════════
+  // CHART RENDERERS
+  // ══════════════════════════════════════════════
+  function renderBarChart(canvasId, title, labels, barSeries, planLine) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
 
-    // Notas de Order: En Chart.js, mayor `order` significa que se dibuja POR DEBAJO de los menores.
-    // Queremos:
-    // Fondo: INVENTARIO (Area) -> order: 10
-    // Medio: RECIBO y DESPACHO (Barras) -> order: 5
-    // Frente: PLAN (Líneas punteadas) -> order: 1
+    const datasets = barSeries.map(s => ({
+      type: 'bar',
+      label: s.label,
+      data: s.data,
+      backgroundColor: s.bg,
+      borderColor: s.border,
+      borderWidth: 1
+    }));
 
-    const datasets = [
-      {
+    if (planLine) {
+      datasets.push({
         type: 'line',
-        label: 'INVENTARIO',
-        data: data.inventario,
-        backgroundColor: 'rgba(211, 211, 211, 0.7)', // Gris Área más sólido
-        borderColor: '#9e9e9e',
+        label: planLine.label,
+        data: planLine.data,
+        borderColor: planLine.color,
         borderWidth: 2,
-        fill: true,
-        order: 10 
-      },
-      {
-        type: 'bar',
-        label: 'RECIBO',
-        data: data.recibo,
-        backgroundColor: '#457b9d', // Azul Barra
-        borderColor: '#1d3557',
-        borderWidth: 1,
-        order: 5
-      },
-      {
-        type: 'bar',
-        label: 'DESPACHO',
-        data: data.despacho,
-        backgroundColor: '#e76f51', // Naranja Barra
-        borderColor: '#d00000',
-        borderWidth: 1,
-        order: 5
-      }
-    ];
-
-    if(data.planInv && data.planInv.some(v => v > 0)) {
-        datasets.push({
-            type: 'line',
-            label: 'PLAN INV',
-            data: data.planInv,
-            borderColor: '#2a9d8f', // Verde Plan
-            borderWidth: 2,
-            borderDash: [5, 5],
-            fill: false,
-            pointRadius: 0,
-            order: 1
-        });
-    }
-
-    if(data.planRecibo && data.planRecibo.some(v => v > 0)) {
-        datasets.push({
-            type: 'line',
-            label: 'PLAN RECIBO',
-            data: data.planRecibo,
-            borderColor: '#1d3557', // Azul Oscuro Plan
-            borderWidth: 2,
-            borderDash: [5, 5],
-            fill: false,
-            pointRadius: 0,
-            order: 1
-        });
-    }
-
-    if(data.planDespacho && data.planDespacho.some(v => v > 0)) {
-        datasets.push({
-            type: 'line',
-            label: 'PLAN DESPACHO',
-            data: data.planDespacho,
-            borderColor: '#9d0208', // Rojo Oscuro Plan
-            borderWidth: 2,
-            borderDash: [5, 5],
-            fill: false,
-            pointRadius: 0,
-            order: 1
-        });
+        borderDash: [6, 3],
+        fill: false,
+        pointRadius: 0,
+        tension: 0.2
+      });
     }
 
     charts[canvasId] = new Chart(ctx, {
-      data: {
-        labels: labels,
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { 
-            position: 'top',
-            labels: { usePointStyle: true, boxWidth: 10 }
-          },
-          tooltip: { mode: 'index', intersect: false }
-        },
-        scales: {
-          x: {
-             grid: { display: false }
-          },
-          y: {
-            beginAtZero: true,
-            ticks: {
-               callback: function(value) {
-                  return value.toLocaleString('es-PE');
-               }
-            }
-          }
-        },
-        interaction: { mode: 'index', intersect: false }
-      }
+      data: { labels, datasets },
+      options: chartOptions()
     });
   }
 
-  function renderCleanTable(prefix, timeCol, reciboCol, despachoCol, invCol, rows) {
-      const container = document.getElementById(`table${prefix}Container`);
-      if (!container) return;
-      
-      if (!rows || rows.length === 0) {
-          container.innerHTML = '<p>No hay datos disponibles para mostrar.</p>';
-          return;
-      }
+  function renderAreaChart(canvasId, title, labels, areaSeries, planLine) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    if (charts[canvasId]) charts[canvasId].destroy();
 
-      let html = '<table class="data-table"><thead><tr>';
-      html += `<th>Semana</th><th>RECIBO</th><th>DESPACHO</th><th>INVENTARIO</th>`;
-      html += '</tr></thead><tbody>';
-      
-      rows.forEach(row => {
-          html += '<tr>';
-          html += `<td><strong>${row[timeCol] || ''}</strong></td>`;
-          html += `<td>${(parseFloat(row[reciboCol]) || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 })}</td>`;
-          html += `<td>${(parseFloat(row[despachoCol]) || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 })}</td>`;
-          html += `<td>${(parseFloat(row[invCol]) || 0).toLocaleString('es-PE', { maximumFractionDigits: 0 })}</td>`;
-          html += '</tr>';
+    const datasets = areaSeries.map(s => ({
+      type: 'line',
+      label: s.label,
+      data: s.data,
+      backgroundColor: s.bg,
+      borderColor: s.border,
+      borderWidth: 2,
+      fill: true,
+      tension: 0.3,
+      pointRadius: 2
+    }));
+
+    if (planLine) {
+      datasets.push({
+        type: 'line',
+        label: planLine.label,
+        data: planLine.data,
+        borderColor: planLine.color,
+        borderWidth: 2,
+        borderDash: [6, 3],
+        fill: false,
+        pointRadius: 0,
+        tension: 0.2
       });
+    }
 
-      html += '</tbody></table>';
-      container.innerHTML = html;
+    charts[canvasId] = new Chart(ctx, {
+      data: { labels, datasets },
+      options: chartOptions()
+    });
+  }
+
+  function chartOptions() {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: {
+          beginAtZero: true,
+          ticks: { callback: v => v.toLocaleString('es-PE') }
+        }
+      },
+      interaction: { mode: 'index', intersect: false }
+    };
+  }
+
+  // ══════════════════════════════════════════════
+  // TABLE RENDERER
+  // ══════════════════════════════════════════════
+  function renderTable(prefix, weekNumbers, year, dataMap) {
+    const container = document.getElementById(`table${prefix}Container`);
+    if (!container) return;
+
+    let html = `<div class="table-wrapper-title">Resumen últimas 7 semanas (${year})</div>`;
+    html += '<table class="data-table"><thead><tr><th>Semana</th>';
+    weekNumbers.forEach(w => { html += `<th>[${w}-${year}]</th>`; });
+    html += '</tr></thead><tbody>';
+
+    ['recibo', 'despacho', 'inventario'].forEach(metric => {
+      const label = metric === 'recibo' ? 'RECIBO' : metric === 'despacho' ? 'DESPACHO' : 'INVENTARIO';
+      html += `<tr><td><strong>${label}</strong></td>`;
+      weekNumbers.forEach(w => {
+        const val = dataMap[`${year}-${w}`] ? dataMap[`${year}-${w}`][metric] : 0;
+        html += `<td>${val.toLocaleString('es-PE', { maximumFractionDigits: 0 })}</td>`;
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
   }
 });
