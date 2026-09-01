@@ -107,11 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!sheetGrafico) throw new Error(`No se encontró 'BD_Grafico'. Hojas: ${tabNames.join(', ')}`);
       const sg = `'${sheetGrafico}'`;
 
-      // Rangos CORRECTOS según estructura real del archivo
+      // Rangos según lo indicado por el usuario:
       // Frescos: Columnas A-L, Filas 5-109
-      // Secos:   Columnas V-AE, Filas 5-109
+      // Secos:   Columnas R-AA, Filas 5-109
       window.dataFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!A5:L109`);
-      window.dataSecos   = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!V5:AE109`);
+      window.dataSecos   = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!R5:AA109`);
 
       document.getElementById('connectBox').classList.add('hidden');
       document.getElementById('connectionSuccessInfo').classList.remove('hidden');
