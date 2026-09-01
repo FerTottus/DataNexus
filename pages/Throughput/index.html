@@ -7,73 +7,339 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="../../css/styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Chart.js & Datalabels Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  
   <style>
-    .dashboard-container { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-    .section-title { font-size: 1.8rem; color: #1a3a5c; font-weight: 700; margin-bottom: 15px; text-transform: uppercase; }
-
-    .chart-block { margin-bottom: 25px; }
-    .chart-block-title {
-      font-size: 1.1rem; font-weight: 700; color: #333;
-      margin-bottom: 8px; padding-left: 5px;
-      border-left: 4px solid #0d6efd; padding-left: 10px;
-    }
-    .chart-container-medium {
-      position: relative; height: 320px; width: 100%;
-      background: white; border: 1px solid #dee2e6; border-radius: 8px;
-      padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    :root {
+      --glass-bg: rgba(255, 255, 255, 0.75);
+      --glass-bg-card: rgba(255, 255, 255, 0.82);
+      --glass-border: rgba(255, 255, 255, 0.7);
+      --glass-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.85) inset;
+      --glass-shadow-lg: 0 16px 45px -8px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+      --primary-gradient: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+      --accent-recibo: #2563eb;
+      --accent-despacho: #f97316;
+      --accent-inventario: #059669;
     }
 
-    .table-wrapper {
-      background: white; border: 1px solid #dee2e6; border-radius: 8px;
-      padding: 15px; overflow-x: auto; margin-top: 20px;
+    body {
+      background: 
+        radial-gradient(at 12% 15%, rgba(99, 102, 241, 0.12) 0px, transparent 45%),
+        radial-gradient(at 88% 10%, rgba(236, 72, 153, 0.10) 0px, transparent 45%),
+        radial-gradient(at 50% 50%, rgba(56, 189, 248, 0.08) 0px, transparent 55%),
+        radial-gradient(at 85% 85%, rgba(16, 185, 129, 0.10) 0px, transparent 50%),
+        radial-gradient(at 10% 90%, rgba(249, 115, 22, 0.08) 0px, transparent 50%),
+        #f8fafc;
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #0f172a;
     }
-    .table-wrapper-title {
-      font-size: 1rem; font-weight: 700; color: #555; margin-bottom: 10px;
-    }
-    .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    .data-table th, .data-table td { border: 1px solid #dee2e6; padding: 8px; text-align: right; }
-    .data-table th { background-color: #f8f9fa; font-weight: 600; text-align: center; color: #333; }
-    .data-table td:first-child, .data-table th:first-child { text-align: left; font-weight: bold; }
 
-    .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
-    .tab-btn {
-      padding: 12px 24px; border: 2px solid #0d6efd; background: white;
-      color: #0d6efd; border-radius: 6px; cursor: pointer; font-weight: 700;
-      font-size: 1rem; transition: 0.2s;
+    .navbar-glass {
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(24px) saturate(190%);
+      -webkit-backdrop-filter: blur(24px) saturate(190%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 12px 28px;
     }
-    .tab-btn:hover { background: #e9ecef; }
-    .tab-btn.active { background: #0d6efd; color: white; border-color: #0d6efd; }
+
+    .dashboard-container {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    .glass-card {
+      background: var(--glass-bg-card);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      box-shadow: var(--glass-shadow);
+      padding: 22px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card:hover {
+      box-shadow: var(--glass-shadow-lg);
+    }
+
+    /* KPI Summary Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .kpi-card {
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 15px -2px rgba(15, 23, 42, 0.04);
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 4px; height: 100%;
+    }
+    .kpi-recibo::before { background: #2563eb; }
+    .kpi-despacho::before { background: #f97316; }
+    .kpi-inventario::before { background: #059669; }
+
+    .kpi-title { font-size: 0.82rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-value { font-size: 1.6rem; font-weight: 800; color: #0f172a; line-height: 1.2; }
+    .kpi-sub { font-size: 0.8rem; color: #64748b; display: flex; align-items: center; gap: 8px; }
+    .kpi-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 8px; border-radius: 6px; font-weight: 700; font-size: 0.75rem;
+    }
+    .badge-up { background: #dcfce7; color: #15803d; }
+    .badge-down { background: #fee2e2; color: #b91c1c; }
+
+    /* Controls Bar */
+    .filter-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 16px 22px;
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .glass-select {
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #334155;
+      outline: none;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+    }
+    .glass-select:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
+
+    .glass-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #475569;
+      cursor: pointer;
+      user-select: none;
+      background: rgba(255, 255, 255, 0.6);
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+    .glass-toggle input { cursor: pointer; width: 16px; height: 16px; accent-color: #2563eb; }
+
+    /* Tabs */
+    .glass-tabs-nav {
+      display: inline-flex;
+      gap: 6px;
+      background: rgba(226, 232, 240, 0.6);
+      padding: 5px;
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+    }
+    .glass-tab-btn {
+      padding: 10px 22px;
+      border-radius: 9px;
+      border: none;
+      background: transparent;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .glass-tab-btn:hover { color: #0f172a; background: rgba(255, 255, 255, 0.4); }
+    .glass-tab-btn.active {
+      background: #ffffff;
+      color: #2563eb;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12), 0 2px 4px rgba(0,0,0,0.03);
+    }
+
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    .connection-flex {
-      display: flex; justify-content: space-between; align-items: center;
-      gap: 20px; flex-wrap: wrap;
+    /* Section Title */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
-    .connection-input-area { flex: 1; min-width: 300px; }
-    .connection-buttons { display: flex; gap: 10px; }
+    .section-title {
+      font-size: 1.6rem;
+      color: #0f172a;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Chart Blocks */
+    .chart-block {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 22px;
+      box-shadow: 0 6px 20px -4px rgba(15, 23, 42, 0.05);
+    }
+    .chart-block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .chart-block-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chart-badge-pill {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    .chart-container-medium {
+      position: relative;
+      height: 350px;
+      width: 100%;
+    }
+
+    /* Table Styles */
+    .table-wrapper {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 16px;
+      padding: 20px;
+      overflow-x: auto;
+      margin-top: 10px;
+      box-shadow: 0 6px 20px -4px rgba(15, 23, 42, 0.05);
+    }
+    .table-wrapper-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 0.86rem;
+    }
+    .data-table th, .data-table td {
+      padding: 10px 14px;
+      text-align: right;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .data-table th {
+      background-color: #f8fafc;
+      font-weight: 700;
+      text-align: center;
+      color: #475569;
+      border-top: 1px solid #e2e8f0;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .data-table td:first-child, .data-table th:first-child {
+      text-align: left;
+      font-weight: 700;
+      position: sticky;
+      left: 0;
+      background: inherit;
+    }
+    .data-table tr:hover td {
+      background-color: rgba(241, 245, 249, 0.6);
+    }
+
+    /* Buttons */
+    .btn-glass-primary {
+      background: var(--primary-gradient);
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-glass-primary:hover {
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>
-  <header class="navbar">
+
+  <!-- Navbar Glass -->
+  <header class="navbar navbar-glass">
     <div class="nav-brand">
-      <div class="logo-icon"><i class="fa-solid fa-boxes-stacked text-primary"></i></div>
+      <div class="logo-icon" style="background: var(--primary-gradient); width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white;">
+        <i class="fa-solid fa-chart-line"></i>
+      </div>
       <div>
-        <h1 class="logo-title">DataNexus</h1>
-        <span class="logo-subtitle">Throughput Secos y Frescos</span>
+        <h1 class="logo-title" style="font-size: 1.25rem; font-weight: 800; letter-spacing: -0.3px;">DataNexus</h1>
+        <span class="logo-subtitle" style="font-size: 0.78rem; color: #64748b;">Throughput Analytics (Secos & Frescos)</span>
       </div>
     </div>
     <div class="nav-actions">
-      <a href="../../index.html" class="btn btn-outline-secondary btn-sm">
-        <i class="fa-solid fa-arrow-left"></i> Volver al Inicio
+      <a href="../../index.html" class="btn btn-outline-secondary btn-sm" style="border-radius: 8px; font-weight: 600;">
+        <i class="fa-solid fa-arrow-left"></i> Inicio
       </a>
       <div id="authContainer" class="auth-box">
-        <button id="btnGoogleLogin" class="btn btn-google">
+        <button id="btnGoogleLogin" class="btn btn-google" style="border-radius: 8px;">
           <svg class="google-icon" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -83,8 +349,8 @@
           Acceder
         </button>
         <div id="userInfo" class="user-profile hidden">
-          <div class="user-badge">
-            <i class="fa-solid fa-circle-user"></i>
+          <div class="user-badge" style="background: rgba(241, 245, 249, 0.8); border-radius: 8px;">
+            <i class="fa-solid fa-circle-user text-primary"></i>
             <span id="userEmail">Conectado</span>
           </div>
           <button id="btnGoogleLogout" class="btn btn-xs btn-outline-danger" title="Cerrar sesión">
@@ -95,115 +361,189 @@
     </div>
   </header>
 
-  <main class="main-container">
-    <!-- Conexión -->
-    <section class="card sheet-connector-card">
-      <div class="card-header">
-        <h2><i class="fa-solid fa-link text-primary"></i> Conectar a Google Sheet</h2>
+  <main class="dashboard-container">
+    <!-- Conexión Glass Card -->
+    <section class="glass-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2 style="font-size: 1.1rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-link text-primary"></i> Conexión Google Sheets
+        </h2>
       </div>
-      <div class="card-body">
-        <div id="connectBox" class="connection-flex">
-          <div class="connection-input-area">
-            <input type="text" id="sheetUrlInput" placeholder="Pega el enlace del Excel..." class="form-control" style="width: 100%;">
-          </div>
-          <div class="connection-buttons">
-            <button id="btnBrowseDrive" class="btn btn-secondary"><i class="fa-solid fa-folder-open"></i> Explorar Drive</button>
-            <button id="btnFetchData" class="btn btn-primary"><i class="fa-solid fa-cloud-arrow-down"></i> Cargar Datos</button>
-          </div>
+      <div id="connectBox" class="connection-flex" style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <div class="connection-input-area" style="flex: 1; min-width: 280px;">
+          <input type="text" id="sheetUrlInput" placeholder="Pega el enlace o ID del Google Sheet..." class="form-control" style="border-radius: 10px; height: 42px; width: 100%;">
         </div>
-        <div id="connectionSuccessInfo" class="hidden" style="display:flex;justify-content:space-between;align-items:center;padding:15px;background:#f8f9fa;border-radius:8px;border:1px solid #dee2e6;">
-          <span><i class="fa-solid fa-check-circle text-success"></i> Conectado exitosamente. <strong id="connectedSheetName"></strong></span>
-          <button id="btnChangeSheet" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-pen"></i> Cambiar</button>
+        <div class="connection-buttons" style="display: flex; gap: 10px;">
+          <button id="btnBrowseDrive" class="btn btn-secondary" style="border-radius: 10px; font-weight: 600;">
+            <i class="fa-solid fa-folder-open"></i> Explorar Drive
+          </button>
+          <button id="btnFetchData" class="btn-glass-primary">
+            <i class="fa-solid fa-cloud-arrow-down"></i> Cargar Datos
+          </button>
         </div>
-        <div id="loadingIndicator" class="hidden text-center" style="margin-top:15px;">
-          <i class="fa-solid fa-spinner fa-spin text-primary"></i> Procesando datos...
-        </div>
+      </div>
+      <div id="connectionSuccessInfo" class="hidden" style="display:flex; justify-content:space-between; align-items:center; padding:12px 18px; background:rgba(240, 253, 244, 0.8); border-radius:10px; border:1px solid #bbf7d0; margin-top: 5px;">
+        <span style="color: #15803d; font-weight: 600;"><i class="fa-solid fa-check-circle text-success"></i> Documento cargado: <strong id="connectedSheetName"></strong></span>
+        <button id="btnChangeSheet" class="btn btn-sm btn-outline-secondary" style="border-radius: 8px;"><i class="fa-solid fa-pen"></i> Cambiar</button>
+      </div>
+      <div id="loadingIndicator" class="hidden text-center" style="margin-top:14px; font-weight: 600; color: #2563eb;">
+        <i class="fa-solid fa-spinner fa-spin text-primary"></i> Sincronizando y procesando Throughput...
       </div>
     </section>
 
     <!-- Modal Drive -->
     <div id="drive-modal" class="modal-overlay hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3><i class="fa-solid fa-folder-open text-primary"></i> Tus archivos recientes</h3>
+      <div class="modal-content glass-card" style="max-width: 550px;">
+        <div class="modal-header" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+          <h3 style="font-weight: 700; font-size: 1.15rem;"><i class="fa-solid fa-folder-open text-primary"></i> Seleccionar Hoja de Cálculo</h3>
           <button id="close-modal-btn" class="btn-close">&times;</button>
         </div>
-        <div class="modal-body">
-          <input type="text" id="drive-search-input" class="form-control" style="margin-bottom:12px;" placeholder="🔍 Buscar archivo..." oninput="filterDriveList(this.value)">
-          <div id="drive-loading" class="hidden text-center"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>
-          <ul id="drive-file-list" class="file-list"></ul>
-          <div id="drive-empty" class="hidden text-muted text-center mt-3">No se encontraron hojas de cálculo.</div>
+        <div class="modal-body" style="padding-top: 15px;">
+          <input type="text" id="drive-search-input" class="form-control" style="margin-bottom:12px; border-radius: 8px;" placeholder="🔍 Buscar por nombre..." oninput="filterDriveList(this.value)">
+          <div id="drive-loading" class="hidden text-center" style="padding: 15px;"><i class="fa-solid fa-spinner fa-spin text-primary"></i> Cargando archivos...</div>
+          <ul id="drive-file-list" class="file-list" style="max-height: 280px; overflow-y: auto;"></ul>
+          <div id="drive-empty" class="hidden text-muted text-center mt-3">No se encontraron hojas.</div>
         </div>
       </div>
     </div>
 
-    <!-- Dashboard -->
-    <div id="dashboardSection" class="dashboard-container hidden">
+    <!-- Dashboard Section -->
+    <div id="dashboardSection" class="hidden" style="display: flex; flex-direction: column; gap: 20px;">
 
-      <!-- Filtros -->
-      <div class="card" style="margin-bottom:0;">
-        <div class="card-body" style="display:flex;gap:15px;align-items:center;padding:15px;flex-wrap:wrap;">
-          <div>
-            <label for="weeksFilter" style="font-weight:bold;margin-right:10px;">
-              <i class="fa-solid fa-calendar-week"></i> Últimas semanas:
-            </label>
-            <select id="weeksFilter" class="form-control" style="width:auto;display:inline-block;">
-              <option value="all">Todas</option>
-              <option value="4">Últimas 4 semanas</option>
-              <option value="8" selected>Últimas 8 semanas</option>
-              <option value="12">Últimas 12 semanas</option>
-              <option value="16">Últimas 16 semanas</option>
-            </select>
-          </div>
-          <button id="btnApplyFilters" class="btn btn-primary btn-sm"><i class="fa-solid fa-rotate"></i> Actualizar</button>
-          <span style="font-size:0.8rem;color:#888;">Se comparan las mismas semanas del año actual vs. año anterior.</span>
+      <!-- Controls & Filter Glass Bar -->
+      <div class="glass-card filter-bar">
+        <div class="glass-tabs-nav">
+          <button class="glass-tab-btn active" data-target="tab-secos">
+            <i class="fa-solid fa-box"></i> CD SECOS
+          </button>
+          <button class="glass-tab-btn" data-target="tab-frescos">
+            <i class="fa-solid fa-snowflake"></i> CD FRESCOS
+          </button>
         </div>
-      </div>
 
-      <div class="tab-buttons">
-        <button class="tab-btn active" data-target="tab-secos">THROUGHPUT-CD SECOS</button>
-        <button class="tab-btn" data-target="tab-frescos">THROUGHPUT-CD FRESCOS</button>
+        <div class="filter-group">
+          <label for="weeksFilter" style="font-weight: 700; font-size: 0.88rem; color: #475569;">
+            <i class="fa-solid fa-calendar-week text-primary"></i> Rango:
+          </label>
+          <select id="weeksFilter" class="glass-select">
+            <option value="4">Últimas 4 semanas</option>
+            <option value="8" selected>Últimas 8 semanas</option>
+            <option value="12">Últimas 12 semanas</option>
+            <option value="16">Últimas 16 semanas</option>
+            <option value="all">Todas las semanas registradas</option>
+          </select>
+
+          <label class="glass-toggle" title="Muestra las cifras directamente encima de cada barra y punto para captura fácil">
+            <input type="checkbox" id="toggleDataLabels" checked>
+            <span><i class="fa-solid fa-tag text-primary"></i> Ver Números</span>
+          </label>
+
+          <button id="btnApplyFilters" class="btn-glass-primary" style="padding: 7px 15px; font-size: 0.88rem;">
+            <i class="fa-solid fa-rotate"></i> Actualizar
+          </button>
+        </div>
       </div>
 
       <!-- Tab Secos -->
       <div id="tab-secos" class="tab-content active">
-        <h2 class="section-title">THROUGHPUT-CD SECOS</h2>
+        <div class="section-header">
+          <h2 class="section-title">
+            <span style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); width: 12px; height: 28px; border-radius: 4px; display: inline-block;"></span>
+            THROUGHPUT-CD SECOS
+          </h2>
+          <span style="font-size: 0.85rem; font-weight: 600; color: #64748b; background: rgba(255,255,255,0.7); padding: 5px 12px; border-radius: 8px;">
+            Comparativa Evolutiva Semanal (2025 vs 2026) + Planes
+          </span>
+        </div>
 
+        <!-- KPI Strip Secos -->
+        <div class="kpi-grid" id="kpiSecosContainer"></div>
+
+        <!-- 3 Gráficos Secos -->
         <div class="chart-block">
-          <div class="chart-block-title">📦 Entradas (Recibo)</div>
+          <div class="chart-block-header">
+            <div class="chart-block-title">
+              <span style="color: #2563eb;"><i class="fa-solid fa-boxes-packing"></i></span> Entradas (Recibo)
+            </div>
+            <span class="chart-badge-pill">Cajas / Semana</span>
+          </div>
           <div class="chart-container-medium"><canvas id="chartSecosRecibo"></canvas></div>
         </div>
+
         <div class="chart-block">
-          <div class="chart-block-title">🚛 Salidas (Despacho)</div>
+          <div class="chart-block-header">
+            <div class="chart-block-title">
+              <span style="color: #f97316;"><i class="fa-solid fa-truck-fast"></i></span> Salidas (Despacho)
+            </div>
+            <span class="chart-badge-pill">Cajas / Semana</span>
+          </div>
           <div class="chart-container-medium"><canvas id="chartSecosDespacho"></canvas></div>
         </div>
+
         <div class="chart-block">
-          <div class="chart-block-title">📊 Inventario</div>
+          <div class="chart-block-header">
+            <div class="chart-block-title">
+              <span style="color: #059669;"><i class="fa-solid fa-warehouse"></i></span> Inventario Activo
+            </div>
+            <span class="chart-badge-pill">Stock en Cajas</span>
+          </div>
           <div class="chart-container-medium"><canvas id="chartSecosInventario"></canvas></div>
         </div>
 
+        <!-- Tabla Resumen Secos -->
         <div class="table-wrapper" id="tableSecosContainer"></div>
       </div>
 
       <!-- Tab Frescos -->
       <div id="tab-frescos" class="tab-content">
-        <h2 class="section-title">THROUGHPUT-CD FRESCOS</h2>
+        <div class="section-header">
+          <h2 class="section-title">
+            <span style="background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); width: 12px; height: 28px; border-radius: 4px; display: inline-block;"></span>
+            THROUGHPUT-CD FRESCOS
+          </h2>
+          <span style="font-size: 0.85rem; font-weight: 600; color: #64748b; background: rgba(255,255,255,0.7); padding: 5px 12px; border-radius: 8px;">
+            Comparativa Evolutiva Semanal (2025 vs 2026) + Planes
+          </span>
+        </div>
 
+        <!-- KPI Strip Frescos -->
+        <div class="kpi-grid" id="kpiFrescosContainer"></div>
+
+        <!-- 3 Gráficos Frescos -->
         <div class="chart-block">
-          <div class="chart-block-title">📦 Entradas (Recibo)</div>
+          <div class="chart-block-header">
+            <div class="chart-block-title">
+              <span style="color: #2563eb;"><i class="fa-solid fa-boxes-packing"></i></span> Entradas (Recibo)
+            </div>
+            <span class="chart-badge-pill">Cajas / Semana</span>
+          </div>
           <div class="chart-container-medium"><canvas id="chartFrescosRecibo"></canvas></div>
         </div>
+
         <div class="chart-block">
-          <div class="chart-block-title">🚛 Salidas (Despacho)</div>
+          <div class="chart-block-header">
+            <div class="chart-block-title">
+              <span style="color: #f97316;"><i class="fa-solid fa-truck-fast"></i></span> Salidas (Despacho)
+            </div>
+            <span class="chart-badge-pill">Cajas / Semana</span>
+          </div>
           <div class="chart-container-medium"><canvas id="chartFrescosDespacho"></canvas></div>
         </div>
+
         <div class="chart-block">
-          <div class="chart-block-title">📊 Inventario</div>
+          <div class="chart-block-header">
+            <div class="chart-block-title">
+              <span style="color: #059669;"><i class="fa-solid fa-warehouse"></i></span> Inventario Activo
+            </div>
+            <span class="chart-badge-pill">Stock en Cajas</span>
+          </div>
           <div class="chart-container-medium"><canvas id="chartFrescosInventario"></canvas></div>
         </div>
 
+        <!-- Tabla Resumen Frescos -->
         <div class="table-wrapper" id="tableFrescosContainer"></div>
       </div>
+
     </div>
   </main>
 

@@ -1,6 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
-  // AUTH
+  // CHART DATA LABELS PLUGIN REGISTRATION
+  // ══════════════════════════════════════════════
+  if (window.ChartDataLabels) {
+    Chart.register(window.ChartDataLabels);
+  }
+
+  // ══════════════════════════════════════════════
+  // AUTH INITIALIZATION
   // ══════════════════════════════════════════════
   if (window.GoogleSheetsService) {
     window.GoogleSheetsService.initAuth();
@@ -57,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
     files.forEach(file => {
       const li = document.createElement('li');
       li.className = 'file-item'; li.style.cursor = 'pointer'; li.style.padding = '10px'; li.style.borderBottom = '1px solid #eee';
-      li.innerHTML = `<i class="fa-solid fa-file-excel text-success"></i> <span style="margin-left:8px;">${file.name}</span>`;
+      li.innerHTML = `<i class="fa-solid fa-file-excel text-success"></i> <span style="margin-left:8px; font-weight:600;">${file.name}</span>`;
       li.addEventListener('click', () => {
         document.getElementById('sheetUrlInput').value = file.id;
         document.getElementById('drive-modal').classList.add('hidden');
@@ -72,11 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ══════════════════════════════════════════════
-  // TABS
+  // TABS & INTERACTION
   // ══════════════════════════════════════════════
-  document.querySelectorAll('.tab-btn').forEach(btn => {
+  document.querySelectorAll('.glass-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.glass-tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(btn.dataset.target).classList.add('active');
@@ -92,30 +99,32 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
   document.getElementById('btnFetchData')?.addEventListener('click', async () => {
     const urlOrId = document.getElementById('sheetUrlInput').value.trim();
-    if (!urlOrId) return alert("Ingresa la URL o busca un archivo.");
+    if (!urlOrId) return alert("Ingresa la URL o busca un archivo en Google Drive.");
     const sheetId = window.GoogleSheetsService.extractSpreadsheetId(urlOrId);
-    if (!sheetId) return alert("ID inválido.");
+    if (!sheetId) return alert("ID de hoja de cálculo inválido.");
     if (!window.GoogleSheetsService.isAuthenticated()) return alert("Inicia sesión primero.");
 
     document.getElementById('loadingIndicator').classList.remove('hidden');
 
     try {
-      // Resolver nombre exacto de BD_Grafico
+      // Resolver nombre exacto de la pestaña BD_Grafico
       const tabs = await window.GoogleSheetsService.fetchSheetTabs(sheetId);
       const tabNames = tabs.map(t => t.title);
       const sheetGrafico = tabNames.find(t => t.trim().toUpperCase().replace('Á','A') === 'BD_GRAFICO');
-      if (!sheetGrafico) throw new Error(`No se encontró 'BD_Grafico'. Hojas: ${tabNames.join(', ')}`);
+      if (!sheetGrafico) throw new Error(`No se encontró 'BD_Grafico'. Pestañas disponibles: ${tabNames.join(', ')}`);
       const sg = `'${sheetGrafico}'`;
 
-      // Rangos según lo indicado por el usuario:
-      // Frescos: Columnas A-L, Filas 5-109
-      // Secos:   Columnas R-AA, Filas 5-109
+      // ─────────────────────────────────────────────
+      // RANGOS PRECISOS DE LA HOJA BD_Grafico:
+      // Frescos: Columnas A a L (A5:L109)
+      // Secos:   Columnas V a AE (V5:AE109) -> Incluye PLAN DESPACHO y PLAN INV
+      // ─────────────────────────────────────────────
       window.dataFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!A5:L109`);
-      window.dataSecos   = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!R5:AA109`);
+      window.dataSecos   = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!V5:AE109`);
 
       document.getElementById('connectBox').classList.add('hidden');
       document.getElementById('connectionSuccessInfo').classList.remove('hidden');
-      document.getElementById('connectedSheetName').textContent = `ID: ${sheetId.substring(0, 10)}...`;
+      document.getElementById('connectedSheetName').textContent = `Documento cargado (ID: ${sheetId.substring(0, 12)}...)`;
       document.getElementById('dashboardSection').classList.remove('hidden');
 
       renderAll();
@@ -128,34 +137,33 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btnApplyFilters')?.addEventListener('click', renderAll);
+  document.getElementById('toggleDataLabels')?.addEventListener('change', renderAll);
 
   function renderAll() {
     if (!window.dataFrescos || !window.dataSecos) return;
     const numWeeks = document.getElementById('weeksFilter').value;
+    const showLabels = document.getElementById('toggleDataLabels')?.checked ?? true;
 
-    // Frescos: col A = Semana (time key)
-    renderSection('Frescos', window.dataFrescos, resolveColumns(window.dataFrescos.headers, window.dataFrescos.rows), numWeeks);
+    // CD Frescos
+    renderSection('Frescos', window.dataFrescos, resolveColumns(window.dataFrescos.headers, window.dataFrescos.rows), numWeeks, showLabels);
 
-    // Secos: col W = SEMANA (time key)
-    renderSection('Secos', window.dataSecos, resolveColumns(window.dataSecos.headers, window.dataSecos.rows), numWeeks);
+    // CD Secos
+    renderSection('Secos', window.dataSecos, resolveColumns(window.dataSecos.headers, window.dataSecos.rows), numWeeks, showLabels);
   }
 
-  /**
-   * Busca dinámicamente los encabezados por coincidencia parcial (case insensitive, trimmed).
-   * Para timeCol, revisa los datos reales para encontrar la columna con formato [X-YYYY].
-   */
+  // ══════════════════════════════════════════════
+  // DYNAMIC COLUMN RESOLUTION
+  // ══════════════════════════════════════════════
   function resolveColumns(headers, rows) {
-    console.log('Headers recibidos:', JSON.stringify(headers));
-
     const find = (keywords) => {
-      // Match exacto primero
+      // 1. Match exacto
       for (const h of headers) {
         const clean = h.trim().toUpperCase();
         for (const kw of keywords) {
           if (clean === kw) return h;
         }
       }
-      // Match parcial
+      // 2. Match parcial
       for (const h of headers) {
         const clean = h.trim().toUpperCase();
         for (const kw of keywords) {
@@ -165,40 +173,37 @@ document.addEventListener('DOMContentLoaded', () => {
       return null;
     };
 
-    // Para timeCol: buscar en los datos reales cuál columna tiene formato [X-YYYY]
+    // Detectar columna de fecha en base al contenido [X-YYYY]
     let timeCol = null;
     if (rows && rows.length > 0) {
       for (const h of headers) {
-        const sampleVal = String(rows[0][h] || '');
-        if (/^\[?\d{1,2}-\d{4}\]?$/.test(sampleVal.trim())) {
-          timeCol = h;
-          break;
+        for (let i = 0; i < Math.min(5, rows.length); i++) {
+          const val = String(rows[i][h] || '');
+          if (/^\[?\d{1,2}-\d{4}\]?$/.test(val.trim())) {
+            timeCol = h;
+            break;
+          }
         }
+        if (timeCol) break;
       }
     }
-    // Fallback por nombre
-    if (!timeCol) timeCol = find(['SEMANA']) || headers[0];
+    if (!timeCol) timeCol = find(['SEMANA', 'SEMANA2', 'SEMAÑO']) || headers[0];
 
     const recibo = find(['RECIBO']);
     const despacho = find(['DESPACHO']);
     const inventario = find(['INVENTARIO ACT']) || find(['INVENTARIO']);
-    const planRecibo = find(['PLAN RECIBO']);
-    const planDespacho = find(['PLAN DESPACHO']);
-    const planInv = find(['PLAN INV']);
+    const planRecibo = find(['PLAN RECIBO', 'PLAN_RECIBO']);
+    const planDespacho = find(['PLAN DESPACHO', 'PLAN_DESPACHO']);
+    const planInv = find(['PLAN INV', 'PLAN_INV', 'PLAN INVENTARIO']);
 
-    const resolved = { timeCol, recibo, despacho, inventario, planRecibo, planDespacho, planInv };
-    console.log('Columnas resueltas:', resolved);
-    return resolved;
+    return { timeCol, recibo, despacho, inventario, planRecibo, planDespacho, planInv };
   }
 
   // ══════════════════════════════════════════════
-  // CORE LOGIC
+  // CORE PROCESSING & SECTION RENDERER
   // ══════════════════════════════════════════════
   const charts = {};
 
-  /**
-   * Parsea "[34-2026]" → { week: 34, year: 2026 }
-   */
   function parseWeekLabel(label) {
     const s = String(label).replace(/[\[\]]/g, '');
     const parts = s.split('-');
@@ -206,10 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return { week: parseInt(parts[0], 10), year: parseInt(parts[1], 10) };
   }
 
-  function renderSection(prefix, data, cols, filterValue) {
+  function renderSection(prefix, data, cols, filterValue, showLabels) {
     if (!data.rows || data.rows.length === 0) return;
 
-    // 1. Parsear todas las filas con su semana/año
+    // 1. Extraer y estructurar datos
     const allParsed = [];
     data.rows.forEach(row => {
       const label = row[cols.timeCol];
@@ -232,11 +237,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (allParsed.length === 0) return;
 
-    // 2. Determinar año actual = el mayor año en los datos
+    // 2. Determinar año actual (el más reciente con data)
     const currentYear = Math.max(...allParsed.map(r => r.year));
     const prevYear = currentYear - 1;
 
-    // 3. Encontrar la última semana con datos reales en el año actual
+    // 3. Encontrar última semana con movimientos reales en el año actual
     const currentYearRows = allParsed
       .filter(r => r.year === currentYear)
       .sort((a, b) => a.week - b.week);
@@ -253,10 +258,9 @@ document.addEventListener('DOMContentLoaded', () => {
       lastDataWeek = currentYearRows[currentYearRows.length - 1].week;
     }
 
-    // 4. Determinar rango de semanas a mostrar
+    // 4. Semanas a graficar
     let weekNumbers;
     if (filterValue === 'all') {
-      // Mostrar todas las semanas que tengan data en el año actual
       weekNumbers = currentYearRows
         .filter(r => r.recibo > 0 || r.despacho > 0 || r.inventario > 0)
         .map(r => r.week);
@@ -269,13 +273,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (weekNumbers.length === 0) return;
 
-    // 5. Indexar datos por (año, semana) para acceso rápido
+    // 5. Mapeo de datos por año y semana
     const dataMap = {};
     allParsed.forEach(r => {
       dataMap[`${r.year}-${r.week}`] = r;
     });
 
-    // 6. Construir arrays alineados por semana
     const labels = weekNumbers.map(w => `S${w}`);
     const get = (year, week, field) => {
       const key = `${year}-${week}`;
@@ -294,31 +297,200 @@ document.addEventListener('DOMContentLoaded', () => {
     const currInventario =   weekNumbers.map(w => get(currentYear, w, 'inventario'));
     const planInv =          weekNumbers.map(w => get(currentYear, w, 'planInv'));
 
-    // 7. Renderizar los 3 gráficos
-    renderBarChart(`chart${prefix}Recibo`, '📦 Recibo', labels, [
-      { label: `Recibo ${prevYear}`, data: prevRecibo, bg: 'rgba(100,149,237,0.5)', border: '#6495ED' },
-      { label: `Recibo ${currentYear}`, data: currRecibo, bg: '#1d3557', border: '#1d3557' },
-    ], planRecibo.some(v => v > 0) ? { label: 'PLAN RECIBO', data: planRecibo, color: '#457b9d' } : null);
+    // 6. Renderizar KPI Executive Strip
+    renderKPIs(prefix, weekNumbers, currentYear, prevYear, dataMap);
 
-    renderBarChart(`chart${prefix}Despacho`, '🚛 Despacho', labels, [
-      { label: `Despacho ${prevYear}`, data: prevDespacho, bg: 'rgba(233,150,122,0.6)', border: '#E9967A' },
-      { label: `Despacho ${currentYear}`, data: currDespacho, bg: '#e76f51', border: '#e76f51' },
-    ], planDespacho.some(v => v > 0) ? { label: 'PLAN DESPACHO', data: planDespacho, color: '#9d0208' } : null);
+    // 7. Renderizar Gráficos con Paleta Vibrante Glass y DataLabels
+    // 📦 RECIBO: Indigo / Blue Palette + Cyan Plan
+    renderBarChart(`chart${prefix}Recibo`, labels, [
+      { label: `Recibo ${prevYear}`, data: prevRecibo, bg: 'rgba(147, 197, 253, 0.75)', border: '#60a5fa' },
+      { label: `Recibo ${currentYear}`, data: currRecibo, bg: '#2563eb', border: '#1d4ed8' },
+    ], planRecibo.some(v => v > 0) ? { label: 'PLAN RECIBO', data: planRecibo, color: '#0284c7' } : null, showLabels);
 
-    renderAreaChart(`chart${prefix}Inventario`, '📊 Inventario', labels, [
-      { label: `Inventario ${prevYear}`, data: prevInventario, bg: 'rgba(200,200,200,0.4)', border: '#bbb' },
-      { label: `Inventario ${currentYear}`, data: currInventario, bg: 'rgba(100,100,100,0.3)', border: '#555' },
-    ], planInv.some(v => v > 0) ? { label: 'PLAN INV', data: planInv, color: '#2a9d8f' } : null);
+    // 🚛 DESPACHO: Coral / Flame Orange Palette + Ruby Plan
+    renderBarChart(`chart${prefix}Despacho`, labels, [
+      { label: `Despacho ${prevYear}`, data: prevDespacho, bg: 'rgba(253, 186, 116, 0.75)', border: '#fb923c' },
+      { label: `Despacho ${currentYear}`, data: currDespacho, bg: '#ea580c', border: '#c2410c' },
+    ], planDespacho.some(v => v > 0) ? { label: 'PLAN DESPACHO', data: planDespacho, color: '#e11d48' } : null, showLabels);
 
-    // 8. Tabla resumen (últimas 7 semanas del año actual)
-    const tableWeeks = weekNumbers.slice(-7);
-    renderTable(prefix, tableWeeks, currentYear, dataMap);
+    // 📊 INVENTARIO: Frosted Emerald Glass Area + Mint Plan
+    renderAreaChart(`chart${prefix}Inventario`, labels, [
+      { label: `Inventario ${prevYear}`, data: prevInventario, bg: 'rgba(148, 163, 184, 0.25)', border: '#94a3b8' },
+      { label: `Inventario ${currentYear}`, data: currInventario, bg: 'rgba(16, 185, 129, 0.35)', border: '#059669' },
+    ], planInv.some(v => v > 0) ? { label: 'PLAN INV', data: planInv, color: '#0d9488' } : null, showLabels);
+
+    // 8. Tabla Resumen (Últimas semanas seleccionadas)
+    renderTable(prefix, weekNumbers.slice(-7), currentYear, prevYear, dataMap);
   }
 
   // ══════════════════════════════════════════════
-  // CHART RENDERERS
+  // KPI EXECUTIVE SUMMARY RENDERER
   // ══════════════════════════════════════════════
-  function renderBarChart(canvasId, title, labels, barSeries, planLine) {
+  function renderKPIs(prefix, weekNumbers, currentYear, prevYear, dataMap) {
+    const container = document.getElementById(`kpi${prefix}Container`);
+    if (!container) return;
+
+    let totReciboCurr = 0, totReciboPrev = 0, totPlanRecibo = 0;
+    let totDespachoCurr = 0, totDespachoPrev = 0, totPlanDespacho = 0;
+    let totInvCurr = 0, totInvPrev = 0, countInv = 0;
+
+    weekNumbers.forEach(w => {
+      const c = dataMap[`${currentYear}-${w}`];
+      const p = dataMap[`${prevYear}-${w}`];
+      if (c) {
+        totReciboCurr += c.recibo || 0;
+        totPlanRecibo += c.planRecibo || 0;
+        totDespachoCurr += c.despacho || 0;
+        totPlanDespacho += c.planDespacho || 0;
+        if (c.inventario > 0) {
+          totInvCurr += c.inventario;
+          countInv++;
+        }
+      }
+      if (p) {
+        totReciboPrev += p.recibo || 0;
+        totDespachoPrev += p.despacho || 0;
+        totInvPrev += p.inventario || 0;
+      }
+    });
+
+    const avgInvCurr = countInv > 0 ? totInvCurr / countInv : 0;
+    const avgInvPrev = weekNumbers.length > 0 ? totInvPrev / weekNumbers.length : 0;
+
+    const calcYoY = (curr, prev) => {
+      if (prev === 0) return { pct: '0.0%', isUp: true };
+      const diff = ((curr - prev) / prev) * 100;
+      return {
+        pct: (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%',
+        isUp: diff >= 0
+      };
+    };
+
+    const yoyRecibo = calcYoY(totReciboCurr, totReciboPrev);
+    const yoyDespacho = calcYoY(totDespachoCurr, totDespachoPrev);
+    const yoyInv = calcYoY(avgInvCurr, avgInvPrev);
+
+    const fmt = n => Math.round(n).toLocaleString('es-PE');
+
+    container.innerHTML = `
+      <div class="kpi-card kpi-recibo">
+        <div class="kpi-title"><i class="fa-solid fa-boxes-packing text-primary"></i> Total Entradas (Recibo)</div>
+        <div class="kpi-value">${fmt(totReciboCurr)}</div>
+        <div class="kpi-sub">
+          <span class="kpi-badge ${yoyRecibo.isUp ? 'badge-up' : 'badge-down'}">
+            <i class="fa-solid fa-arrow-${yoyRecibo.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyRecibo.pct} YoY
+          </span>
+          <span>vs ${fmt(totReciboPrev)} (${prevYear})</span>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-despacho">
+        <div class="kpi-title"><i class="fa-solid fa-truck-fast" style="color:#ea580c;"></i> Total Salidas (Despacho)</div>
+        <div class="kpi-value">${fmt(totDespachoCurr)}</div>
+        <div class="kpi-sub">
+          <span class="kpi-badge ${yoyDespacho.isUp ? 'badge-up' : 'badge-down'}">
+            <i class="fa-solid fa-arrow-${yoyDespacho.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyDespacho.pct} YoY
+          </span>
+          <span>vs ${fmt(totDespachoPrev)} (${prevYear})</span>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-inventario">
+        <div class="kpi-title"><i class="fa-solid fa-warehouse" style="color:#059669;"></i> Stock Inventario (Promedio)</div>
+        <div class="kpi-value">${fmt(avgInvCurr)}</div>
+        <div class="kpi-sub">
+          <span class="kpi-badge ${yoyInv.isUp ? 'badge-up' : 'badge-down'}">
+            <i class="fa-solid fa-arrow-${yoyInv.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyInv.pct} YoY
+          </span>
+          <span>vs ${fmt(avgInvPrev)} (${prevYear})</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // ══════════════════════════════════════════════
+  // CHART BUILDERS WITH DATALABELS & LIQUID THEME
+  // ══════════════════════════════════════════════
+  function formatNumberBadge(val) {
+    if (!val || val === 0) return '';
+    if (val >= 1000000) return (val / 1000000).toFixed(2) + 'M';
+    if (val >= 1000) return Math.round(val / 1000).toLocaleString('es-PE') + 'k';
+    return Math.round(val).toLocaleString('es-PE');
+  }
+
+  function getBaseChartOptions(showLabels) {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: {
+        padding: { top: showLabels ? 25 : 10, bottom: 5, left: 10, right: 10 }
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: {
+            usePointStyle: true,
+            boxWidth: 9,
+            padding: 15,
+            font: { size: 11, weight: '600', family: 'Inter' }
+          }
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          backgroundColor: 'rgba(15, 23, 42, 0.92)',
+          titleFont: { size: 12, weight: '700' },
+          bodyFont: { size: 11 },
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            label: (ctx) => {
+              const label = ctx.dataset.label || '';
+              const val = ctx.parsed.y !== null ? Math.round(ctx.parsed.y).toLocaleString('es-PE') : '0';
+              return `  ${label}: ${val} cajas`;
+            }
+          }
+        },
+        datalabels: {
+          display: (ctx) => {
+            if (!showLabels) return false;
+            const val = ctx.dataset.data[ctx.dataIndex];
+            return val > 0;
+          },
+          color: '#1e293b',
+          anchor: 'end',
+          align: 'top',
+          offset: 2,
+          font: { weight: '700', size: 9.5, family: 'Inter' },
+          formatter: (value) => formatNumberBadge(value),
+          backgroundColor: 'rgba(255, 255, 255, 0.92)',
+          borderColor: '#e2e8f0',
+          borderWidth: 1,
+          borderRadius: 4,
+          padding: { top: 1, bottom: 1, left: 4, right: 4 }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { weight: '600', size: 11, family: 'Inter' }, color: '#475569' }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(226, 232, 240, 0.6)' },
+          ticks: {
+            font: { size: 10.5, family: 'Inter' },
+            color: '#64748b',
+            callback: (v) => formatNumberBadge(v)
+          }
+        }
+      },
+      interaction: { mode: 'index', intersect: false }
+    };
+  }
+
+  function renderBarChart(canvasId, labels, barSeries, planLine, showLabels) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
@@ -329,7 +501,10 @@ document.addEventListener('DOMContentLoaded', () => {
       data: s.data,
       backgroundColor: s.bg,
       borderColor: s.border,
-      borderWidth: 1
+      borderWidth: 1.5,
+      borderRadius: 6,
+      barPercentage: 0.75,
+      categoryPercentage: 0.8
     }));
 
     if (planLine) {
@@ -338,21 +513,30 @@ document.addEventListener('DOMContentLoaded', () => {
         label: planLine.label,
         data: planLine.data,
         borderColor: planLine.color,
-        borderWidth: 2,
-        borderDash: [6, 3],
+        borderWidth: 2.5,
+        borderDash: [6, 4],
         fill: false,
-        pointRadius: 0,
-        tension: 0.2
+        pointRadius: 3,
+        pointBackgroundColor: planLine.color,
+        tension: 0.25,
+        datalabels: {
+          align: 'top',
+          anchor: 'start',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          borderColor: planLine.color,
+          borderWidth: 1,
+          color: planLine.color
+        }
       });
     }
 
     charts[canvasId] = new Chart(ctx, {
       data: { labels, datasets },
-      options: chartOptions()
+      options: getBaseChartOptions(showLabels)
     });
   }
 
-  function renderAreaChart(canvasId, title, labels, areaSeries, planLine) {
+  function renderAreaChart(canvasId, labels, areaSeries, planLine, showLabels) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
@@ -363,10 +547,11 @@ document.addEventListener('DOMContentLoaded', () => {
       data: s.data,
       backgroundColor: s.bg,
       borderColor: s.border,
-      borderWidth: 2,
+      borderWidth: 2.5,
       fill: true,
-      tension: 0.3,
-      pointRadius: 2
+      tension: 0.35,
+      pointRadius: 3.5,
+      pointBackgroundColor: s.border
     }));
 
     if (planLine) {
@@ -375,59 +560,80 @@ document.addEventListener('DOMContentLoaded', () => {
         label: planLine.label,
         data: planLine.data,
         borderColor: planLine.color,
-        borderWidth: 2,
-        borderDash: [6, 3],
+        borderWidth: 2.5,
+        borderDash: [6, 4],
         fill: false,
-        pointRadius: 0,
-        tension: 0.2
+        pointRadius: 3.5,
+        pointBackgroundColor: planLine.color,
+        tension: 0.25,
+        datalabels: {
+          align: 'top',
+          anchor: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          borderColor: planLine.color,
+          borderWidth: 1,
+          color: planLine.color
+        }
       });
     }
 
     charts[canvasId] = new Chart(ctx, {
       data: { labels, datasets },
-      options: chartOptions()
+      options: getBaseChartOptions(showLabels)
     });
   }
 
-  function chartOptions() {
-    return {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
-        tooltip: { mode: 'index', intersect: false }
-      },
-      scales: {
-        x: { grid: { display: false } },
-        y: {
-          beginAtZero: true,
-          ticks: { callback: v => v.toLocaleString('es-PE') }
-        }
-      },
-      interaction: { mode: 'index', intersect: false }
-    };
-  }
-
   // ══════════════════════════════════════════════
-  // TABLE RENDERER
+  // TABLE RENDERER WITH YOY BADGES
   // ══════════════════════════════════════════════
-  function renderTable(prefix, weekNumbers, year, dataMap) {
+  function renderTable(prefix, weekNumbers, currentYear, prevYear, dataMap) {
     const container = document.getElementById(`table${prefix}Container`);
     if (!container) return;
 
-    let html = `<div class="table-wrapper-title">Resumen últimas 7 semanas (${year})</div>`;
-    html += '<table class="data-table"><thead><tr><th>Semana</th>';
-    weekNumbers.forEach(w => { html += `<th>[${w}-${year}]</th>`; });
-    html += '</tr></thead><tbody>';
+    let html = `
+      <div class="table-wrapper-title">
+        <i class="fa-solid fa-table-list text-primary"></i>
+        <span>Detalle Comparativo Semanal (${currentYear} vs ${prevYear})</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="min-width: 140px;">Métrica / Proceso</th>
+    `;
+    
+    weekNumbers.forEach(w => {
+      html += `<th>S${w} (${currentYear})</th>`;
+    });
+    html += `<th>Total / Prom.</th></tr></thead><tbody>`;
 
-    ['recibo', 'despacho', 'inventario'].forEach(metric => {
-      const label = metric === 'recibo' ? 'RECIBO' : metric === 'despacho' ? 'DESPACHO' : 'INVENTARIO';
-      html += `<tr><td><strong>${label}</strong></td>`;
+    const metrics = [
+      { key: 'recibo', label: '📦 RECIBO', color: '#2563eb' },
+      { key: 'despacho', label: '🚛 DESPACHO', color: '#ea580c' },
+      { key: 'inventario', label: '📊 INVENTARIO', color: '#059669' }
+    ];
+
+    metrics.forEach(m => {
+      // Fila Actual
+      html += `<tr><td style="color:${m.color}; font-weight:700;">${m.label} ${currentYear}</td>`;
+      let sumCurr = 0;
       weekNumbers.forEach(w => {
-        const val = dataMap[`${year}-${w}`] ? dataMap[`${year}-${w}`][metric] : 0;
-        html += `<td>${val.toLocaleString('es-PE', { maximumFractionDigits: 0 })}</td>`;
+        const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][m.key] : 0;
+        sumCurr += val;
+        html += `<td style="font-weight:600;">${Math.round(val).toLocaleString('es-PE')}</td>`;
       });
-      html += '</tr>';
+      const avgOrSumCurr = m.key === 'inventario' ? (sumCurr / weekNumbers.length) : sumCurr;
+      html += `<td style="font-weight:800; background:#f8fafc;">${Math.round(avgOrSumCurr).toLocaleString('es-PE')}</td></tr>`;
+
+      // Fila Año Anterior
+      html += `<tr style="color:#64748b;"><td style="font-weight:600; padding-left: 20px;">└ Año ${prevYear}</td>`;
+      let sumPrev = 0;
+      weekNumbers.forEach(w => {
+        const val = dataMap[`${prevYear}-${w}`] ? dataMap[`${prevYear}-${w}`][m.key] : 0;
+        sumPrev += val;
+        html += `<td>${Math.round(val).toLocaleString('es-PE')}</td>`;
+      });
+      const avgOrSumPrev = m.key === 'inventario' ? (sumPrev / weekNumbers.length) : sumPrev;
+      html += `<td style="font-weight:700; background:#f8fafc;">${Math.round(avgOrSumPrev).toLocaleString('es-PE')}</td></tr>`;
     });
 
     html += '</tbody></table>';
