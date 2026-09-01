@@ -133,27 +133,62 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!window.dataFrescos || !window.dataSecos) return;
     const numWeeks = document.getElementById('weeksFilter').value;
 
-    // Frescos: col A = Semana (time key), cols D-I = métricas
-    renderSection('Frescos', window.dataFrescos, {
-      timeCol: 'Semana',
-      recibo: 'RECIBO',
-      despacho: 'DESPACHO',
-      inventario: 'INVENTARIO ACT',
-      planRecibo: 'PLAN RECIBO',
-      planDespacho: 'PLAN DESPACHO',
-      planInv: 'PLAN INV'
-    }, numWeeks);
+    // Frescos: col A = Semana (time key)
+    renderSection('Frescos', window.dataFrescos, resolveColumns(window.dataFrescos.headers, window.dataFrescos.rows), numWeeks);
 
-    // Secos: col W = SEMANA (time key), cols X-AC = métricas
-    renderSection('Secos', window.dataSecos, {
-      timeCol: 'SEMANA',
-      recibo: 'RECIBO',
-      despacho: 'DESPACHO',
-      inventario: 'INVENTARIO ACT',
-      planRecibo: 'PLAN RECIBO',
-      planDespacho: 'PLAN DESPACHO',
-      planInv: 'PLAN INV'
-    }, numWeeks);
+    // Secos: col W = SEMANA (time key)
+    renderSection('Secos', window.dataSecos, resolveColumns(window.dataSecos.headers, window.dataSecos.rows), numWeeks);
+  }
+
+  /**
+   * Busca dinámicamente los encabezados por coincidencia parcial (case insensitive, trimmed).
+   * Para timeCol, revisa los datos reales para encontrar la columna con formato [X-YYYY].
+   */
+  function resolveColumns(headers, rows) {
+    console.log('Headers recibidos:', JSON.stringify(headers));
+
+    const find = (keywords) => {
+      // Match exacto primero
+      for (const h of headers) {
+        const clean = h.trim().toUpperCase();
+        for (const kw of keywords) {
+          if (clean === kw) return h;
+        }
+      }
+      // Match parcial
+      for (const h of headers) {
+        const clean = h.trim().toUpperCase();
+        for (const kw of keywords) {
+          if (clean.includes(kw)) return h;
+        }
+      }
+      return null;
+    };
+
+    // Para timeCol: buscar en los datos reales cuál columna tiene formato [X-YYYY]
+    let timeCol = null;
+    if (rows && rows.length > 0) {
+      for (const h of headers) {
+        const sampleVal = String(rows[0][h] || '');
+        if (/^\[?\d{1,2}-\d{4}\]?$/.test(sampleVal.trim())) {
+          timeCol = h;
+          break;
+        }
+      }
+    }
+    // Fallback por nombre
+    if (!timeCol) timeCol = find(['SEMANA']) || headers[0];
+
+    const recibo = find(['RECIBO']);
+    const despacho = find(['DESPACHO']);
+    const inventario = find(['INVENTARIO ACT']) || find(['INVENTARIO']);
+    const planRecibo = find(['PLAN RECIBO']);
+    const planDespacho = find(['PLAN DESPACHO']);
+    const planInv = find(['PLAN INV']);
+
+    const resolved = { timeCol, recibo, despacho, inventario, planRecibo, planDespacho, planInv };
+    console.log('Columnas resueltas:', resolved);
+    return resolved;
   }
 
   // ══════════════════════════════════════════════
