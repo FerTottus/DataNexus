@@ -139,6 +139,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnApplyFilters')?.addEventListener('click', renderAll);
   document.getElementById('toggleDataLabels')?.addEventListener('change', renderAll);
 
+  // Estado del modo KPI: 'periodo' = rango completo, 'semana' = última semana con data
+  let kpiMode = 'periodo';
+  document.getElementById('btnKpiPeriodo')?.addEventListener('click', () => {
+    kpiMode = 'periodo';
+    document.getElementById('btnKpiPeriodo').classList.add('kpi-mode-active');
+    document.getElementById('btnKpiSemana').classList.remove('kpi-mode-active');
+    renderAll();
+  });
+  document.getElementById('btnKpiSemana')?.addEventListener('click', () => {
+    kpiMode = 'semana';
+    document.getElementById('btnKpiSemana').classList.add('kpi-mode-active');
+    document.getElementById('btnKpiPeriodo').classList.remove('kpi-mode-active');
+    renderAll();
+  });
+
   function renderAll() {
     if (!window.dataFrescos || !window.dataSecos) return;
     const numWeeks = document.getElementById('weeksFilter').value;
@@ -298,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const planInv =          weekNumbers.map(w => get(currentYear, w, 'planInv'));
 
     // 6. Renderizar KPI Executive Strip
-    renderKPIs(prefix, weekNumbers, currentYear, prevYear, dataMap);
+    renderKPIs(prefix, weekNumbers, currentYear, prevYear, dataMap, lastDataWeek);
 
     // 7. Renderizar Gráficos con Paleta Vibrante Glass y DataLabels
     // 📦 RECIBO: Indigo / Blue Palette + Cyan Plan
@@ -326,83 +341,108 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
   // KPI EXECUTIVE SUMMARY RENDERER
   // ══════════════════════════════════════════════
-  function renderKPIs(prefix, weekNumbers, currentYear, prevYear, dataMap) {
+  function renderKPIs(prefix, weekNumbers, currentYear, prevYear, dataMap, lastDataWeek) {
     const container = document.getElementById(`kpi${prefix}Container`);
     if (!container) return;
-
-    let totReciboCurr = 0, totReciboPrev = 0, totPlanRecibo = 0;
-    let totDespachoCurr = 0, totDespachoPrev = 0, totPlanDespacho = 0;
-    let totInvCurr = 0, totInvPrev = 0, countInv = 0;
-
-    weekNumbers.forEach(w => {
-      const c = dataMap[`${currentYear}-${w}`];
-      const p = dataMap[`${prevYear}-${w}`];
-      if (c) {
-        totReciboCurr += c.recibo || 0;
-        totPlanRecibo += c.planRecibo || 0;
-        totDespachoCurr += c.despacho || 0;
-        totPlanDespacho += c.planDespacho || 0;
-        if (c.inventario > 0) {
-          totInvCurr += c.inventario;
-          countInv++;
-        }
-      }
-      if (p) {
-        totReciboPrev += p.recibo || 0;
-        totDespachoPrev += p.despacho || 0;
-        totInvPrev += p.inventario || 0;
-      }
-    });
-
-    const avgInvCurr = countInv > 0 ? totInvCurr / countInv : 0;
-    const avgInvPrev = weekNumbers.length > 0 ? totInvPrev / weekNumbers.length : 0;
 
     const calcYoY = (curr, prev) => {
       if (prev === 0) return { pct: '0.0%', isUp: true };
       const diff = ((curr - prev) / prev) * 100;
-      return {
-        pct: (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%',
-        isUp: diff >= 0
-      };
+      return { pct: (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%', isUp: diff >= 0 };
     };
-
-    const yoyRecibo = calcYoY(totReciboCurr, totReciboPrev);
-    const yoyDespacho = calcYoY(totDespachoCurr, totDespachoPrev);
-    const yoyInv = calcYoY(avgInvCurr, avgInvPrev);
-
     const fmt = n => Math.round(n).toLocaleString('es-PE');
 
+    let reciboCurr, reciboPrev, despachoCurr, despachoPrev, invCurr, invPrev;
+    let kpiLabel, semanaRef;
+
+    if (kpiMode === 'semana') {
+      // ── MODO SEMANA ACTUAL: solo la última semana con datos ─────────
+      const w = lastDataWeek;
+      semanaRef = `S${w}`;
+      const c = dataMap[`${currentYear}-${w}`] || {};
+      const p = dataMap[`${prevYear}-${w}`] || {};
+      reciboCurr   = c.recibo || 0;
+      reciboPrev   = p.recibo || 0;
+      despachoCurr = c.despacho || 0;
+      despachoPrev = p.despacho || 0;
+      invCurr      = c.inventario || 0;
+      invPrev      = p.inventario || 0;
+      kpiLabel = `Semana ${w} (${currentYear} vs ${prevYear})`;
+    } else {
+      // ── MODO PERÍODO COMPLETO: suma/promedio del rango ──────────────
+      let totReciboCurr = 0, totReciboPrev = 0;
+      let totDespachoCurr = 0, totDespachoPrev = 0;
+      let totInvCurr = 0, totInvPrev = 0, countInv = 0;
+
+      weekNumbers.forEach(w => {
+        const c = dataMap[`${currentYear}-${w}`];
+        const p = dataMap[`${prevYear}-${w}`];
+        if (c) {
+          totReciboCurr   += c.recibo || 0;
+          totDespachoCurr += c.despacho || 0;
+          if (c.inventario > 0) { totInvCurr += c.inventario; countInv++; }
+        }
+        if (p) {
+          totReciboPrev   += p.recibo || 0;
+          totDespachoPrev += p.despacho || 0;
+          totInvPrev      += p.inventario || 0;
+        }
+      });
+
+      reciboCurr   = totReciboCurr;
+      reciboPrev   = totReciboPrev;
+      despachoCurr = totDespachoCurr;
+      despachoPrev = totDespachoPrev;
+      invCurr      = countInv > 0 ? totInvCurr / countInv : 0;
+      invPrev      = weekNumbers.length > 0 ? totInvPrev / weekNumbers.length : 0;
+      kpiLabel = `Últimas ${weekNumbers.length} semanas (${currentYear} vs ${prevYear})`;
+      semanaRef = null;
+    }
+
+    const yoyRecibo   = calcYoY(reciboCurr, reciboPrev);
+    const yoyDespacho = calcYoY(despachoCurr, despachoPrev);
+    const yoyInv      = calcYoY(invCurr, invPrev);
+
+    const modeIsWeek = kpiMode === 'semana';
+    const invLabel = modeIsWeek ? 'Inventario Final' : 'Stock Inventario (Prom.)';
+    const reciboLabel = modeIsWeek ? `Recibo S${lastDataWeek}` : 'Total Entradas (Recibo)';
+    const despachoLabel = modeIsWeek ? `Despacho S${lastDataWeek}` : 'Total Salidas (Despacho)';
+
     container.innerHTML = `
+      <div style="grid-column:1/-1; font-size:0.78rem; font-weight:700; color:#64748b; margin-bottom:-6px; padding-left:2px; display:flex; align-items:center; gap:8px;">
+        <i class="fa-solid fa-chart-pie" style="color:#2563eb;"></i> ${kpiLabel}
+      </div>
+
       <div class="kpi-card kpi-recibo">
-        <div class="kpi-title"><i class="fa-solid fa-boxes-packing text-primary"></i> Total Entradas (Recibo)</div>
-        <div class="kpi-value">${fmt(totReciboCurr)}</div>
+        <div class="kpi-title"><i class="fa-solid fa-boxes-packing text-primary"></i> ${reciboLabel}</div>
+        <div class="kpi-value">${fmt(reciboCurr)}</div>
         <div class="kpi-sub">
           <span class="kpi-badge ${yoyRecibo.isUp ? 'badge-up' : 'badge-down'}">
             <i class="fa-solid fa-arrow-${yoyRecibo.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyRecibo.pct} YoY
           </span>
-          <span>vs ${fmt(totReciboPrev)} (${prevYear})</span>
+          <span>vs ${fmt(reciboPrev)} (${prevYear})</span>
         </div>
       </div>
 
       <div class="kpi-card kpi-despacho">
-        <div class="kpi-title"><i class="fa-solid fa-truck-fast" style="color:#ea580c;"></i> Total Salidas (Despacho)</div>
-        <div class="kpi-value">${fmt(totDespachoCurr)}</div>
+        <div class="kpi-title"><i class="fa-solid fa-truck-fast" style="color:#ea580c;"></i> ${despachoLabel}</div>
+        <div class="kpi-value">${fmt(despachoCurr)}</div>
         <div class="kpi-sub">
           <span class="kpi-badge ${yoyDespacho.isUp ? 'badge-up' : 'badge-down'}">
             <i class="fa-solid fa-arrow-${yoyDespacho.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyDespacho.pct} YoY
           </span>
-          <span>vs ${fmt(totDespachoPrev)} (${prevYear})</span>
+          <span>vs ${fmt(despachoPrev)} (${prevYear})</span>
         </div>
       </div>
 
       <div class="kpi-card kpi-inventario">
-        <div class="kpi-title"><i class="fa-solid fa-warehouse" style="color:#059669;"></i> Stock Inventario (Promedio)</div>
-        <div class="kpi-value">${fmt(avgInvCurr)}</div>
+        <div class="kpi-title"><i class="fa-solid fa-warehouse" style="color:#059669;"></i> ${invLabel}</div>
+        <div class="kpi-value">${fmt(invCurr)}</div>
         <div class="kpi-sub">
           <span class="kpi-badge ${yoyInv.isUp ? 'badge-up' : 'badge-down'}">
             <i class="fa-solid fa-arrow-${yoyInv.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyInv.pct} YoY
           </span>
-          <span>vs ${fmt(avgInvPrev)} (${prevYear})</span>
+          <span>vs ${fmt(invPrev)} (${prevYear})</span>
         </div>
       </div>
     `;
@@ -484,8 +524,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
 
-    // barSeries[0] = 2025 (Año Anterior)
-    // barSeries[1] = 2026 (Año Actual)
+    // barSeries[0] = Año Anterior (barra clara)
+    // barSeries[1] = Año Actual (barra sólida)
     const datasets = [
       {
         type: 'bar',
@@ -499,17 +539,15 @@ document.addEventListener('DOMContentLoaded', () => {
         categoryPercentage: 0.8,
         datalabels: {
           display: showLabels,
-          // Año anterior: colocado en el centro de la barra para evitar colisiones superiores
+          // Dentro de la barra, en el centro — texto oscuro sobre barra clara
           anchor: 'center',
           align: 'center',
           color: '#1e293b',
           font: { weight: '700', size: 9, family: 'Inter' },
-          backgroundColor: 'rgba(255, 255, 255, 0.88)',
-          borderColor: barSeries[0].border,
-          borderWidth: 1,
-          borderRadius: 4,
-          padding: { top: 1, bottom: 1, left: 3, right: 3 },
-          formatter: (v) => v > 0 ? `'25: ${formatNumberBadge(v)}` : ''
+          // Sin fondo ni borde: el valor se lee directamente sobre la barra
+          backgroundColor: null,
+          borderWidth: 0,
+          formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
         }
       },
       {
@@ -524,18 +562,14 @@ document.addEventListener('DOMContentLoaded', () => {
         categoryPercentage: 0.8,
         datalabels: {
           display: showLabels,
-          // Año actual: colocado arriba de la barra con insignia destacada
-          anchor: 'end',
-          align: 'top',
-          offset: 3,
-          color: barSeries[1].border,
+          // Dentro de la barra sólida, centrado — texto blanco siempre legible
+          anchor: 'center',
+          align: 'center',
+          color: '#ffffff',
           font: { weight: '800', size: 9.5, family: 'Inter' },
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-          borderColor: barSeries[1].border,
-          borderWidth: 1.5,
-          borderRadius: 4,
-          padding: { top: 1, bottom: 1, left: 4, right: 4 },
-          formatter: (v) => v > 0 ? `'26: ${formatNumberBadge(v)}` : ''
+          backgroundColor: null,
+          borderWidth: 0,
+          formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
         }
       }
     ];
@@ -554,18 +588,18 @@ document.addEventListener('DOMContentLoaded', () => {
         tension: 0.25,
         datalabels: {
           display: showLabels,
-          // Plan: colocado arriba de la línea con offset adicional para no tocar las barras
+          // Plan encima de la línea punteada — solo visible para la línea, sin confundir con barras
           align: 'top',
           anchor: 'end',
-          offset: 6,
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          offset: 4,
+          backgroundColor: 'rgba(255,255,255,0.92)',
           borderColor: planLine.color,
-          borderWidth: 1.5,
+          borderWidth: 1,
           color: planLine.color,
-          font: { weight: '800', size: 9, family: 'Inter' },
-          borderRadius: 4,
-          padding: { top: 1, bottom: 1, left: 4, right: 4 },
-          formatter: (v) => v > 0 ? `Plan: ${formatNumberBadge(v)}` : ''
+          font: { weight: '700', size: 8.5, family: 'Inter' },
+          borderRadius: 3,
+          padding: { top: 1, bottom: 1, left: 3, right: 3 },
+          formatter: (v) => v > 0 ? `P: ${formatNumberBadge(v)}` : ''
         }
       });
     }
@@ -608,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
           borderWidth: 1,
           borderRadius: 4,
           padding: { top: 1, bottom: 1, left: 3, right: 3 },
-          formatter: (v) => v > 0 ? `'25: ${formatNumberBadge(v)}` : ''
+          formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
         }
       },
       {
@@ -624,18 +658,18 @@ document.addEventListener('DOMContentLoaded', () => {
         pointBackgroundColor: areaSeries[1].border,
         datalabels: {
           display: showLabels,
-          // Año 2026: etiqueta colocada ARRIBA del punto con color distintivo
+          // Año actual: etiqueta ARRIBA del punto con color de la serie
           anchor: 'end',
           align: 'top',
           offset: 6,
           color: areaSeries[1].border,
           font: { weight: '800', size: 9.5, family: 'Inter' },
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
           borderColor: areaSeries[1].border,
           borderWidth: 1.5,
           borderRadius: 4,
           padding: { top: 1, bottom: 1, left: 4, right: 4 },
-          formatter: (v) => v > 0 ? `'26: ${formatNumberBadge(v)}` : ''
+          formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
         }
       }
     ];
@@ -654,18 +688,17 @@ document.addEventListener('DOMContentLoaded', () => {
         tension: 0.25,
         datalabels: {
           display: showLabels,
-          // Plan: colocado arriba de la línea con offset y prefijo Plan:
           align: 'top',
           anchor: 'end',
           offset: 10,
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          backgroundColor: 'rgba(255,255,255,0.92)',
           borderColor: planLine.color,
-          borderWidth: 1.5,
+          borderWidth: 1,
           color: planLine.color,
-          font: { weight: '800', size: 9, family: 'Inter' },
-          borderRadius: 4,
-          padding: { top: 1, bottom: 1, left: 4, right: 4 },
-          formatter: (v) => v > 0 ? `Plan: ${formatNumberBadge(v)}` : ''
+          font: { weight: '700', size: 8.5, family: 'Inter' },
+          borderRadius: 3,
+          padding: { top: 1, bottom: 1, left: 3, right: 3 },
+          formatter: (v) => v > 0 ? `P: ${formatNumberBadge(v)}` : ''
         }
       });
     }

@@ -247,8 +247,43 @@
 
     .chart-container-medium {
       position: relative;
-      height: 350px;
+      height: 400px;
       width: 100%;
+    }
+
+    /* KPI Mode Toggle (Pill Switcher) */
+    .kpi-mode-toggle {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .kpi-mode-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 18px;
+      border-radius: 50px;
+      border: 1.5px solid #e2e8f0;
+      background: rgba(255, 255, 255, 0.7);
+      color: #64748b;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      backdrop-filter: blur(8px);
+    }
+    .kpi-mode-btn:hover {
+      background: rgba(255, 255, 255, 0.95);
+      border-color: #2563eb;
+      color: #2563eb;
+      box-shadow: 0 3px 12px rgba(37, 99, 235, 0.15);
+    }
+    .kpi-mode-btn.kpi-mode-active {
+      background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
     }
 
     /* Table Styles */
@@ -456,6 +491,16 @@
           </span>
         </div>
 
+        <!-- KPI Mode Toggle -->
+        <div class="kpi-mode-toggle">
+          <button id="btnKpiPeriodo" class="kpi-mode-btn kpi-mode-active">
+            <i class="fa-solid fa-calendar-range"></i> Período Completo
+          </button>
+          <button id="btnKpiSemana" class="kpi-mode-btn">
+            <i class="fa-solid fa-calendar-day"></i> Semana Actual
+          </button>
+        </div>
+
         <!-- KPI Strip Secos -->
         <div class="kpi-grid" id="kpiSecosContainer"></div>
 
@@ -506,7 +551,7 @@
           </span>
         </div>
 
-        <!-- KPI Strip Frescos -->
+        <!-- KPI Strip Frescos (usa el mismo toggle btnKpiPeriodo/btnKpiSemana definido en el tab Secos) -->
         <div class="kpi-grid" id="kpiFrescosContainer"></div>
 
         <!-- 3 Gráficos Frescos -->
