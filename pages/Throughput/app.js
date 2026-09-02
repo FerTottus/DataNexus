@@ -458,6 +458,44 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.round(val).toLocaleString('es-PE');
   }
 
+  // ── Fuentes responsivas para datalabels ──────────────────────────────────
+  // Escala con el ancho real del canvas. Valores mínimos y máximos garantizan
+  // legibilidad tanto en móvil (350px) como en pantallas 4K (2400px+).
+  //   divisor bajo  → letra más grande en relación al ancho del chart
+  //   clamp min/max → nunca demasiado pequeño ni demasiado enorme
+  const dlFont = {
+    // Barra año anterior (texto oscuro sobre barra clara)
+    barPrev: (ctx) => ({
+      weight: '700',
+      size: Math.max(10, Math.min(16, ctx.chart.width / 62)),
+      family: 'Inter'
+    }),
+    // Barra año actual (texto blanco sobre barra sólida)
+    barCurr: (ctx) => ({
+      weight: '800',
+      size: Math.max(11, Math.min(17, ctx.chart.width / 56)),
+      family: 'Inter'
+    }),
+    // Línea Plan (pill encima de la línea punteada)
+    plan: (ctx) => ({
+      weight: '700',
+      size: Math.max(10, Math.min(14, ctx.chart.width / 72)),
+      family: 'Inter'
+    }),
+    // Área / línea año anterior
+    areaPrev: (ctx) => ({
+      weight: '700',
+      size: Math.max(10, Math.min(15, ctx.chart.width / 65)),
+      family: 'Inter'
+    }),
+    // Área / línea año actual
+    areaCurr: (ctx) => ({
+      weight: '800',
+      size: Math.max(11, Math.min(16, ctx.chart.width / 58)),
+      family: 'Inter'
+    })
+  };
+
   function getBaseChartOptions(showLabels) {
     return {
       responsive: true,
@@ -543,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
           anchor: 'center',
           align: 'center',
           color: '#1e293b',
-          font: { weight: '700', size: 13, family: 'Inter' },
+          font: dlFont.barPrev,
           // Sin fondo ni borde: el valor se lee directamente sobre la barra
           backgroundColor: null,
           borderWidth: 0,
@@ -566,7 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
           anchor: 'center',
           align: 'center',
           color: '#ffffff',
-          font: { weight: '800', size: 14, family: 'Inter' },
+          font: dlFont.barCurr,
           backgroundColor: null,
           borderWidth: 0,
           formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
@@ -596,7 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
           borderColor: planLine.color,
           borderWidth: 1,
           color: planLine.color,
-          font: { weight: '700', size: 12, family: 'Inter' },
+          font: dlFont.plan,
           borderRadius: 3,
           padding: { top: 2, bottom: 2, left: 5, right: 5 },
           formatter: (v) => v > 0 ? `P: ${formatNumberBadge(v)}` : ''
@@ -636,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
           align: 'bottom',
           offset: 6,
           color: '#475569',
-          font: { weight: '700', size: 12, family: 'Inter' },
+          font: dlFont.areaPrev,
           backgroundColor: 'rgba(255, 255, 255, 0.92)',
           borderColor: areaSeries[0].border,
           borderWidth: 1,
@@ -663,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
           align: 'top',
           offset: 6,
           color: areaSeries[1].border,
-          font: { weight: '800', size: 13, family: 'Inter' },
+          font: dlFont.areaCurr,
           backgroundColor: 'rgba(255, 255, 255, 0.9)',
           borderColor: areaSeries[1].border,
           borderWidth: 1.5,
@@ -695,7 +733,7 @@ document.addEventListener('DOMContentLoaded', () => {
           borderColor: planLine.color,
           borderWidth: 1,
           color: planLine.color,
-          font: { weight: '700', size: 12, family: 'Inter' },
+          font: dlFont.plan,
           borderRadius: 3,
           padding: { top: 2, bottom: 2, left: 5, right: 5 },
           formatter: (v) => v > 0 ? `P: ${formatNumberBadge(v)}` : ''
