@@ -328,10 +328,10 @@ document.addEventListener('DOMContentLoaded', () => {
       { label: `Despacho ${currentYear}`, data: currDespacho, bg: '#ea580c', border: '#c2410c' },
     ], planDespacho.some(v => v > 0) ? { label: 'PLAN DESPACHO', data: planDespacho, color: '#e11d48' } : null, showLabels);
 
-    // 📊 INVENTARIO: Frosted Emerald Glass Area + Mint Plan
-    renderAreaChart(`chart${prefix}Inventario`, labels, [
-      { label: `Inventario ${prevYear}`, data: prevInventario, bg: 'rgba(148, 163, 184, 0.25)', border: '#94a3b8' },
-      { label: `Inventario ${currentYear}`, data: currInventario, bg: 'rgba(16, 185, 129, 0.35)', border: '#059669' },
+    // 📊 INVENTARIO: Grouped bars — barras agrupadas evitan solapamiento de etiquetas
+    renderBarChart(`chart${prefix}Inventario`, labels, [
+      { label: `Inventario ${prevYear}`, data: prevInventario, bg: 'rgba(148, 163, 184, 0.65)', border: '#94a3b8' },
+      { label: `Inventario ${currentYear}`, data: currInventario, bg: '#059669', border: '#047857' },
     ], planInv.some(v => v > 0) ? { label: 'PLAN INV', data: planInv, color: '#0d9488' } : null, showLabels);
 
     // 8. Tabla Resumen (Últimas semanas seleccionadas)
@@ -418,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="kpi-value">${fmt(reciboCurr)}</div>
         <div class="kpi-sub">
           <span class="kpi-badge ${yoyRecibo.isUp ? 'badge-up' : 'badge-down'}">
-            <i class="fa-solid fa-arrow-${yoyRecibo.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyRecibo.pct} YoY
+            <i class="fa-solid fa-arrow-${yoyRecibo.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyRecibo.pct}
           </span>
           <span>vs ${fmt(reciboPrev)} (${prevYear})</span>
         </div>
@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="kpi-value">${fmt(despachoCurr)}</div>
         <div class="kpi-sub">
           <span class="kpi-badge ${yoyDespacho.isUp ? 'badge-up' : 'badge-down'}">
-            <i class="fa-solid fa-arrow-${yoyDespacho.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyDespacho.pct} YoY
+            <i class="fa-solid fa-arrow-${yoyDespacho.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyDespacho.pct}
           </span>
           <span>vs ${fmt(despachoPrev)} (${prevYear})</span>
         </div>
@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="kpi-value">${fmt(invCurr)}</div>
         <div class="kpi-sub">
           <span class="kpi-badge ${yoyInv.isUp ? 'badge-up' : 'badge-down'}">
-            <i class="fa-solid fa-arrow-${yoyInv.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyInv.pct} YoY
+            <i class="fa-solid fa-arrow-${yoyInv.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyInv.pct}
           </span>
           <span>vs ${fmt(invPrev)} (${prevYear})</span>
         </div>

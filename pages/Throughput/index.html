@@ -473,6 +473,16 @@
             <span><i class="fa-solid fa-tag text-primary"></i> Ver Números</span>
           </label>
 
+          <!-- KPI Mode Toggle — aplica a ambos tabs (Secos y Frescos) -->
+          <div class="kpi-mode-toggle" style="margin-bottom:0;">
+            <button id="btnKpiPeriodo" class="kpi-mode-btn kpi-mode-active">
+              <i class="fa-solid fa-calendar-range"></i> Período
+            </button>
+            <button id="btnKpiSemana" class="kpi-mode-btn">
+              <i class="fa-solid fa-calendar-day"></i> Sem. Actual
+            </button>
+          </div>
+
           <button id="btnApplyFilters" class="btn-glass-primary" style="padding: 7px 15px; font-size: 0.88rem;">
             <i class="fa-solid fa-rotate"></i> Actualizar
           </button>
@@ -489,16 +499,6 @@
           <span style="font-size: 0.85rem; font-weight: 600; color: #64748b; background: rgba(255,255,255,0.7); padding: 5px 12px; border-radius: 8px;">
             Comparativa Evolutiva Semanal (2025 vs 2026) + Planes
           </span>
-        </div>
-
-        <!-- KPI Mode Toggle -->
-        <div class="kpi-mode-toggle">
-          <button id="btnKpiPeriodo" class="kpi-mode-btn kpi-mode-active">
-            <i class="fa-solid fa-calendar-range"></i> Período Completo
-          </button>
-          <button id="btnKpiSemana" class="kpi-mode-btn">
-            <i class="fa-solid fa-calendar-day"></i> Semana Actual
-          </button>
         </div>
 
         <!-- KPI Strip Secos -->
@@ -530,7 +530,7 @@
             <div class="chart-block-title">
               <span style="color: #059669;"><i class="fa-solid fa-warehouse"></i></span> Inventario Activo
             </div>
-            <span class="chart-badge-pill">Stock en Cajas</span>
+            <span class="chart-badge-pill">Stock en Cajas · Barras Comparativas</span>
           </div>
           <div class="chart-container-medium"><canvas id="chartSecosInventario"></canvas></div>
         </div>
@@ -580,7 +580,7 @@
             <div class="chart-block-title">
               <span style="color: #059669;"><i class="fa-solid fa-warehouse"></i></span> Inventario Activo
             </div>
-            <span class="chart-badge-pill">Stock en Cajas</span>
+            <span class="chart-badge-pill">Stock en Cajas · Barras Comparativas</span>
           </div>
           <div class="chart-container-medium"><canvas id="chartFrescosInventario"></canvas></div>
         </div>
