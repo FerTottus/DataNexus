@@ -423,17 +423,18 @@ document.addEventListener('DOMContentLoaded', () => {
       responsive: true,
       maintainAspectRatio: false,
       layout: {
-        padding: { top: showLabels ? 25 : 10, bottom: 5, left: 10, right: 10 }
+        padding: { top: showLabels ? 34 : 12, bottom: 5, left: 12, right: 12 }
       },
       plugins: {
         legend: {
           position: 'top',
-          align: 'end',
+          align: 'center', // Leyenda centrada
           labels: {
             usePointStyle: true,
             boxWidth: 9,
-            padding: 15,
-            font: { size: 11, weight: '600', family: 'Inter' }
+            padding: 18,
+            font: { size: 11.5, weight: '600', family: 'Inter' },
+            color: '#334155'
           }
         },
         tooltip: {
@@ -453,22 +454,10 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         },
         datalabels: {
-          display: (ctx) => {
-            if (!showLabels) return false;
-            const val = ctx.dataset.data[ctx.dataIndex];
-            return val > 0;
-          },
-          color: '#1e293b',
-          anchor: 'end',
-          align: 'top',
-          offset: 2,
-          font: { weight: '700', size: 9.5, family: 'Inter' },
-          formatter: (value) => formatNumberBadge(value),
-          backgroundColor: 'rgba(255, 255, 255, 0.92)',
-          borderColor: '#e2e8f0',
-          borderWidth: 1,
-          borderRadius: 4,
-          padding: { top: 1, bottom: 1, left: 4, right: 4 }
+          // Las opciones específicas por dataset tienen prioridad
+          display: showLabels,
+          clip: false,
+          clamp: true
         }
       },
       scales: {
@@ -495,17 +484,61 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
 
-    const datasets = barSeries.map(s => ({
-      type: 'bar',
-      label: s.label,
-      data: s.data,
-      backgroundColor: s.bg,
-      borderColor: s.border,
-      borderWidth: 1.5,
-      borderRadius: 6,
-      barPercentage: 0.75,
-      categoryPercentage: 0.8
-    }));
+    // barSeries[0] = 2025 (Año Anterior)
+    // barSeries[1] = 2026 (Año Actual)
+    const datasets = [
+      {
+        type: 'bar',
+        label: barSeries[0].label,
+        data: barSeries[0].data,
+        backgroundColor: barSeries[0].bg,
+        borderColor: barSeries[0].border,
+        borderWidth: 1.5,
+        borderRadius: 6,
+        barPercentage: 0.75,
+        categoryPercentage: 0.8,
+        datalabels: {
+          display: showLabels,
+          // Año anterior: colocado en el centro de la barra para evitar colisiones superiores
+          anchor: 'center',
+          align: 'center',
+          color: '#1e293b',
+          font: { weight: '700', size: 9, family: 'Inter' },
+          backgroundColor: 'rgba(255, 255, 255, 0.88)',
+          borderColor: barSeries[0].border,
+          borderWidth: 1,
+          borderRadius: 4,
+          padding: { top: 1, bottom: 1, left: 3, right: 3 },
+          formatter: (v) => v > 0 ? `'25: ${formatNumberBadge(v)}` : ''
+        }
+      },
+      {
+        type: 'bar',
+        label: barSeries[1].label,
+        data: barSeries[1].data,
+        backgroundColor: barSeries[1].bg,
+        borderColor: barSeries[1].border,
+        borderWidth: 1.5,
+        borderRadius: 6,
+        barPercentage: 0.75,
+        categoryPercentage: 0.8,
+        datalabels: {
+          display: showLabels,
+          // Año actual: colocado arriba de la barra con insignia destacada
+          anchor: 'end',
+          align: 'top',
+          offset: 3,
+          color: barSeries[1].border,
+          font: { weight: '800', size: 9.5, family: 'Inter' },
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          borderColor: barSeries[1].border,
+          borderWidth: 1.5,
+          borderRadius: 4,
+          padding: { top: 1, bottom: 1, left: 4, right: 4 },
+          formatter: (v) => v > 0 ? `'26: ${formatNumberBadge(v)}` : ''
+        }
+      }
+    ];
 
     if (planLine) {
       datasets.push({
@@ -516,16 +549,23 @@ document.addEventListener('DOMContentLoaded', () => {
         borderWidth: 2.5,
         borderDash: [6, 4],
         fill: false,
-        pointRadius: 3,
+        pointRadius: 3.5,
         pointBackgroundColor: planLine.color,
         tension: 0.25,
         datalabels: {
+          display: showLabels,
+          // Plan: colocado arriba de la línea con offset adicional para no tocar las barras
           align: 'top',
-          anchor: 'start',
+          anchor: 'end',
+          offset: 6,
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderColor: planLine.color,
-          borderWidth: 1,
-          color: planLine.color
+          borderWidth: 1.5,
+          color: planLine.color,
+          font: { weight: '800', size: 9, family: 'Inter' },
+          borderRadius: 4,
+          padding: { top: 1, bottom: 1, left: 4, right: 4 },
+          formatter: (v) => v > 0 ? `Plan: ${formatNumberBadge(v)}` : ''
         }
       });
     }
@@ -541,18 +581,64 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
 
-    const datasets = areaSeries.map(s => ({
-      type: 'line',
-      label: s.label,
-      data: s.data,
-      backgroundColor: s.bg,
-      borderColor: s.border,
-      borderWidth: 2.5,
-      fill: true,
-      tension: 0.35,
-      pointRadius: 3.5,
-      pointBackgroundColor: s.border
-    }));
+    // areaSeries[0] = 2025 (Año Anterior)
+    // areaSeries[1] = 2026 (Año Actual)
+    const datasets = [
+      {
+        type: 'line',
+        label: areaSeries[0].label,
+        data: areaSeries[0].data,
+        backgroundColor: areaSeries[0].bg,
+        borderColor: areaSeries[0].border,
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3.5,
+        pointBackgroundColor: areaSeries[0].border,
+        datalabels: {
+          display: showLabels,
+          // Año 2025: etiqueta colocada DEBAJO del punto para CERO colisión con 2026
+          anchor: 'start',
+          align: 'bottom',
+          offset: 6,
+          color: '#475569',
+          font: { weight: '700', size: 9, family: 'Inter' },
+          backgroundColor: 'rgba(255, 255, 255, 0.92)',
+          borderColor: areaSeries[0].border,
+          borderWidth: 1,
+          borderRadius: 4,
+          padding: { top: 1, bottom: 1, left: 3, right: 3 },
+          formatter: (v) => v > 0 ? `'25: ${formatNumberBadge(v)}` : ''
+        }
+      },
+      {
+        type: 'line',
+        label: areaSeries[1].label,
+        data: areaSeries[1].data,
+        backgroundColor: areaSeries[1].bg,
+        borderColor: areaSeries[1].border,
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 4,
+        pointBackgroundColor: areaSeries[1].border,
+        datalabels: {
+          display: showLabels,
+          // Año 2026: etiqueta colocada ARRIBA del punto con color distintivo
+          anchor: 'end',
+          align: 'top',
+          offset: 6,
+          color: areaSeries[1].border,
+          font: { weight: '800', size: 9.5, family: 'Inter' },
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          borderColor: areaSeries[1].border,
+          borderWidth: 1.5,
+          borderRadius: 4,
+          padding: { top: 1, bottom: 1, left: 4, right: 4 },
+          formatter: (v) => v > 0 ? `'26: ${formatNumberBadge(v)}` : ''
+        }
+      }
+    ];
 
     if (planLine) {
       datasets.push({
@@ -567,12 +653,19 @@ document.addEventListener('DOMContentLoaded', () => {
         pointBackgroundColor: planLine.color,
         tension: 0.25,
         datalabels: {
+          display: showLabels,
+          // Plan: colocado arriba de la línea con offset y prefijo Plan:
           align: 'top',
-          anchor: 'center',
+          anchor: 'end',
+          offset: 10,
           backgroundColor: 'rgba(255, 255, 255, 0.95)',
           borderColor: planLine.color,
-          borderWidth: 1,
-          color: planLine.color
+          borderWidth: 1.5,
+          color: planLine.color,
+          font: { weight: '800', size: 9, family: 'Inter' },
+          borderRadius: 4,
+          padding: { top: 1, bottom: 1, left: 4, right: 4 },
+          formatter: (v) => v > 0 ? `Plan: ${formatNumberBadge(v)}` : ''
         }
       });
     }
