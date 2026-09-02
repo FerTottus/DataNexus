@@ -543,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
           anchor: 'center',
           align: 'center',
           color: '#1e293b',
-          font: { weight: '700', size: 9, family: 'Inter' },
+          font: { weight: '700', size: 13, family: 'Inter' },
           // Sin fondo ni borde: el valor se lee directamente sobre la barra
           backgroundColor: null,
           borderWidth: 0,
@@ -566,7 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
           anchor: 'center',
           align: 'center',
           color: '#ffffff',
-          font: { weight: '800', size: 9.5, family: 'Inter' },
+          font: { weight: '800', size: 14, family: 'Inter' },
           backgroundColor: null,
           borderWidth: 0,
           formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
@@ -588,7 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tension: 0.25,
         datalabels: {
           display: showLabels,
-          // Plan encima de la línea punteada — solo visible para la línea, sin confundir con barras
+          // Plan encima de la línea punteada
           align: 'top',
           anchor: 'end',
           offset: 4,
@@ -596,9 +596,9 @@ document.addEventListener('DOMContentLoaded', () => {
           borderColor: planLine.color,
           borderWidth: 1,
           color: planLine.color,
-          font: { weight: '700', size: 8.5, family: 'Inter' },
+          font: { weight: '700', size: 12, family: 'Inter' },
           borderRadius: 3,
-          padding: { top: 1, bottom: 1, left: 3, right: 3 },
+          padding: { top: 2, bottom: 2, left: 5, right: 5 },
           formatter: (v) => v > 0 ? `P: ${formatNumberBadge(v)}` : ''
         }
       });
@@ -631,17 +631,17 @@ document.addEventListener('DOMContentLoaded', () => {
         pointBackgroundColor: areaSeries[0].border,
         datalabels: {
           display: showLabels,
-          // Año 2025: etiqueta colocada DEBAJO del punto para CERO colisión con 2026
+          // Año anterior: etiqueta debajo del punto
           anchor: 'start',
           align: 'bottom',
           offset: 6,
           color: '#475569',
-          font: { weight: '700', size: 9, family: 'Inter' },
+          font: { weight: '700', size: 12, family: 'Inter' },
           backgroundColor: 'rgba(255, 255, 255, 0.92)',
           borderColor: areaSeries[0].border,
           borderWidth: 1,
           borderRadius: 4,
-          padding: { top: 1, bottom: 1, left: 3, right: 3 },
+          padding: { top: 2, bottom: 2, left: 5, right: 5 },
           formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
         }
       },
@@ -658,17 +658,17 @@ document.addEventListener('DOMContentLoaded', () => {
         pointBackgroundColor: areaSeries[1].border,
         datalabels: {
           display: showLabels,
-          // Año actual: etiqueta ARRIBA del punto con color de la serie
+          // Año actual: etiqueta arriba del punto con color de la serie
           anchor: 'end',
           align: 'top',
           offset: 6,
           color: areaSeries[1].border,
-          font: { weight: '800', size: 9.5, family: 'Inter' },
+          font: { weight: '800', size: 13, family: 'Inter' },
           backgroundColor: 'rgba(255, 255, 255, 0.9)',
           borderColor: areaSeries[1].border,
           borderWidth: 1.5,
           borderRadius: 4,
-          padding: { top: 1, bottom: 1, left: 4, right: 4 },
+          padding: { top: 2, bottom: 2, left: 5, right: 5 },
           formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
         }
       }
@@ -695,9 +695,9 @@ document.addEventListener('DOMContentLoaded', () => {
           borderColor: planLine.color,
           borderWidth: 1,
           color: planLine.color,
-          font: { weight: '700', size: 8.5, family: 'Inter' },
+          font: { weight: '700', size: 12, family: 'Inter' },
           borderRadius: 3,
-          padding: { top: 1, bottom: 1, left: 3, right: 3 },
+          padding: { top: 2, bottom: 2, left: 5, right: 5 },
           formatter: (v) => v > 0 ? `P: ${formatNumberBadge(v)}` : ''
         }
       });
