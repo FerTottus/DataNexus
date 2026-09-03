@@ -297,13 +297,25 @@ async function loadAllSheets(sheetId) {
     if (registroDiario && registroDiario.rows) {
       registroDiario.rows.forEach(row => {
         if (!row['RUTA']) return;
+        
+        // Helper para leer múltiples posibles nombres de columna
+        const getVal = (keys) => {
+          for (let k of keys) {
+            if (row[k] !== undefined && row[k] !== '') return row[k];
+          }
+          return null;
+        };
+
+        const rawCosto = getVal(['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE']);
+        const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+
         registroData.push({
-          dia: row['DÍA'],
-          semana: parseInt(row['SEMANA']) || 0,
+          dia: getVal(['DÍA', 'DIA']),
+          semana: parseInt(getVal(['SEMANA'])) || 0,
           ruta: row['RUTA'],
-          capacidad: parseFloat(row['CAPACIDAD']) || 0,
-          pasajeros: parseFloat(row['PASAJEROS']) || 0,
-          costo: parseFloat(row['COSTO TOTAL']) || 0
+          capacidad: parseFloat(getVal(['CAPACIDAD', 'CAPACIDAD DE BUS'])) || 0,
+          pasajeros: parseFloat(getVal(['PASAJEROS', 'CANT. PASAJEROS'])) || 0,
+          costo: costoNum
         });
       });
     }
@@ -514,13 +526,15 @@ function renderTables() {
     document.getElementById('seccionRegistroDiario').style.display = 'block';
     document.getElementById('seccionDashboardBuses').style.display = 'block';
 
-    const maxSemana = Math.max(...regData.map(r => r.semana)); // Semana más actual
-    
-    // Filtro por semana actual
-    const datosSemana = regData.filter(r => r.semana === maxSemana);
-    
-    // Determinar el día de análisis (último día registrado)
-    const diaActual = datosSemana.length > 0 ? datosSemana[datosSemana.length-1].dia : '-';
+    // En lugar de confiar en que los números de SEMANA siempre sean ascendentes 
+    // (ya que a veces en Excel se reinician o calculan mal, ej. de 36 a 21),
+    // simplemente tomamos la última fila registrada en el archivo.
+    const ultimaFila = regData[regData.length - 1];
+    const semanaActual = ultimaFila.semana;
+    const diaActual = ultimaFila.dia;
+
+    // Filtro por semana y día actual basados en esa última fila
+    const datosSemana = regData.filter(r => r.semana === semanaActual);
     const datosDia = datosSemana.filter(r => r.dia === diaActual);
 
     // Resumen por ruta de la SEMANA actual
