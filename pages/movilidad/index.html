@@ -423,13 +423,23 @@
       <h3 class="section-title mt-4 mb-3"><i class="fa-solid fa-chart-pie"></i> DISTRIBUCIÓN DEMOGRÁFICA</h3>
       <div class="charts-grid">
         <div class="chart-container clay-card">
-          <h3><i class="fa-solid fa-building-circle-check"></i> Clasificación: Distancia al CD</h3>
+          <div style="border-bottom: 1px solid #334155; padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
+            <h3 style="border-bottom: none; margin-bottom: 0.35rem; padding-bottom: 0;"><i class="fa-solid fa-building-circle-check"></i> Clasificación: Distancia al CD</h3>
+            <span class="kpi-subtitle" style="font-size: 0.78rem; color: #94a3b8; display: block;">
+              <i class="fa-solid fa-ruler"></i> Rangos: <b>Muy Cerca</b> (≤ 5 km) | <b>Cerca</b> (5 - 10 km) | <b>Moderada</b> (10 - 20 km) | <b>Lejos</b> (> 20 km)
+            </span>
+          </div>
           <div class="chart-wrapper">
             <canvas id="chartDistCD"></canvas>
           </div>
         </div>
         <div class="chart-container clay-card">
-          <h3><i class="fa-solid fa-bus"></i> Clasificación: Distancia a Paraderos</h3>
+          <div style="border-bottom: 1px solid #334155; padding-bottom: 0.85rem; margin-bottom: 1.25rem;">
+            <h3 style="border-bottom: none; margin-bottom: 0.35rem; padding-bottom: 0;"><i class="fa-solid fa-bus"></i> Clasificación: Distancia a Paraderos</h3>
+            <span class="kpi-subtitle" style="font-size: 0.78rem; color: #94a3b8; display: block;">
+              <i class="fa-solid fa-ruler"></i> Rangos: <b>Muy Cerca</b> (≤ 1 km) | <b>Cerca</b> (1 - 3 km) | <b>Moderada</b> (3 - 5 km) | <b>Lejos</b> (> 5 km)
+            </span>
+          </div>
           <div class="chart-wrapper">
             <canvas id="chartDistParadero"></canvas>
           </div>

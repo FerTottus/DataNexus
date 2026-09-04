@@ -1137,13 +1137,20 @@ function renderTables() {
   let rutasSet = new Set();
 
   // Variables para tablas de clasificación
-  const countCd = { '🟢 Muy Cerca': 0, '🟡 Cerca': 0, '🟠 Moderada': 0, '🔴 Lejos': 0 };
-  const countParadero = { '🟢 Muy Cerca': 0, '🟡 Cerca': 0, '🟠 Moderada': 0, '🔴 Lejos': 0 };
+  // Variables para tablas de clasificación con rangos de distancia explícitos
+  const countCd = {
+    '🟢 Muy Cerca (≤ 5 km)': 0,
+    '🟡 Cerca (5 - 10 km)': 0,
+    '🟠 Moderada (10 - 20 km)': 0,
+    '🔴 Lejos (> 20 km)': 0
+  };
 
-  // Variables para tablas detalladas
-  const distritosStats = {};
-  const rutasCount = {};
-  const paraderosCount = {};
+  const countParadero = {
+    '🟢 Muy Cerca (≤ 1 km)': 0,
+    '🟡 Cerca (1 - 3 km)': 0,
+    '🟠 Moderada (3 - 5 km)': 0,
+    '🔴 Lejos (> 5 km)': 0
+  };
 
   data.forEach(emp => {
     // Totales
@@ -1152,16 +1159,17 @@ function renderTables() {
     if (emp.distrito) distritosSet.add(emp.distrito);
     if (emp.ruta) rutasSet.add(emp.ruta);
 
-    // Clasificaciones (matching substring to ensure we map correctly, as raw data might just be "Muy Cerca")
-    if (emp.clasifCd.includes('Muy Cerca')) countCd['🟢 Muy Cerca']++;
-    else if (emp.clasifCd.includes('Cerca')) countCd['🟡 Cerca']++;
-    else if (emp.clasifCd.includes('Moderada')) countCd['🟠 Moderada']++;
-    else if (emp.clasifCd.includes('Lejos')) countCd['🔴 Lejos']++;
+    // Clasificaciones CD (matching substring o valor numérico)
+    if (emp.clasifCd.includes('Muy Cerca') || (emp.distCd > 0 && emp.distCd <= 5)) countCd['🟢 Muy Cerca (≤ 5 km)']++;
+    else if (emp.clasifCd.includes('Cerca') || (emp.distCd > 5 && emp.distCd <= 10)) countCd['🟡 Cerca (5 - 10 km)']++;
+    else if (emp.clasifCd.includes('Moderada') || (emp.distCd > 10 && emp.distCd <= 20)) countCd['🟠 Moderada (10 - 20 km)']++;
+    else if (emp.clasifCd.includes('Lejos') || emp.distCd > 20) countCd['🔴 Lejos (> 20 km)']++;
 
-    if (emp.clasifParadero.includes('Muy Cerca')) countParadero['🟢 Muy Cerca']++;
-    else if (emp.clasifParadero.includes('Cerca')) countParadero['🟡 Cerca']++;
-    else if (emp.clasifParadero.includes('Moderada')) countParadero['🟠 Moderada']++;
-    else if (emp.clasifParadero.includes('Lejos')) countParadero['🔴 Lejos']++;
+    // Clasificaciones Paradero (matching substring o valor numérico)
+    if (emp.clasifParadero.includes('Muy Cerca') || (emp.distParadero > 0 && emp.distParadero <= 1)) countParadero['🟢 Muy Cerca (≤ 1 km)']++;
+    else if (emp.clasifParadero.includes('Cerca') || (emp.distParadero > 1 && emp.distParadero <= 3)) countParadero['🟡 Cerca (1 - 3 km)']++;
+    else if (emp.clasifParadero.includes('Moderada') || (emp.distParadero > 3 && emp.distParadero <= 5)) countParadero['🟠 Moderada (3 - 5 km)']++;
+    else if (emp.clasifParadero.includes('Lejos') || emp.distParadero > 5) countParadero['🔴 Lejos (> 5 km)']++;
 
     // Stats por Distrito
     if (emp.distrito) {
@@ -1230,14 +1238,22 @@ function renderTables() {
   };
 
   // 2 y 3. Gráficos de Clasificación
-  const colors = {
-    '🟢 Muy Cerca': '#22c55e', 
-    '🟡 Cerca': '#eab308',     
-    '🟠 Moderada': '#f97316',  
-    '🔴 Lejos': '#ef4444'      
+  const colorsCd = {
+    '🟢 Muy Cerca (≤ 5 km)': '#22c55e', 
+    '🟡 Cerca (5 - 10 km)': '#eab308',     
+    '🟠 Moderada (10 - 20 km)': '#f97316',  
+    '🔴 Lejos (> 20 km)': '#ef4444'      
   };
-  renderPieChart('chartDistCD', countCd, colors);
-  renderPieChart('chartDistParadero', countParadero, colors);
+
+  const colorsParadero = {
+    '🟢 Muy Cerca (≤ 1 km)': '#22c55e', 
+    '🟡 Cerca (1 - 3 km)': '#eab308',     
+    '🟠 Moderada (3 - 5 km)': '#f97316',  
+    '🔴 Lejos (> 5 km)': '#ef4444'      
+  };
+
+  renderPieChart('chartDistCD', countCd, colorsCd);
+  renderPieChart('chartDistParadero', countParadero, colorsParadero);
 
   // 4. Tabla Análisis Detallado por Distrito
   const distritosArr = Object.keys(distritosStats).map(d => {
@@ -1501,6 +1517,17 @@ function renderPieChart(canvasId, dataMap, colors) {
             font: {
               size: 12,
               weight: '500'
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const val = context.parsed || 0;
+              const dataset = context.dataset.data || [];
+              const total = dataset.reduce((a, b) => a + b, 0);
+              const pct = total > 0 ? ((val / total) * 100).toFixed(1) + '%' : '0%';
+              return ` ${context.label}: ${val} colaboradores (${pct})`;
             }
           }
         }
