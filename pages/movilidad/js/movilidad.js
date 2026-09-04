@@ -318,6 +318,7 @@ async function loadAllSheets(sheetId) {
         if(!row['Distrito']) return;
         
         combined.push({
+          dni: String(row['DNI'] || row['DOCUMENTO'] || row['ID'] || '').trim(),
           area: areaName,
           tipo: String(row['CLASIFICACION'] || '').toUpperCase().trim(),
           distrito: String(row['Distrito'] || '').trim(),
@@ -375,16 +376,35 @@ async function loadAllSheets(sheetId) {
         aggrMap[key].pasajeros += 1;
       });
 
-      // Convertimos el diccionario en un array y lo asignamos
-      registroData = Object.values(aggrMap);
-    }
 
     AppState.rawEmployees = combined;
-    AppState.registroData = registroData;
-    AppState.sheetId = sheetId;
+    AppState.filteredEmployees = [...combined];
+    
+    // Guardamos las filas raw del registro diario para agregarlas dinámicamente según filtros
+    AppState.rawRegistroDiario = (registroDiario && registroDiario.rows) ? registroDiario.rows : [];
+
+    // Poblar dropdown de fechas basado en los datos únicos
+    const fSet = new Set();
+    AppState.rawRegistroDiario.forEach(r => {
+      let f = r['FECHA'] || r['FECHA DE VIAJE'] || '';
+      f = String(f).split(' ')[0];
+      if(f) fSet.add(f);
+    });
+    const fechas = Array.from(fSet).sort((a,b) => {
+      // Orden simple de string, idealmente DD/MM/YYYY
+      return a.localeCompare(b);
+    });
+    
+    const selFecha = document.getElementById('filtroFecha');
+    if (selFecha) {
+      selFecha.innerHTML = `<option value="ULTIMA">Última Fecha Disponible</option><option value="TODAS">Ver Todas</option>`;
+      fechas.forEach(f => {
+        selFecha.innerHTML += `<option value="${f}">${f}</option>`;
+      });
+    }
 
     badge.className = 'badge badge-success';
-    badge.innerText = 'Conectado - ' + combined.length + ' regs';
+    badge.innerHTML = `<i class="fa-solid fa-check"></i> Conectado - ${combined.length} regs`;
 
     document.getElementById('dashboardFiltersWrapper').classList.remove('hidden');
     document.getElementById('dashboardContent').classList.remove('hidden');
@@ -414,13 +434,75 @@ function applyFilters() {
   const areas = getActiveChips('chipArea');
   const tipos = getActiveChips('chipTipo');
 
+  // Filtramos la data demográfica de empleados
   AppState.filteredEmployees = AppState.rawEmployees.filter(emp => {
     const matchArea = areas.includes('TODOS') || areas.includes(emp.area);
     const matchTipo = tipos.includes('TODOS') || tipos.includes(emp.tipo);
     return matchArea && matchTipo;
   });
 
+  // Filtramos y agregamos la data del registro diario de buses
+  const empMap = new Map();
+  AppState.filteredEmployees.forEach(e => {
+    if (e.dni) empMap.set(e.dni, true);
+  });
+
+  const selF = document.getElementById('filtroFecha');
+  const valFecha = selF ? selF.value : 'ULTIMA';
+  const selD = document.getElementById('filtroDia');
+  const valDia = selD ? selD.value : 'TODOS';
+
+  const aggrMap = {};
+  AppState.rawRegistroDiario.forEach(row => {
+    const getVal = (keys) => {
+      for (let k of keys) {
+        if (row[k] !== undefined && row[k] !== '') return row[k];
+      }
+      return null;
+    };
+
+    const dni = String(getVal(['DNI', 'DOCUMENTO', 'ID']) || '').trim();
+    // CRÍTICO: Si el empleado no está en el mapa de empleados filtrados, LO IGNORAMOS.
+    // Solo contamos a los empleados que cumplen el filtro de Área y Tipo
+    if (dni && !empMap.has(dni)) return;
+
+    let rawFecha = getVal(['FECHA', 'FECHA DE VIAJE']) || '';
+    const fechaSoloDia = String(rawFecha).split(' ')[0]; 
+
+    // Filtros de fecha y día
+    const diaVal = getVal(['DÍA', 'DIA']);
+    if (valDia !== 'TODOS' && diaVal && String(diaVal).toLowerCase() !== valDia.toLowerCase()) return;
+    if (valFecha !== 'ULTIMA' && valFecha !== 'TODAS' && fechaSoloDia !== valFecha) return;
+
+    const rutaVal = getVal(['RUTA', 'RUTA ASIGNADA']);
+    if (!rutaVal) return;
+
+    const key = `${fechaSoloDia}|${rutaVal}`;
+    if (!aggrMap[key]) {
+      const rawCosto = getVal(['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS']);
+      const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+
+      aggrMap[key] = {
+        dia: diaVal,
+        fecha: fechaSoloDia,
+        semana: parseInt(getVal(['SEMANA'])) || 0,
+        ruta: rutaVal,
+        capacidad: parseFloat(getVal(['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS'])) || 0,
+        pasajeros: 0,
+        costo: costoNum 
+      };
+    }
+
+    aggrMap[key].pasajeros += 1;
+  });
+
+  AppState.registroData = Object.values(aggrMap);
+  AppState.filtroFechaModo = valFecha; // Guardamos para usarlo luego
+  
   renderTables();
+  if (typeof renderCharts === 'function') {
+    renderCharts();
+  }
 }
 
 function renderTables() {
@@ -639,9 +721,15 @@ function renderTables() {
         else estCap = '🔴 Muy Bajo';
 
         return `<tr>
-          <td>${r.ruta}</td><td>${r.viajes}</td><td>${r.cap}</td><td>${r.pasaj}</td>
-          <td>${(pOcup*100).toFixed(2)}%</td><td>S/ ${r.costo.toFixed(2)}</td><td>S/ ${cProm.toFixed(2)}</td>
-          <td>${estCap}</td><td>${promPasaj.toFixed(2)}</td><td>S/ ${cViaje.toFixed(2)}</td>
+          <td>${r.ruta}</td>
+          <td>${r.viajes}</td>
+          <td>${r.cap}</td>
+          <td>${r.pasaj}</td>
+          <td>${(pOcup*100).toFixed(2)}%</td>
+          <td>${estCap}</td>
+          <td>S/ ${r.costo.toFixed(2)}</td>
+          <td>S/ ${cProm.toFixed(2)}</td>
+          <td>S/ ${cViaje.toFixed(2)}</td>
           <td>MAX: ${r.pMax === -1 ? 0 : r.pMax} - MIN: ${r.pMin === 9999 ? 0 : r.pMin}</td>
         </tr>`;
       }).join('');

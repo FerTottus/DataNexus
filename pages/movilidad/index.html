@@ -85,33 +85,62 @@
           <i class="fa-solid fa-chevron-up"></i>
         </button>
       </div>
-      <section id="dashboardFilters" class="filters-panel" style="transition: all 0.3s ease;">
+      <section id="dashboardFilters" class="filters-panel" style="transition: all 0.3s ease; width: 100%;">
       <!-- Controles de Filtro -->
       <div class="filters-container">
         
-        <div class="filter-group">
-          <label>Área:</label>
-          <div class="chip-group" id="chipArea">
-            <button class="chip active" data-value="TODOS">TODOS</button>
-            <button class="chip" data-value="SECOS">SECOS</button>
-            <button class="chip" data-value="PPA">PPA</button>
-            <button class="chip" data-value="FRESCOS">FRESCOS</button>
+        <div class="filters-row">
+          <div class="filter-group">
+            <label>Área:</label>
+            <div class="chip-group" id="chipArea">
+              <button class="chip active" data-value="TODOS">TODOS</button>
+              <button class="chip" data-value="SECOS">SECOS</button>
+              <button class="chip" data-value="PPA">PPA</button>
+              <button class="chip" data-value="FRESCOS">FRESCOS</button>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label>Tipo de Empleado:</label>
+            <div class="chip-group" id="chipTipo">
+              <button class="chip active" data-value="TODOS">TODOS</button>
+              <button class="chip" data-value="STAFF">STAFF</button>
+              <button class="chip" data-value="OPERARIO">OPERARIO</button>
+            </div>
           </div>
         </div>
 
-        <div class="filter-group">
-          <label>Tipo de Empleado:</label>
-          <div class="chip-group" id="chipTipo">
-            <button class="chip active" data-value="TODOS">TODOS</button>
-            <button class="chip" data-value="STAFF">STAFF</button>
-            <button class="chip" data-value="OPERARIO">OPERARIO</button>
+        <div class="filters-row" style="border-top: 1px solid #334155; padding-top: 1rem;">
+          <div class="filter-group" style="flex-grow: 0; min-width: 200px;">
+            <label>Fecha de Operación:</label>
+            <select id="filtroFecha" class="form-control">
+              <option value="ULTIMA">Última Fecha Disponible</option>
+              <!-- Llenado dinámico -->
+            </select>
+          </div>
+
+          <div class="filter-group" style="flex-grow: 0; min-width: 200px;">
+            <label>Filtrar por Día (Opcional):</label>
+            <select id="filtroDia" class="form-control">
+              <option value="TODOS">Todos los Días</option>
+              <option value="lunes">Lunes</option>
+              <option value="martes">Martes</option>
+              <option value="miércoles">Miércoles</option>
+              <option value="jueves">Jueves</option>
+              <option value="viernes">Viernes</option>
+              <option value="sábado">Sábado</option>
+              <option value="domingo">Domingo</option>
+            </select>
+          </div>
+          
+          <div style="flex-grow: 1; display: flex; justify-content: flex-end;">
+            <button id="btnApplyFilters">
+              <i class="fa-solid fa-rotate"></i> Actualizar Dashboard
+            </button>
           </div>
         </div>
-
-        <button id="btnApplyFilters" class="btn-primary" style="align-self: flex-end;">
-          <i class="fa-solid fa-rotate"></i> Actualizar
-        </button>
-      </div></section>
+      </div>
+      </section>
     </div> <!-- End sticky-filters-wrapper -->
 
     <!-- Contenedor de Métricas y Gráficos (Oculto hasta cargar datos) -->

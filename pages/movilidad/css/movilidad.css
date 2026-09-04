@@ -338,6 +338,24 @@ body {
   }
 }
 
+/* Utilidades para Inputs Dark Mode */
+.form-control {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.form-control::placeholder {
+  color: #64748b !important;
+}
+
+#toggleFiltersBtn, #toggleConnectionBtn {
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+}
+
 .sticky-header th {
   position: sticky;
   top: 0;
@@ -346,3 +364,17 @@ body {
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+/* Layout de Filtros Mejorado */
+.filters-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: center;
+}
