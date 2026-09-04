@@ -591,19 +591,19 @@ function renderTables() {
       ? regData.filter(r => r.fecha === fechaActual)
       : datosSemana.filter(r => r.dia === diaActual);
 
-    // Resumen por ruta de la SEMANA actual
+    // Resumen por ruta del DÍA actual
     const statsRuta = {};
-    datosSemana.forEach(r => {
+    datosDia.forEach(r => {
       if (!statsRuta[r.ruta]) {
-        statsRuta[r.ruta] = { viajes: 0, cap: 0, pasaj: 0, costo: 0, maxP: -Infinity, minP: Infinity };
+        statsRuta[r.ruta] = { viajes: 0, cap: 0, pasaj: 0, costo: 0, pMin: 9999, pMax: -1 };
       }
       const st = statsRuta[r.ruta];
       st.viajes++;
       st.cap += r.capacidad;
       st.pasaj += r.pasajeros;
       st.costo += r.costo;
-      if (r.pasajeros > st.maxP) st.maxP = r.pasajeros;
-      if (r.pasajeros < st.minP) st.minP = r.pasajeros;
+      if (r.pasajeros < st.pMin) st.pMin = r.pasajeros;
+      if (r.pasajeros > st.pMax) st.pMax = r.pasajeros;
     });
 
     const rutasDiario = Object.keys(statsRuta).map(k => ({ ruta: k, ...statsRuta[k] })).sort((a, b) => a.ruta.localeCompare(b.ruta));
@@ -626,7 +626,7 @@ function renderTables() {
           <td>${r.ruta}</td><td>${r.viajes}</td><td>${r.cap}</td><td>${r.pasaj}</td>
           <td>${(pOcup*100).toFixed(2)}%</td><td>S/ ${r.costo.toFixed(2)}</td><td>S/ ${cProm.toFixed(2)}</td>
           <td>${estCap}</td><td>${promPasaj.toFixed(2)}</td><td>S/ ${cViaje.toFixed(2)}</td>
-          <td>MAX: ${r.maxP === -Infinity ? 0 : r.maxP} - MIN: ${r.minP === Infinity ? 0 : r.minP}</td>
+          <td>MAX: ${r.pMax === -1 ? 0 : r.pMax} - MIN: ${r.pMin === 9999 ? 0 : r.pMin}</td>
         </tr>`;
       }).join('');
     }
