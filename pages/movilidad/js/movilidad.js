@@ -28,6 +28,7 @@ const AppState = {
   mapBounds: null,
   mapDrawn: false,
   routeDirectionsCache: {},
+  unmappedPassengers: [], // Pasajeros en Registro Diario no encontrados en BD
   mapboxToken: (window.APP_CONFIG && window.APP_CONFIG.MAPBOX_TOKEN) 
     ? window.APP_CONFIG.MAPBOX_TOKEN 
     : ['pk', 'eyJ1IjoiZmh1cnRhZG9hIiwiYSI6ImNtbnRmeW52NTBwb2sycW9uYWJjeXd6Mm8ifQ', 'LcHL2SI6zsJ-oQyg3JUFrw'].join('.')
@@ -425,6 +426,85 @@ function initUIEvents() {
       }
     });
   }
+
+  // Eventos del Modal Directorio de Empleados
+  const btnOpenEmp = document.getElementById('btnOpenEmployeesModal');
+  if (btnOpenEmp) {
+    btnOpenEmp.addEventListener('click', () => {
+      openEmployeesModal();
+    });
+  }
+
+  const btnCloseEmp = document.getElementById('close-modal-empleados');
+  if (btnCloseEmp) {
+    btnCloseEmp.addEventListener('click', () => {
+      document.getElementById('modal-empleados')?.classList.add('hidden');
+    });
+  }
+
+  const modalEmp = document.getElementById('modal-empleados');
+  if (modalEmp) {
+    modalEmp.addEventListener('click', (e) => {
+      if (e.target === modalEmp) modalEmp.classList.add('hidden');
+    });
+  }
+
+  const inputBuscarEmp = document.getElementById('inputBuscarEmpleado');
+  if (inputBuscarEmp) {
+    inputBuscarEmp.addEventListener('input', () => {
+      renderModalEmployees();
+    });
+  }
+
+  const filtroEmpTipo = document.getElementById('filtroModalEmpTipo');
+  if (filtroEmpTipo) {
+    filtroEmpTipo.addEventListener('change', () => {
+      renderModalEmployees();
+    });
+  }
+
+  const filtroEmpArea = document.getElementById('filtroModalEmpArea');
+  if (filtroEmpArea) {
+    filtroEmpArea.addEventListener('change', () => {
+      renderModalEmployees();
+    });
+  }
+
+  // Eventos del Modal Pasajeros No Contemplados en BD
+  const btnOpenUnm = document.getElementById('btnOpenUnmappedModal');
+  if (btnOpenUnm) {
+    btnOpenUnm.addEventListener('click', () => {
+      openUnmappedModal();
+    });
+  }
+
+  const btnCloseUnm = document.getElementById('close-modal-no-contemplados');
+  if (btnCloseUnm) {
+    btnCloseUnm.addEventListener('click', () => {
+      document.getElementById('modal-no-contemplados')?.classList.add('hidden');
+    });
+  }
+
+  const modalUnm = document.getElementById('modal-no-contemplados');
+  if (modalUnm) {
+    modalUnm.addEventListener('click', (e) => {
+      if (e.target === modalUnm) modalUnm.classList.add('hidden');
+    });
+  }
+
+  const inputBuscarUnm = document.getElementById('inputBuscarNoContemplado');
+  if (inputBuscarUnm) {
+    inputBuscarUnm.addEventListener('input', () => {
+      renderModalUnmapped();
+    });
+  }
+
+  const btnCopiarDnis = document.getElementById('btnCopiarDnisNoMapeados');
+  if (btnCopiarDnis) {
+    btnCopiarDnis.addEventListener('click', () => {
+      copiarDnisNoMapeados();
+    });
+  }
 }
 
 async function openDriveModal() {
@@ -630,6 +710,9 @@ async function loadAllSheets(sheetId) {
         if (!distrito && !rawDni) return;
         
         const dniClean = cleanDni(rawDni);
+        const nombreRaw = getRowVal(row, ['APELLIDOS Y NOMBRES', 'NOMBRE Y APELLIDO', 'APELLIDOS Y NOMBRE', 'NOMBRE COMPLETO', 'COLABORADOR', 'EMPLEADO', 'TRABAJADOR', 'NOMBRE', 'NOMBRES', 'NAME']);
+        const nombre = String(nombreRaw || '').trim() || 'Sin registrar';
+        
         const tipoRaw = getRowVal(row, ['CLASIFICACION', 'CLASIFICACIÓN', 'TIPO', 'CATEGORIA', 'TIPO EMPLEADO']);
         const tipo = normalizeTipo(tipoRaw);
 
@@ -645,6 +728,7 @@ async function loadAllSheets(sheetId) {
         combined.push({
           dni: dniClean,
           rawDni: String(rawDni).trim(),
+          nombre: nombre,
           area: areaName,
           tipo: tipo,
           distrito: distrito,
@@ -779,6 +863,56 @@ async function loadAllSheets(sheetId) {
 
     badge.className = 'badge badge-success';
     badge.innerHTML = `<i class="fa-solid fa-check"></i> Conectado - ${combined.length} regs`;
+
+    // Identificar pasajeros en REGISTRO_DIARIO que no existen en las bases maestras
+    const unmappedMap = new Map();
+    AppState.rawRegistroDiario.forEach(row => {
+      const rawDni = getRowVal(row, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
+      const cleanPassengerDni = cleanDni(rawDni);
+      if (!cleanPassengerDni && !rawDni) return;
+
+      const emp = AppState.employeeMap.get(cleanPassengerDni) || (rawDni ? AppState.employeeMap.get(String(rawDni).trim().toUpperCase()) : null);
+
+      if (!emp) {
+        const key = cleanPassengerDni || String(rawDni).trim().toUpperCase();
+        const rutaVal = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
+        const rawFecha = getRowVal(row, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
+        const fechaVal = normalizeDateStr(rawFecha);
+
+        if (!unmappedMap.has(key)) {
+          unmappedMap.set(key, {
+            dni: key,
+            rawDni: String(rawDni || key).trim(),
+            viajesCount: 0,
+            rutas: new Set(),
+            fechas: new Set(),
+            ultimaFecha: ''
+          });
+        }
+        const item = unmappedMap.get(key);
+        item.viajesCount += 1;
+        if (rutaVal) item.rutas.add(rutaVal);
+        if (fechaVal) {
+          item.fechas.add(fechaVal);
+          item.ultimaFecha = fechaVal;
+        }
+      }
+    });
+
+    AppState.unmappedPassengers = Array.from(unmappedMap.values()).sort((a, b) => b.viajesCount - a.viajesCount);
+
+    // Actualizar contadores en botones de la barra de filtros y modales
+    const bCountEmp = document.getElementById('badgeCountEmployees');
+    if (bCountEmp) bCountEmp.innerText = combined.length;
+
+    const bCountUnm = document.getElementById('badgeCountUnmapped');
+    if (bCountUnm) bCountUnm.innerText = AppState.unmappedPassengers.length;
+
+    const mCountEmp = document.getElementById('modalEmpCountBadge');
+    if (mCountEmp) mCountEmp.innerText = `${combined.length} colaboradores`;
+
+    const mCountUnm = document.getElementById('modalUnmappedCountBadge');
+    if (mCountUnm) mCountUnm.innerText = `${AppState.unmappedPassengers.length} sin BD`;
 
     document.getElementById('dashboardFiltersWrapper').classList.remove('hidden');
     document.getElementById('dashboardContent').classList.remove('hidden');
@@ -1728,5 +1862,152 @@ function resetearVistaMapa(recenter = false) {
     AppState.mapInstance.fitBounds(AppState.mapBounds, { padding: [40, 40] });
   }
 }
+
+// ==========================================
+// Módulo de Directorio de Colaboradores
+// ==========================================
+
+function openEmployeesModal() {
+  const modal = document.getElementById('modal-empleados');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  renderModalEmployees();
+}
+
+function renderModalEmployees() {
+  const tbody = document.getElementById('tbodyModalEmpleados');
+  if (!tbody) return;
+
+  const search = String(document.getElementById('inputBuscarEmpleado')?.value || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const filtroTipo = document.getElementById('filtroModalEmpTipo')?.value || 'TODOS';
+  const filtroArea = document.getElementById('filtroModalEmpArea')?.value || 'TODOS';
+
+  const emps = (AppState.rawEmployees || []).filter(e => {
+    if (filtroTipo !== 'TODOS' && e.tipo !== filtroTipo) return false;
+    if (filtroArea !== 'TODOS' && e.area !== filtroArea) return false;
+    if (!search) return true;
+
+    const dniNorm = (e.dni || '').toLowerCase();
+    const rawDniNorm = (e.rawDni || '').toLowerCase();
+    const nomNorm = (e.nombre || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const distNorm = (e.distrito || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const rutaNorm = (e.ruta || '').toLowerCase();
+
+    return dniNorm.includes(search) || rawDniNorm.includes(search) || nomNorm.includes(search) || distNorm.includes(search) || rutaNorm.includes(search);
+  });
+
+  const footer = document.getElementById('labelTotalMostradosEmp');
+  if (footer) {
+    footer.innerText = `Mostrando ${emps.length} de ${(AppState.rawEmployees || []).length} colaboradores`;
+  }
+
+  if (emps.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 25px;">No se encontraron colaboradores con los filtros seleccionados.</td></tr>`;
+    return;
+  }
+
+  // Renderizar los primeros 300 para asegurar fluidez instantánea
+  const limit = 300;
+  const slice = emps.slice(0, limit);
+
+  tbody.innerHTML = slice.map(e => {
+    const areaBadge = e.area === 'SECOS' 
+      ? '<span class="file-badge badge-owned">SECOS</span>' 
+      : (e.area === 'PPA' ? '<span class="file-badge badge-shared">PPA</span>' : '<span class="file-badge" style="background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3);">FRESCOS</span>');
+    
+    const tipoBadge = e.tipo === 'STAFF'
+      ? '<span class="badge badge-info" style="font-size: 0.72rem;">STAFF</span>'
+      : (e.tipo === 'OPERARIO' ? '<span class="badge badge-success" style="font-size: 0.72rem;">OPERARIO</span>' : `<span class="badge" style="background: #334155; color: #94a3b8; font-size: 0.72rem;">${e.tipo}</span>`);
+
+    return `<tr>
+      <td style="font-weight: 600; font-family: monospace; color: #f8fafc;">${e.dni || e.rawDni}</td>
+      <td style="color: #cbd5e1; font-weight: 500;">${e.nombre || 'Sin registrar'}</td>
+      <td>${areaBadge}</td>
+      <td>${tipoBadge}</td>
+      <td style="color: #94a3b8;">${e.distrito || '-'}</td>
+      <td style="color: #60a5fa; font-weight: 600;">${e.ruta ? 'Ruta ' + e.ruta : '-'}</td>
+      <td style="color: #94a3b8; font-size: 0.82rem;">${e.paradero || '-'}</td>
+    </tr>`;
+  }).join('');
+
+  if (emps.length > limit) {
+    tbody.innerHTML += `<tr><td colspan="7" style="text-align: center; color: #f59e0b; padding: 10px; font-size: 0.8rem;">Mostrando los primeros ${limit} de ${emps.length} resultados. Usa el buscador para filtrar más específicamente.</td></tr>`;
+  }
+}
+
+// ==========================================
+// Módulo de Pasajeros No Contemplados en BD
+// ==========================================
+
+function openUnmappedModal() {
+  const modal = document.getElementById('modal-no-contemplados');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  renderModalUnmapped();
+}
+
+function renderModalUnmapped() {
+  const tbody = document.getElementById('tbodyModalNoContemplados');
+  if (!tbody) return;
+
+  const search = String(document.getElementById('inputBuscarNoContemplado')?.value || '').trim().toLowerCase();
+
+  const list = (AppState.unmappedPassengers || []).filter(u => {
+    if (!search) return true;
+    const dniNorm = (u.dni || '').toLowerCase();
+    const rawDniNorm = (u.rawDni || '').toLowerCase();
+    const rutasNorm = Array.from(u.rutas).join(' ').toLowerCase();
+    return dniNorm.includes(search) || rawDniNorm.includes(search) || rutasNorm.includes(search);
+  });
+
+  const footer = document.getElementById('labelTotalMostradosUnmapped');
+  if (footer) {
+    footer.innerText = `Total: ${list.length} pasajeros en Registro Diario sin registro en BD maestras`;
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #4ade80; padding: 25px;"><i class="fa-solid fa-circle-check"></i> Excelente. Todos los pasajeros registrados coinciden con las bases maestras.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(u => {
+    const rutasStr = Array.from(u.rutas).map(r => `<span class="badge" style="background: #1e293b; border: 1px solid #334155; color: #93c5fd; margin-right: 4px;">Ruta ${r}</span>`).join('') || '-';
+
+    return `<tr>
+      <td style="font-weight: 700; font-family: monospace; color: #f87171;">${u.dni || u.rawDni}</td>
+      <td style="font-weight: 600; color: #f8fafc; text-align: center;">${u.viajesCount}</td>
+      <td>${rutasStr}</td>
+      <td style="color: #94a3b8; font-size: 0.82rem;">${u.ultimaFecha || '-'}</td>
+      <td><span class="file-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">🔴 No figura en BD SECOS/PPA/FRESCOS</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function copiarDnisNoMapeados() {
+  const list = AppState.unmappedPassengers || [];
+  if (list.length === 0) {
+    if (window.ClipboardUtil) ClipboardUtil.showToast('No hay DNIs sin mapear para copiar', 'info');
+    else alert('No hay DNIs sin mapear para copiar');
+    return;
+  }
+
+  const text = list.map(u => u.dni || u.rawDni).join('\n');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      if (window.ClipboardUtil) ClipboardUtil.showToast(`Se copiaron ${list.length} DNIs al portapapeles`, 'success');
+      else alert(`Se copiaron ${list.length} DNIs al portapapeles`);
+    });
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (window.ClipboardUtil) ClipboardUtil.showToast(`Se copiaron ${list.length} DNIs al portapapeles`, 'success');
+    else alert(`Se copiaron ${list.length} DNIs al portapapeles`);
+  }
+}
+
 
 
