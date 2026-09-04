@@ -10,6 +10,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
+  <!-- Leaflet CSS para Mapeo de Rutas -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
   <!-- Estilos Globales de DataNexus (opcional, para botones y modal drive) -->
   <link rel="stylesheet" href="../../css/styles.css">
   
@@ -83,6 +86,59 @@
       </div>
     </div>
 
+    <!-- Modal Interactivo de Mapeo de Rutas (Leaflet + Mapbox + GPS) -->
+    <div id="mapa-modal" class="modal-overlay hidden">
+      <div class="modal-content modal-mapa-container">
+        
+        <!-- Header del Modal -->
+        <div class="modal-header modal-mapa-header">
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <h3 style="margin: 0; font-size: 1.15rem; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+              <i class="fa-solid fa-map-location-dot" style="color: #3b82f6;"></i> Mapeo Logístico de Rutas y Paraderos
+            </h3>
+            <span id="mapaDataSourceBadge" class="badge badge-info" style="font-size: 0.75rem;">
+              <i class="fa-solid fa-database"></i> Verificando origen...
+            </span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label style="font-size: 0.8rem; color: #94a3b8; margin: 0;">Filtrar:</label>
+              <select id="selectFiltroRutaMapa" class="form-control form-control-sm" style="padding: 4px 10px; font-size: 0.82rem; width: auto; min-width: 140px;">
+                <option value="TODAS">Todas las Rutas</option>
+              </select>
+            </div>
+
+            <button id="btnResetMapView" class="btn btn-secondary btn-sm" style="border-radius: 8px; padding: 5px 12px;" title="Centrar vista de rutas">
+              <i class="fa-solid fa-crosshairs"></i> Centrar
+            </button>
+
+            <button id="close-mapa-modal-btn" class="btn-close" title="Cerrar modal">&times;</button>
+          </div>
+        </div>
+
+        <!-- Cuerpo del Mapa + Panel Flotante -->
+        <div class="modal-body modal-mapa-body">
+          <!-- Contenedor Leaflet -->
+          <div id="mapaRutas"></div>
+
+          <!-- Panel Flotante de Indicadores Logísticos (Dark Claymorphism) -->
+          <div id="panelIndicadoresRutas" class="panel-indicadores-rutas">
+            <div class="panel-indicadores-header">
+              <h4><i class="fa-solid fa-route" style="color: #3b82f6;"></i> Indicadores de Ruta</h4>
+              <button id="btnTogglePanelRutas" class="btn-icon-panel" title="Minimizar panel"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <div class="panel-indicadores-body" id="listaRutasCards">
+              <p style="color: #94a3b8; font-size: 0.85rem; text-align: center; padding: 20px 0;">
+                <i class="fa-solid fa-spinner fa-spin"></i> Trazando recorridos y calculando GPS...
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- Filtros del Dashboard (Sticky) -->
     <div class="sticky-filters-wrapper hidden" id="dashboardFiltersWrapper" style="position: sticky; top: 15px; z-index: 100;">
       <div style="display: flex; justify-content: flex-end; margin-bottom: -15px; padding-right: 15px; position: relative; z-index: 101;">
@@ -115,20 +171,31 @@
           </div>
         </div>
 
-        <div class="filters-row" style="border-top: 1px solid #334155; padding-top: 1rem;">
-          <div class="filter-group" style="flex-grow: 0; min-width: 200px;">
-            <label>Fecha de Operación:</label>
-            <select id="filtroFecha" class="form-control">
-              <option value="ULTIMA">Última Fecha Disponible</option>
-              <!-- Llenado dinámico -->
-            </select>
+        <div class="filters-row" style="border-top: 1px solid #334155; padding-top: 1rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1.25rem;">
+          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end;">
+            <div class="filter-group" style="flex-grow: 0; min-width: 200px;">
+              <label>Fecha de Operación:</label>
+              <select id="filtroFecha" class="form-control">
+                <option value="ULTIMA">Última Fecha Disponible</option>
+                <!-- Llenado dinámico -->
+              </select>
+            </div>
+
+            <div class="filter-group" style="flex-grow: 0; min-width: 200px;">
+              <label>Filtrar por Día:</label>
+              <select id="filtroDia" class="form-control">
+                <option value="TODOS">Todos los Días</option>
+              </select>
+            </div>
           </div>
 
-          <div class="filter-group" style="flex-grow: 0; min-width: 200px;">
-            <label>Filtrar por Día:</label>
-            <select id="filtroDia" class="form-control">
-              <option value="TODOS">Todos los Días</option>
-            </select>
+          <!-- Botón de Mapeo de Rutas (GPS & Paraderos) -->
+          <div class="filter-map-action" style="margin-left: auto;">
+            <button id="btnOpenMapModal" class="btn-mapa-rutas" type="button" title="Ver trazado de paraderos y navegación GPS">
+              <i class="fa-solid fa-map-location-dot"></i>
+              <span>Ver Mapa de Rutas</span>
+              <span id="badgeRutasMap" class="badge-rutas-pill">GPS</span>
+            </button>
           </div>
         </div>
       </div>
@@ -296,6 +363,10 @@
   <script src="../../js/google-sheets.js"></script>
   <script src="../../js/clipboard.js"></script> <!-- Reutilizado para Toasts -->
   
+  <!-- Leaflet JS y Respaldo de Paraderos -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="mis rutas/js/datos.js"></script>
+
   <!-- Script Específico de Movilidad -->
   <script src="js/movilidad.js"></script>
 </body>

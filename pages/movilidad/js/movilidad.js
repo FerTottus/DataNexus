@@ -16,8 +16,61 @@ const AppState = {
   diaToDatesMap: new Map(), // Mapeo de Día de la semana -> Lista de fechas
   fechaSeleccionada: '', // Fecha activa para el análisis diario
   employeeMap: new Map(), // Mapa rápido de todos los empleados por DNI limpio y original
-  charts: {} // Referencias a instancias de Chart.js
+  charts: {}, // Referencias a instancias de Chart.js
+  // Módulo de Rutas y Mapeo GPS
+  paraderosData: [],
+  paraderosSource: 'LOCAL', // 'DRIVE' o 'LOCAL'
+  paraderosTabName: '',
+  mapInstance: null,
+  mapLines: {},
+  mapMarkers: {},
+  mapCards: {},
+  mapBounds: null,
+  mapDrawn: false,
+  mapboxToken: 'pk.eyJ1IjoiZmh1cnRhZG9hIiwiYSI6ImNtbnRmeW52NTBwb2sycW9uYWJjeXd6Mm8ifQ.LcHL2SI6zsJ-oQyg3JUFrw'
 };
+
+// Colores oficiales de Rutas de Movilidad
+const coloresRutas = {
+  '1': '#E6194B', '2': '#3CB44B', '3': '#FFE119', '4A': '#4363D8',
+  '4B': '#F58231', '5A': '#911EB4', '5C': '#42D4F4', '6A': '#F032E6',
+  '6B': '#BFEF45', '7': '#FABED4', '8': '#469990', '9': '#800000',
+  '6C': '#9A6324', '5B': '#000075'
+};
+
+const fallbackColors = ['#06b6d4', '#ec4899', '#8b5cf6', '#10b981', '#f97316', '#6366f1', '#14b8a6', '#f43f5e'];
+
+function getRutaColor(rutaId) {
+  const norm = String(rutaId || '').trim().toUpperCase().replace(/^RUTA\s+/, '');
+  if (coloresRutas[norm]) return coloresRutas[norm];
+  let hash = 0;
+  for (let i = 0; i < norm.length; i++) hash = norm.charCodeAt(i) + ((hash << 5) - hash);
+  const idx = Math.abs(hash) % fallbackColors.length;
+  return fallbackColors[idx];
+}
+
+function crearIconoDePinColoreado(color) {
+  const svgPin = `<svg viewBox="0 0 24 24" fill="${color}" width="24" height="24" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.6));"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
+  return L.divIcon({
+    html: svgPin,
+    className: 'pin-svg-personalizado',
+    iconSize: [24, 24],
+    iconAnchor: [12, 24]
+  });
+}
+
+function generarLinkGoogle(coordsArray) {
+  if (!coordsArray || coordsArray.length < 2) return "#";
+  const origin = coordsArray[0];
+  const destination = coordsArray[coordsArray.length - 1];
+  const waypoints = coordsArray.slice(1, -1).join('|');
+
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+  if (waypoints) {
+    url += `&waypoints=${encodeURIComponent(waypoints)}`;
+  }
+  return url;
+}
 
 // ==========================================
 // Utilidades de Normalización y Datos
@@ -128,6 +181,17 @@ function normalizeDiaStr(dVal, fVal) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Cargar respaldo local de paraderos desde datos.js si está presente
+  try {
+    if (typeof paraderos !== 'undefined' && Array.isArray(paraderos) && paraderos.length > 0) {
+      AppState.paraderosData = [...paraderos];
+      AppState.paraderosSource = 'LOCAL';
+    }
+  } catch (e) {
+    console.warn('Respaldo local de paraderos no disponible:', e);
+  }
+  updateParaderosSourceBadge();
+
   initUIEvents();
   GoogleSheetsService.initAuth(); // Restaura token
   checkAuthAndConfig();
@@ -305,6 +369,56 @@ function initUIEvents() {
       } else {
         panel.style.display = 'none';
         icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+      }
+    });
+  }
+
+  // Eventos del Modal de Mapa de Rutas y GPS
+  const btnOpenMap = document.getElementById('btnOpenMapModal');
+  if (btnOpenMap) {
+    btnOpenMap.addEventListener('click', () => {
+      openMapModal();
+    });
+  }
+
+  const btnCloseMap = document.getElementById('close-mapa-modal-btn');
+  if (btnCloseMap) {
+    btnCloseMap.addEventListener('click', () => {
+      closeMapModal();
+    });
+  }
+
+  const modalMapa = document.getElementById('mapa-modal');
+  if (modalMapa) {
+    modalMapa.addEventListener('click', (e) => {
+      if (e.target === modalMapa) {
+        closeMapModal();
+      }
+    });
+  }
+
+  const btnResetMap = document.getElementById('btnResetMapView');
+  if (btnResetMap) {
+    btnResetMap.addEventListener('click', () => {
+      resetearVistaMapa();
+    });
+  }
+
+  const selFiltroRutaMapa = document.getElementById('selectFiltroRutaMapa');
+  if (selFiltroRutaMapa) {
+    selFiltroRutaMapa.addEventListener('change', (e) => {
+      resaltarRutaEnMapa(e.target.value);
+    });
+  }
+
+  const btnTogglePanel = document.getElementById('btnTogglePanelRutas');
+  if (btnTogglePanel) {
+    btnTogglePanel.addEventListener('click', () => {
+      const panel = document.getElementById('panelIndicadoresRutas');
+      if (panel) {
+        const isCollapsed = panel.classList.toggle('collapsed');
+        btnTogglePanel.innerHTML = isCollapsed ? '<i class="fa-solid fa-chevron-left"></i>' : '<i class="fa-solid fa-chevron-right"></i>';
+        btnTogglePanel.title = isCollapsed ? 'Expandir panel' : 'Minimizar panel';
       }
     });
   }
@@ -487,12 +601,14 @@ async function loadAllSheets(sheetId) {
     const namePpa = getTabName(['BD PPA']);
     const nameFrescos = getTabName(['BD FRESCOS']);
     const nameRegistro = getTabName(['REGISTRO', 'DIARIO']); // Busca "REGISTRO_DIARIO", "REGISTRO DIARIO", etc.
+    const nameParaderos = getTabName(['PARADEROS']) || getTabName(['PARADERO']) || getTabName(['COORDENADAS']) || getTabName(['MIS RUTAS']) || (tabs.find(t => /^RUTAS?$/i.test(t.title.trim()))?.title);
 
-    const [secos, ppa, frescos, registroDiario] = await Promise.all([
+    const [secos, ppa, frescos, registroDiario, paraderosSheet] = await Promise.all([
       nameSecos ? GoogleSheetsService.fetchSheetData(sheetId, nameSecos).catch(e => null) : Promise.resolve(null),
       namePpa ? GoogleSheetsService.fetchSheetData(sheetId, namePpa).catch(e => null) : Promise.resolve(null),
       nameFrescos ? GoogleSheetsService.fetchSheetData(sheetId, nameFrescos).catch(e => null) : Promise.resolve(null),
-      nameRegistro ? GoogleSheetsService.fetchSheetData(sheetId, nameRegistro).catch(e => null) : Promise.resolve(null)
+      nameRegistro ? GoogleSheetsService.fetchSheetData(sheetId, nameRegistro).catch(e => null) : Promise.resolve(null),
+      nameParaderos ? GoogleSheetsService.fetchSheetData(sheetId, nameParaderos).catch(e => null) : Promise.resolve(null)
     ]);
 
     if (!secos && !ppa && !frescos) {
@@ -552,6 +668,43 @@ async function loadAllSheets(sheetId) {
       if (emp.dni) AppState.employeeMap.set(emp.dni, emp);
       if (emp.rawDni) AppState.employeeMap.set(String(emp.rawDni).trim().toUpperCase(), emp);
     });
+
+    // Procesar datos de paraderos si existen en el Google Sheet
+    if (paraderosSheet && paraderosSheet.rows && paraderosSheet.rows.length > 0) {
+      const parsedParaderos = [];
+      paraderosSheet.rows.forEach((row, idx) => {
+        let rutaVal = String(getRowVal(row, ['RUTA', 'LINEA', 'CODIGO RUTA', 'COD_RUTA', 'ID RUTA']) || '').trim();
+        rutaVal = rutaVal.replace(/^RUTA\s+/i, '');
+        const rawLat = getRowVal(row, ['LAT', 'LATITUD', 'LATITUDE', 'Y']);
+        const rawLng = getRowVal(row, ['LNG', 'LON', 'LONG', 'LONGITUD', 'LONGITUDE', 'X']);
+        const nombre = String(getRowVal(row, ['NOMBRE', 'PARADERO', 'NOMBRE PARADERO', 'DESCRIPCION']) || `Punto ${idx + 1}`).trim();
+        const rawSec = getRowVal(row, ['SECUENCIA', 'ORDEN', 'PASO', 'NUMERO', 'ITEM']);
+
+        if (rutaVal && rawLat && rawLng) {
+          const lat = parseFloat(String(rawLat).replace(',', '.'));
+          const lng = parseFloat(String(rawLng).replace(',', '.'));
+          const secuencia = parseInt(rawSec, 10) || (idx + 1);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            parsedParaderos.push({ ruta: rutaVal, lat, lng, nombre, secuencia });
+          }
+        }
+      });
+
+      if (parsedParaderos.length > 0) {
+        parsedParaderos.sort((a, b) => {
+          if (a.ruta !== b.ruta) return a.ruta.localeCompare(b.ruta, undefined, { numeric: true });
+          return a.secuencia - b.secuencia;
+        });
+        AppState.paraderosData = parsedParaderos;
+        AppState.paraderosSource = 'DRIVE';
+        AppState.paraderosTabName = nameParaderos;
+        updateParaderosSourceBadge();
+        AppState.mapDrawn = false;
+        if (AppState.mapInstance) {
+          dibujarRutasEnMapa();
+        }
+      }
+    }
 
     // Guardamos las filas raw del registro diario para agregarlas dinámicamente según filtros
     AppState.rawRegistroDiario = (registroDiario && registroDiario.rows) ? registroDiario.rows : [];
@@ -1160,4 +1313,388 @@ function renderBarChart(canvasId, dataArr) {
     }
   });
 }
+
+// ==========================================
+// Módulo de Mapeo de Rutas, Paraderos y GPS
+// ==========================================
+
+function updateParaderosSourceBadge() {
+  const badge = document.getElementById('mapaDataSourceBadge') || document.getElementById('mapaOrigenBadge');
+  const badgePill = document.getElementById('badgeRutasMap');
+  const count = (AppState.paraderosData || []).length;
+  
+  if (AppState.paraderosSource === 'DRIVE') {
+    if (badge) {
+      badge.className = 'file-badge badge-owned';
+      badge.style.background = 'rgba(34, 197, 94, 0.15)';
+      badge.style.color = '#4ade80';
+      badge.style.borderColor = 'rgba(34, 197, 94, 0.3)';
+      badge.innerHTML = `<i class="fa-solid fa-cloud-check"></i> Google Drive: ${AppState.paraderosTabName || 'PARADEROS'} (${count} pts)`;
+    }
+    if (badgePill) {
+      badgePill.style.background = '#16a34a';
+      badgePill.innerText = 'Drive';
+    }
+  } else {
+    if (badge) {
+      badge.className = 'file-badge badge-shared';
+      badge.style.background = 'rgba(234, 179, 8, 0.15)';
+      badge.style.color = '#facc15';
+      badge.style.borderColor = 'rgba(234, 179, 8, 0.3)';
+      badge.innerHTML = `<i class="fa-solid fa-hard-drive"></i> Local: datos.js (${count} pts)`;
+    }
+    if (badgePill) {
+      badgePill.style.background = '#2563eb';
+      badgePill.innerText = 'GPS';
+    }
+  }
+}
+
+function openMapModal() {
+  const modal = document.getElementById('mapa-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  updateParaderosSourceBadge();
+  initRoutesMap();
+
+  setTimeout(() => {
+    if (AppState.mapInstance) {
+      AppState.mapInstance.invalidateSize();
+      if (AppState.mapBounds && AppState.mapBounds.isValid()) {
+        AppState.mapInstance.fitBounds(AppState.mapBounds, { padding: [40, 40] });
+      }
+    }
+  }, 150);
+
+  if (!AppState.mapDrawn) {
+    dibujarRutasEnMapa();
+  }
+}
+
+function closeMapModal() {
+  const modal = document.getElementById('mapa-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function initRoutesMap() {
+  if (AppState.mapInstance) return;
+  const mapContainer = document.getElementById('mapaRutas');
+  if (!mapContainer) return;
+
+  const map = L.map('mapaRutas', {
+    center: [-12.046374, -77.042793],
+    zoom: 11
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  map.on('click', function (e) {
+    if (e.originalEvent.target.id === 'mapaRutas' || e.originalEvent.target.classList.contains('leaflet-container')) {
+      resetearVistaMapa();
+    }
+  });
+
+  AppState.mapInstance = map;
+}
+
+function dibujarRutasEnMapa() {
+  const contenedorLista = document.getElementById('listaRutasCards');
+  if (!AppState.paraderosData || AppState.paraderosData.length === 0) {
+    if (contenedorLista) {
+      contenedorLista.innerHTML = `
+        <div style="text-align: center; color: #94a3b8; padding: 30px 15px;">
+          <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.8rem; color: #f59e0b; margin-bottom: 10px;"></i>
+          <p>No se encontraron coordenadas de paraderos cargadas.</p>
+          <small>Añade la pestaña <b>PARADEROS</b> en tu Google Sheet o verifica <b>datos.js</b>.</small>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  // Limpiar capas previas si ya existían
+  if (AppState.mapLines) {
+    Object.values(AppState.mapLines).forEach(l => {
+      if (l && l.remove) l.remove();
+    });
+  }
+  if (AppState.mapMarkers) {
+    Object.values(AppState.mapMarkers).forEach(arr => {
+      arr.forEach(m => { if (m && m.remove) m.remove(); });
+    });
+  }
+
+  AppState.mapLines = {};
+  AppState.mapMarkers = {};
+  AppState.mapCards = {};
+
+  const rutasAgrupadas = {};
+  const allLatLngs = [];
+
+  AppState.paraderosData.forEach(punto => {
+    let rId = String(punto.ruta || '').trim().toUpperCase();
+    rId = rId.replace(/^RUTA\s+/i, '');
+    if (!rId) return;
+
+    if (!rutasAgrupadas[rId]) {
+      rutasAgrupadas[rId] = [];
+      AppState.mapMarkers[rId] = [];
+    }
+
+    const lat = parseFloat(punto.lat);
+    const lng = parseFloat(punto.lng);
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    rutasAgrupadas[rId].push({
+      lat,
+      lng,
+      nombre: punto.nombre || `Paradero`,
+      secuencia: parseInt(punto.secuencia, 10) || (rutasAgrupadas[rId].length + 1)
+    });
+    allLatLngs.push([lat, lng]);
+  });
+
+  // Ordenar paraderos por secuencia dentro de cada ruta
+  Object.keys(rutasAgrupadas).forEach(rId => {
+    rutasAgrupadas[rId].sort((a, b) => a.secuencia - b.secuencia);
+  });
+
+  // Poblar dropdown de rutas
+  const selectRuta = document.getElementById('selectFiltroRutaMapa');
+  const sortedRutas = Object.keys(rutasAgrupadas).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  if (selectRuta) {
+    selectRuta.innerHTML = `<option value="TODAS">Todas las Rutas (${sortedRutas.length})</option>` +
+      sortedRutas.map(r => `<option value="${r}">Ruta ${r}</option>`).join('');
+    selectRuta.value = 'TODAS';
+  }
+
+  // Ajustar límites iniciales
+  if (allLatLngs.length > 0 && AppState.mapInstance) {
+    AppState.mapBounds = L.latLngBounds(allLatLngs);
+    AppState.mapInstance.fitBounds(AppState.mapBounds, { padding: [40, 40] });
+  }
+
+  // Dibujar Pines con Tooltips
+  sortedRutas.forEach(rId => {
+    const puntos = rutasAgrupadas[rId];
+    const color = getRutaColor(rId);
+
+    puntos.forEach(p => {
+      const marcador = L.marker([p.lat, p.lng], { icon: crearIconoDePinColoreado(color) })
+        .addTo(AppState.mapInstance)
+        .bindTooltip(`<b>Ruta ${rId}</b>: ${p.nombre}`, {
+          permanent: true,
+          direction: 'top',
+          className: 'etiqueta-paradero',
+          offset: [0, -20]
+        })
+        .on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          resaltarRutaEnMapa(rId);
+        });
+
+      AppState.mapMarkers[rId].push(marcador);
+    });
+  });
+
+  if (contenedorLista) contenedorLista.innerHTML = '';
+
+  // Solicitar trazado a Mapbox o fallback directo
+  sortedRutas.forEach(nombreRuta => {
+    const puntos = rutasAgrupadas[nombreRuta];
+    if (puntos.length < 2) return;
+
+    const colorAsignado = getRutaColor(nombreRuta);
+    const coordsGoogle = puntos.map(p => `${p.lat},${p.lng}`);
+
+    let botonesGPS = '';
+    if (coordsGoogle.length <= 10) {
+      botonesGPS = `<a href="${generarLinkGoogle(coordsGoogle)}" target="_blank" rel="noopener" class="btn-gps"><i class="fa-solid fa-location-arrow"></i> Abrir en Google Maps</a>`;
+    } else {
+      const parte1 = coordsGoogle.slice(0, 10);
+      const parte2 = coordsGoogle.slice(9);
+      botonesGPS = `
+        <div style="display:flex; gap:6px;">
+          <a href="${generarLinkGoogle(parte1)}" target="_blank" rel="noopener" class="btn-gps" style="flex:1;"><i class="fa-solid fa-location-arrow"></i> GPS Parte 1</a>
+          <a href="${generarLinkGoogle(parte2)}" target="_blank" rel="noopener" class="btn-gps" style="flex:1; background-color:#16a34a;"><i class="fa-solid fa-location-arrow"></i> GPS Parte 2</a>
+        </div>
+      `;
+    }
+
+    const tarjetaRuta = document.createElement('div');
+    tarjetaRuta.className = 'tarjeta-logistica';
+    tarjetaRuta.style.borderLeft = `5px solid ${colorAsignado}`;
+    tarjetaRuta.dataset.ruta = nombreRuta;
+
+    tarjetaRuta.innerHTML = `
+      <div class="tarjeta-ruta-title" style="color: ${colorAsignado};">
+        <span><i class="fa-solid fa-bus"></i> RUTA ${nombreRuta}</span>
+        <span style="font-size: 0.75rem; color: #94a3b8; font-weight: normal;">${puntos.length} paraderos</span>
+      </div>
+      <div class="tarjeta-stats" id="stats-ruta-${nombreRuta}">
+        <span><i class="fa-solid fa-road"></i> Calculando...</span>
+        <span><i class="fa-regular fa-clock"></i> ...</span>
+      </div>
+      ${botonesGPS}
+    `;
+
+    tarjetaRuta.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'A' && !e.target.closest('a')) {
+        resaltarRutaEnMapa(nombreRuta);
+      }
+    });
+
+    if (contenedorLista) contenedorLista.appendChild(tarjetaRuta);
+    AppState.mapCards[nombreRuta] = tarjetaRuta;
+
+    // Conectar con Mapbox Directions
+    const stringCoordenadas = puntos.map(p => `${p.lng},${p.lat}`).join(';');
+    const urlMapbox = `https://api.mapbox.com/directions/v5/mapbox/driving/${stringCoordenadas}?geometries=geojson&access_token=${AppState.mapboxToken}`;
+
+    fetch(urlMapbox)
+      .then(r => r.json())
+      .then(data => {
+        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+          const rutaData = data.routes[0];
+          const distKM = (rutaData.distance / 1000).toFixed(1);
+          const durMin = Math.round(rutaData.duration / 60);
+
+          const statsEl = document.getElementById(`stats-ruta-${nombreRuta}`);
+          if (statsEl) {
+            statsEl.innerHTML = `<span><i class="fa-solid fa-road"></i> ${distKM} km</span><span><i class="fa-regular fa-clock"></i> ~${durMin} min</span>`;
+          }
+
+          const layer = L.geoJSON(rutaData.geometry, {
+            style: { color: colorAsignado, weight: 4, opacity: 0.8 }
+          }).addTo(AppState.mapInstance);
+
+          layer.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            resaltarRutaEnMapa(nombreRuta);
+          });
+
+          AppState.mapLines[nombreRuta] = layer;
+        } else {
+          throw new Error('Sin trazado Mapbox');
+        }
+      })
+      .catch(() => {
+        // Fallback: polilínea directa
+        const latLngs = puntos.map(p => [p.lat, p.lng]);
+        const layer = L.polyline(latLngs, {
+          color: colorAsignado,
+          weight: 4,
+          opacity: 0.8,
+          dashArray: '6, 6'
+        }).addTo(AppState.mapInstance);
+
+        layer.on('click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          resaltarRutaEnMapa(nombreRuta);
+        });
+
+        AppState.mapLines[nombreRuta] = layer;
+
+        const statsEl = document.getElementById(`stats-ruta-${nombreRuta}`);
+        if (statsEl) {
+          statsEl.innerHTML = `<span><i class="fa-solid fa-road"></i> Trazado directo</span><span><i class="fa-regular fa-compass"></i> ${puntos.length} paraderos</span>`;
+        }
+      });
+  });
+
+  AppState.mapDrawn = true;
+}
+
+function resaltarRutaEnMapa(idRutaSeleccionada) {
+  if (!idRutaSeleccionada || idRutaSeleccionada === 'TODAS') {
+    resetearVistaMapa();
+    return;
+  }
+
+  // 1. Sincronizar select
+  const sel = document.getElementById('selectFiltroRutaMapa');
+  if (sel && sel.value !== idRutaSeleccionada) {
+    sel.value = idRutaSeleccionada;
+  }
+
+  // 2. Líneas del mapa
+  for (const [idRuta, linea] of Object.entries(AppState.mapLines)) {
+    const color = getRutaColor(idRuta);
+    if (idRuta === idRutaSeleccionada) {
+      linea.setStyle({ weight: 7, color: color, opacity: 1 });
+      if (linea.bringToFront) linea.bringToFront();
+    } else {
+      linea.setStyle({ weight: 2, color: color, opacity: 0.15 });
+    }
+  }
+
+  // 3. Marcadores y Tooltips
+  for (const [idRuta, marcadores] of Object.entries(AppState.mapMarkers)) {
+    if (idRuta === idRutaSeleccionada) {
+      marcadores.forEach(m => {
+        m.setOpacity(1);
+        m.setZIndexOffset(1000);
+        const tooltipEl = m.getTooltip()?.getElement();
+        if (tooltipEl) tooltipEl.style.opacity = '1';
+      });
+    } else {
+      marcadores.forEach(m => {
+        m.setOpacity(0.18);
+        m.setZIndexOffset(0);
+        const tooltipEl = m.getTooltip()?.getElement();
+        if (tooltipEl) tooltipEl.style.opacity = '0.15';
+      });
+    }
+  }
+
+  // 4. Tarjetas del panel
+  document.querySelectorAll('.tarjeta-logistica').forEach(t => t.classList.remove('tarjeta-resaltada'));
+  const card = AppState.mapCards[idRutaSeleccionada];
+  if (card) {
+    card.classList.add('tarjeta-resaltada');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // 5. Ajustar vista a la ruta
+  if (AppState.mapLines[idRutaSeleccionada] && AppState.mapInstance) {
+    const bounds = AppState.mapLines[idRutaSeleccionada].getBounds();
+    if (bounds && bounds.isValid()) {
+      AppState.mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    }
+  }
+}
+
+function resetearVistaMapa() {
+  // Restaurar líneas
+  for (const [id, linea] of Object.entries(AppState.mapLines)) {
+    linea.setStyle({ weight: 4, color: getRutaColor(id), opacity: 0.8 });
+  }
+
+  // Restaurar paneles
+  document.querySelectorAll('.tarjeta-resaltada').forEach(t => t.classList.remove('tarjeta-resaltada'));
+
+  // Restaurar marcadores
+  for (const [id, marcadores] of Object.entries(AppState.mapMarkers)) {
+    marcadores.forEach(m => {
+      m.setOpacity(1);
+      m.setZIndexOffset(0);
+      const tooltipEl = m.getTooltip()?.getElement();
+      if (tooltipEl) tooltipEl.style.opacity = '1';
+    });
+  }
+
+  // Sincronizar select
+  const sel = document.getElementById('selectFiltroRutaMapa');
+  if (sel) sel.value = 'TODAS';
+
+  // Centrar mapa
+  if (AppState.mapBounds && AppState.mapBounds.isValid() && AppState.mapInstance) {
+    AppState.mapInstance.fitBounds(AppState.mapBounds, { padding: [40, 40] });
+  }
+}
+
 
