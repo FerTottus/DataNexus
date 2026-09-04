@@ -19,7 +19,7 @@ const AppState = {
   charts: {}, // Referencias a instancias de Chart.js
   // Módulo de Rutas y Mapeo GPS
   paraderosData: [],
-  paraderosSource: 'LOCAL', // 'DRIVE' o 'LOCAL'
+  paraderosSource: 'DRIVE', // Exclusivamente dinámico desde Google Drive
   paraderosTabName: '',
   mapInstance: null,
   mapLines: {},
@@ -187,17 +187,7 @@ function normalizeDiaStr(dVal, fVal) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Cargar respaldo local de paraderos desde datos.js si está presente
-  try {
-    if (typeof paraderos !== 'undefined' && Array.isArray(paraderos) && paraderos.length > 0) {
-      AppState.paraderosData = [...paraderos];
-      AppState.paraderosSource = 'LOCAL';
-    }
-  } catch (e) {
-    console.warn('Respaldo local de paraderos no disponible:', e);
-  }
   updateParaderosSourceBadge();
-
   initUIEvents();
   GoogleSheetsService.initAuth(); // Restaura token
   checkAuthAndConfig();
@@ -755,15 +745,17 @@ async function loadAllSheets(sheetId) {
     const namePpa = getTabName(['BD PPA']);
     const nameFrescos = getTabName(['BD FRESCOS']);
     const nameRegistro = getTabName(['REGISTRO', 'DIARIO']); // Busca "REGISTRO_DIARIO", "REGISTRO DIARIO", etc.
-    // Prioridad 1: Pestaña oficial "RUTAS MOVILIDAD" (o RUTAS_MOVILIDAD)
+    // Prioridad 1: Pestaña oficial de paraderos y rutas desde Google Drive
     const nameParaderos = getTabName(['RUTAS MOVILIDAD']) || 
                           getTabName(['RUTAS', 'MOVILIDAD']) || 
                           getTabName(['RUTAS_MOVILIDAD']) || 
-                          getTabName(['BD RUTAS']) || 
+                          getTabName(['PARADEROS_VALIDOS']) || 
+                          getTabName(['PARADEROS VALIDOS']) || 
+                          getTabName(['BD PARADEROS']) || 
                           getTabName(['PARADEROS']) || 
                           getTabName(['PARADERO']) || 
-                          getTabName(['BD PARADEROS']) || 
                           getTabName(['COORDENADAS']) || 
+                          getTabName(['BD RUTAS']) || 
                           getTabName(['MIS RUTAS']) || 
                           (tabs.find(t => /^RUTAS?(\s+.*)?$/i.test(t.title.trim()))?.title);
 
@@ -837,17 +829,17 @@ async function loadAllSheets(sheetId) {
       if (emp.rawDni) AppState.employeeMap.set(String(emp.rawDni).trim().toUpperCase(), emp);
     });
 
-    // Procesar datos de paraderos si existen en el Google Sheet
+    // Procesar datos de paraderos directamente desde el Google Sheet (100% dinámico)
     if (paraderosSheet && paraderosSheet.rows && paraderosSheet.rows.length > 0) {
       const parsedParaderos = [];
       paraderosSheet.rows.forEach((row, idx) => {
-        let rutaVal = String(getRowVal(row, ['RUTA', 'LINEA', 'CODIGO RUTA', 'COD_RUTA', 'ID RUTA', 'ROUTE']) || '').trim();
+        let rutaVal = String(getRowVal(row, ['RUTA', 'LINEA', 'CODIGO RUTA', 'COD_RUTA', 'ID RUTA', 'ROUTE', 'RUTA PARADERO']) || '').trim();
         rutaVal = rutaVal.replace(/^RUTA\s+/i, '');
-        const rawLat = getRowVal(row, ['LAT', 'LATITUD', 'LATITUDE', 'Y', 'COORD Y']);
-        const rawLng = getRowVal(row, ['LNG', 'LON', 'LONG', 'LONGITUD', 'LONGITUDE', 'X', 'COORD X']);
-        const rawSec = getRowVal(row, ['SECUENCIA', 'ORDEN', 'PASO', 'NUMERO', 'ITEM', 'SEQ']);
+        const rawLat = getRowVal(row, ['LAT', 'LATITUD', 'LATITUDE', 'Y', 'COORD Y', 'COORDENADA Y', 'LAT-TRAB', 'LAT PARADERO']);
+        const rawLng = getRowVal(row, ['LNG', 'LON', 'LONG', 'LONGITUD', 'LONGITUDE', 'X', 'COORD X', 'COORDENADA X', 'LON-TRAB', 'LON PARADERO']);
+        const rawSec = getRowVal(row, ['SECUENCIA', 'ORDEN', 'PASO', 'NUMERO', 'ITEM', 'SEQ', 'ORD', 'NRO', 'N°']);
         const secuencia = parseInt(rawSec, 10) || (idx + 1);
-        const nombre = String(getRowVal(row, ['NOMBRE', 'PARADERO', 'NOMBRE PARADERO', 'NOMBRE_PARADERO', 'DESCRIPCION', 'PUNTO', 'ESTACION', 'STOP_NAME']) || '').trim() || `Paradero ${secuencia}`;
+        const nombre = String(getRowVal(row, ['NOMBRE', 'PARADERO', 'NOMBRE PARADERO', 'NOMBRE_PARADERO', 'PARADERO MÁS CERCANO', 'PARADERO MAS CERCANO', 'DESCRIPCION', 'PUNTO', 'ESTACION', 'STOP_NAME', 'REFERENCIA']) || '').trim() || `Paradero ${secuencia}`;
 
         if (rutaVal && rawLat && rawLng) {
           const lat = parseFloat(String(rawLat).replace(',', '.'));
@@ -871,7 +863,17 @@ async function loadAllSheets(sheetId) {
         if (AppState.mapInstance) {
           dibujarRutasEnMapa();
         }
+      } else {
+        AppState.paraderosData = [];
+        AppState.paraderosSource = 'DRIVE';
+        AppState.paraderosTabName = '';
+        updateParaderosSourceBadge();
       }
+    } else {
+      AppState.paraderosData = [];
+      AppState.paraderosSource = 'DRIVE';
+      AppState.paraderosTabName = '';
+      updateParaderosSourceBadge();
     }
 
     // Guardamos las filas raw del registro diario para agregarlas dinámicamente según filtros
@@ -1216,6 +1218,10 @@ function renderTables() {
     '🟠 Moderada (3 - 5 km)': 0,
     '🔴 Lejos (> 5 km)': 0
   };
+
+  const distritosStats = {};
+  const rutasCount = {};
+  const paraderosCount = {};
 
   data.forEach(emp => {
     // Totales
@@ -1645,13 +1651,13 @@ function updateParaderosSourceBadge() {
   const badgePill = document.getElementById('badgeRutasMap');
   const count = (AppState.paraderosData || []).length;
   
-  if (AppState.paraderosSource === 'DRIVE') {
+  if (count > 0) {
     if (badge) {
       badge.className = 'file-badge badge-owned';
       badge.style.background = 'rgba(34, 197, 94, 0.15)';
       badge.style.color = '#4ade80';
       badge.style.borderColor = 'rgba(34, 197, 94, 0.3)';
-      badge.innerHTML = `<i class="fa-solid fa-cloud-check"></i> Google Drive: ${AppState.paraderosTabName || 'PARADEROS'} (${count} pts)`;
+      badge.innerHTML = `<i class="fa-solid fa-cloud-check"></i> Google Drive: ${AppState.paraderosTabName || 'RUTAS MOVILIDAD'} (${count} pts)`;
     }
     if (badgePill) {
       badgePill.style.background = '#16a34a';
@@ -1659,15 +1665,15 @@ function updateParaderosSourceBadge() {
     }
   } else {
     if (badge) {
-      badge.className = 'file-badge badge-shared';
-      badge.style.background = 'rgba(234, 179, 8, 0.15)';
-      badge.style.color = '#facc15';
-      badge.style.borderColor = 'rgba(234, 179, 8, 0.3)';
-      badge.innerHTML = `<i class="fa-solid fa-hard-drive"></i> Local: datos.js (${count} pts)`;
+      badge.className = 'file-badge';
+      badge.style.background = 'rgba(148, 163, 184, 0.15)';
+      badge.style.color = '#94a3b8';
+      badge.style.borderColor = 'rgba(148, 163, 184, 0.3)';
+      badge.innerHTML = `<i class="fa-solid fa-cloud-arrow-up"></i> Google Drive: Pendiente de sincronización`;
     }
     if (badgePill) {
-      badgePill.style.background = '#2563eb';
-      badgePill.innerText = 'GPS';
+      badgePill.style.background = '#64748b';
+      badgePill.innerText = 'Drive';
     }
   }
 }
@@ -1740,8 +1746,8 @@ function dibujarRutasEnMapa() {
       contenedorLista.innerHTML = `
         <div style="text-align: center; color: #94a3b8; padding: 30px 15px;">
           <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.8rem; color: #f59e0b; margin-bottom: 10px;"></i>
-          <p>No se encontraron coordenadas de paraderos cargadas.</p>
-          <small>Añade la pestaña <b>PARADEROS</b> en tu Google Sheet o verifica <b>datos.js</b>.</small>
+          <p>No se encontraron coordenadas de paraderos cargadas desde Google Drive.</p>
+          <small>Asegúrate de tener la pestaña <b>RUTAS MOVILIDAD</b> o <b>PARADEROS_VALIDOS</b> en tu Google Sheet.</small>
         </div>
       `;
     }
