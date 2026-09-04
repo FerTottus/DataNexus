@@ -1164,6 +1164,14 @@ body {
   margin-bottom: 8px;
 }
 
+.tarjeta-paraderos-preview::-webkit-scrollbar {
+  width: 4px;
+}
+.tarjeta-paraderos-preview::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
 .btn-gps {
   display: block;
   text-align: center;

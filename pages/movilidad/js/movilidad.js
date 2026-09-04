@@ -698,7 +698,17 @@ async function loadAllSheets(sheetId) {
     const namePpa = getTabName(['BD PPA']);
     const nameFrescos = getTabName(['BD FRESCOS']);
     const nameRegistro = getTabName(['REGISTRO', 'DIARIO']); // Busca "REGISTRO_DIARIO", "REGISTRO DIARIO", etc.
-    const nameParaderos = getTabName(['PARADEROS']) || getTabName(['PARADERO']) || getTabName(['COORDENADAS']) || getTabName(['MIS RUTAS']) || (tabs.find(t => /^RUTAS?$/i.test(t.title.trim()))?.title);
+    // Prioridad 1: Pestaña oficial "RUTAS MOVILIDAD" (o RUTAS_MOVILIDAD)
+    const nameParaderos = getTabName(['RUTAS MOVILIDAD']) || 
+                          getTabName(['RUTAS', 'MOVILIDAD']) || 
+                          getTabName(['RUTAS_MOVILIDAD']) || 
+                          getTabName(['BD RUTAS']) || 
+                          getTabName(['PARADEROS']) || 
+                          getTabName(['PARADERO']) || 
+                          getTabName(['BD PARADEROS']) || 
+                          getTabName(['COORDENADAS']) || 
+                          getTabName(['MIS RUTAS']) || 
+                          (tabs.find(t => /^RUTAS?(\s+.*)?$/i.test(t.title.trim()))?.title);
 
     const [secos, ppa, frescos, registroDiario, paraderosSheet] = await Promise.all([
       nameSecos ? GoogleSheetsService.fetchSheetData(sheetId, nameSecos).catch(e => null) : Promise.resolve(null),
@@ -774,17 +784,17 @@ async function loadAllSheets(sheetId) {
     if (paraderosSheet && paraderosSheet.rows && paraderosSheet.rows.length > 0) {
       const parsedParaderos = [];
       paraderosSheet.rows.forEach((row, idx) => {
-        let rutaVal = String(getRowVal(row, ['RUTA', 'LINEA', 'CODIGO RUTA', 'COD_RUTA', 'ID RUTA']) || '').trim();
+        let rutaVal = String(getRowVal(row, ['RUTA', 'LINEA', 'CODIGO RUTA', 'COD_RUTA', 'ID RUTA', 'ROUTE']) || '').trim();
         rutaVal = rutaVal.replace(/^RUTA\s+/i, '');
-        const rawLat = getRowVal(row, ['LAT', 'LATITUD', 'LATITUDE', 'Y']);
-        const rawLng = getRowVal(row, ['LNG', 'LON', 'LONG', 'LONGITUD', 'LONGITUDE', 'X']);
-        const nombre = String(getRowVal(row, ['NOMBRE', 'PARADERO', 'NOMBRE PARADERO', 'DESCRIPCION']) || `Punto ${idx + 1}`).trim();
-        const rawSec = getRowVal(row, ['SECUENCIA', 'ORDEN', 'PASO', 'NUMERO', 'ITEM']);
+        const rawLat = getRowVal(row, ['LAT', 'LATITUD', 'LATITUDE', 'Y', 'COORD Y']);
+        const rawLng = getRowVal(row, ['LNG', 'LON', 'LONG', 'LONGITUD', 'LONGITUDE', 'X', 'COORD X']);
+        const rawSec = getRowVal(row, ['SECUENCIA', 'ORDEN', 'PASO', 'NUMERO', 'ITEM', 'SEQ']);
+        const secuencia = parseInt(rawSec, 10) || (idx + 1);
+        const nombre = String(getRowVal(row, ['NOMBRE', 'PARADERO', 'NOMBRE PARADERO', 'NOMBRE_PARADERO', 'DESCRIPCION', 'PUNTO', 'ESTACION', 'STOP_NAME']) || '').trim() || `Paradero ${secuencia}`;
 
         if (rutaVal && rawLat && rawLng) {
           const lat = parseFloat(String(rawLat).replace(',', '.'));
           const lng = parseFloat(String(rawLng).replace(',', '.'));
-          const secuencia = parseInt(rawSec, 10) || (idx + 1);
           if (!isNaN(lat) && !isNaN(lng)) {
             parsedParaderos.push({ ruta: rutaVal, lat, lng, nombre, secuencia });
           }
@@ -1760,6 +1770,17 @@ function dibujarRutasEnMapa() {
     tarjetaRuta.style.borderLeft = `5px solid ${colorAsignado}`;
     tarjetaRuta.dataset.ruta = nombreRuta;
 
+    const listaParaderosHtml = `
+      <div class="tarjeta-paraderos-preview" style="margin: 8px 0 10px 0; max-height: 110px; overflow-y: auto; background: rgba(15, 23, 42, 0.6); border-radius: 8px; padding: 6px 10px; border: 1px solid rgba(51, 65, 85, 0.4);">
+        ${puntos.map(p => `
+          <div style="font-size: 0.76rem; color: #cbd5e1; padding: 2px 0; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <span style="color: ${colorAsignado}; font-weight: 700; font-size: 0.72rem; min-width: 16px;">${p.secuencia}.</span>
+            <span title="${p.nombre}" style="overflow: hidden; text-overflow: ellipsis;">${p.nombre}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
     tarjetaRuta.innerHTML = `
       <div class="tarjeta-ruta-title" style="color: ${colorAsignado};">
         <span><i class="fa-solid fa-bus"></i> RUTA ${nombreRuta}</span>
@@ -1769,6 +1790,7 @@ function dibujarRutasEnMapa() {
         <span><i class="fa-solid fa-road"></i> Calculando...</span>
         <span><i class="fa-regular fa-clock"></i> ...</span>
       </div>
+      ${listaParaderosHtml}
       ${botonesGPS}
     `;
 
