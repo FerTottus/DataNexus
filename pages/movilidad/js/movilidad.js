@@ -2268,6 +2268,50 @@ function renderAnalisisCostos() {
         return String(s) === String(semSel);
       });
 
+  // 3.1 Obtener filtros activos del encabezado superior (Área, Tipo, Sin BD, Día)
+  const getActiveChips = (containerId) => {
+    const activeBtn = document.querySelectorAll(`#${containerId} .chip.active`);
+    return Array.from(activeBtn).map(b => b.dataset.value);
+  };
+
+  const areas = getActiveChips('chipArea');
+  const tipos = getActiveChips('chipTipo');
+
+  const filterAreaActive = !areas.includes('TODOS') && areas.length > 0;
+  const filterTipoActive = !tipos.includes('TODOS') && tipos.length > 0;
+  const isSegmented = filterAreaActive || filterTipoActive;
+
+  const chipSinBDEl = document.querySelector('#chipIncluirSinBD .chip.active');
+  const incluirSinBD = chipSinBDEl ? chipSinBDEl.dataset.value : 'SI';
+  const isDemographicFiltered = isSegmented || (incluirSinBD === 'NO');
+
+  const selDia = document.getElementById('filtroDia');
+  const valDia = selDia ? selDia.value : 'TODOS';
+
+  // Conjunto de DNIs filtrados en base a Área y Tipo
+  const filteredDniSet = new Set();
+  (AppState.filteredEmployees || []).forEach(e => {
+    if (e.dni) filteredDniSet.add(e.dni);
+    if (e.rawDni) filteredDniSet.add(String(e.rawDni).trim().toUpperCase());
+  });
+
+  // Mostrar badge informativo de filtros activos en Tab 2
+  const elFilterBadge = document.getElementById('costFilterStatusBadge');
+  if (elFilterBadge) {
+    const filterParts = [];
+    if (filterAreaActive) filterParts.push(`Área: <b>${areas.join(', ')}</b>`);
+    if (filterTipoActive) filterParts.push(`Tipo: <b>${tipos.join(', ')}</b>`);
+    if (incluirSinBD === 'NO') filterParts.push(`<b>Solo BD Maestra</b>`);
+    if (valDia !== 'TODOS') filterParts.push(`Día: <b>${valDia}</b>`);
+
+    if (filterParts.length > 0) {
+      elFilterBadge.style.display = 'block';
+      elFilterBadge.innerHTML = `<i class="fa-solid fa-filter" style="color: #fbbf24;"></i> Filtros aplicados: ${filterParts.join(' | ')} <span style="color: #94a3b8;">(Métricas y costos prorrateados por colaboradores correspondientes)</span>`;
+    } else {
+      elFilterBadge.style.display = 'none';
+    }
+  }
+
   // 4. Agrupar registros por Despacho de Bus (Trip) y contabilizar pasajeros reales
   // En REGISTRO_DIARIO cada fila representa un abordaje de colaborador con DNI.
   // La CAPACIDAD y el COSTO corresponden al bus despachado para ese servicio.
@@ -2283,6 +2327,14 @@ function renderAnalisisCostos() {
 
     // Omitir filas sin ruta ni fecha (filas residuales o vacías de fórmulas)
     if (!rutaRaw && !fechaSoloDia) return;
+
+    // Filtro por Día de la semana (si el usuario seleccionó un día específico en el header)
+    if (valDia !== 'TODOS') {
+      const rawDia = getRowVal(r, ['DÍA', 'DIA', 'DAY']);
+      const diaValNorm = normalizeDiaStr(rawDia, fechaSoloDia);
+      const valDiaNorm = normalizeDiaStr(valDia);
+      if (diaValNorm !== valDiaNorm) return;
+    }
 
     const ruta = rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : (rutaRaw ? `RUTA ${rutaRaw.toUpperCase()}` : 'RUTA DESCONOCIDA');
     const tipoBusVal = String(getRowVal(r, ['TIPO_BUS', 'TIPO BUS', 'BUS_TIPO']) || '').trim();
@@ -2307,6 +2359,18 @@ function renderAnalisisCostos() {
     // Si la fila no tiene pasajero real ni cantidad de pasajeros > 0, se descarta (previene contar filas en blanco/totales)
     if (!isPassengerRow && numPasajCol <= 0) return;
 
+    // Comprobar si el pasajero cumple los filtros demográficos (Área / Tipo / BD Maestra)
+    let passengerMatches = false;
+    if (!isDemographicFiltered) {
+      passengerMatches = true;
+    } else {
+      if (dniClean && filteredDniSet.has(dniClean)) {
+        passengerMatches = true;
+      } else if (rawRowDni && filteredDniSet.has(String(rawRowDni).trim().toUpperCase())) {
+        passengerMatches = true;
+      }
+    }
+
     // Clave única del viaje de bus: un mismo bus atiende a todos los pasajeros de esa fecha + ruta + turno
     const tripKey = isPassengerRow
       ? `${fechaSoloDia || 'FECHA'}|${ruta}|${tipoBusVal || 'BUS'}${turnoVal ? '|' + turnoVal : ''}${placaVal ? '|' + placaVal : ''}`
@@ -2325,28 +2389,39 @@ function renderAnalisisCostos() {
         tipoBus: tipoBusVal,
         capacidad: capNum > 0 ? capNum : 50,
         costo: costoNum,
-        pasajeros: 0,
+        totalPasajerosBus: 0,
+        pasajerosFiltrados: 0,
         pasajerosList: []
       };
     }
 
     const trip = tripsMap[tripKey];
     if (isPassengerRow) {
-      trip.pasajeros += 1;
-      totalPasajerosSemana += 1;
-      if (dniClean) uniqueColaboradoresSet.add(dniClean);
-      else if (rawNombre) uniqueColaboradoresSet.add(rawNombre);
-      trip.pasajerosList.push(dniClean || rawNombre);
+      trip.totalPasajerosBus += 1;
+      if (passengerMatches) {
+        trip.pasajerosFiltrados += 1;
+        if (dniClean) uniqueColaboradoresSet.add(dniClean);
+        else if (rawNombre) uniqueColaboradoresSet.add(rawNombre);
+        trip.pasajerosList.push(dniClean || rawNombre);
+      }
     } else {
       const cant = numPasajCol > 0 ? numPasajCol : 1;
-      trip.pasajeros += cant;
-      totalPasajerosSemana += cant;
+      trip.totalPasajerosBus += cant;
+      trip.pasajerosFiltrados += cant;
     }
   });
 
-  // 5. Agregar métricas consolidadas por ruta
+  // 5. Agregar métricas consolidadas por ruta aplicando prorrateo según filtros
   const statsRuta = {};
   Object.values(tripsMap).forEach(trip => {
+    // Si hay filtro demográfico, se omiten buses que no llevaron personal del grupo filtrado
+    if (isDemographicFiltered && trip.pasajerosFiltrados === 0) return;
+
+    const prop = trip.totalPasajerosBus > 0 ? (trip.pasajerosFiltrados / trip.totalPasajerosBus) : 1;
+    const pasajerosFinal = isDemographicFiltered ? trip.pasajerosFiltrados : trip.totalPasajerosBus;
+    const costoFinal = isDemographicFiltered ? (trip.costo * prop) : trip.costo;
+    const capFinal = isDemographicFiltered ? Math.max(pasajerosFinal, Math.round(trip.capacidad * prop)) : trip.capacidad;
+
     if (!statsRuta[trip.ruta]) {
       statsRuta[trip.ruta] = {
         viajes: 0,
@@ -2357,9 +2432,9 @@ function renderAnalisisCostos() {
     }
     const st = statsRuta[trip.ruta];
     st.viajes += 1;
-    st.capacidad += trip.capacidad;
-    st.costo += trip.costo;
-    st.pasajeros += trip.pasajeros;
+    st.capacidad += capFinal;
+    st.costo += costoFinal;
+    st.pasajeros += pasajerosFinal;
   });
 
   const rutasArray = Object.keys(statsRuta).map(ruta => {
@@ -2399,14 +2474,14 @@ function renderAnalisisCostos() {
   }).sort((a, b) => a.ruta.localeCompare(b.ruta, undefined, { numeric: true }));
 
   // 6. Totales Ejecutivos de la Semana
-  let totalViajes = 0, totalCapacidad = 0, totalCosto = 0;
+  let totalViajes = 0, totalCapacidad = 0, totalCosto = 0, totalPasajeros = 0;
   rutasArray.forEach(r => {
     totalViajes += r.viajes;
     totalCapacidad += r.capacidad;
     totalCosto += r.costo;
+    totalPasajeros += r.pasajeros;
   });
 
-  const totalPasajeros = totalPasajerosSemana;
   const ocupacionPromGlobal = totalCapacidad > 0 ? totalPasajeros / totalCapacidad : 0;
   const costoPromPasajero = totalPasajeros > 0 ? totalCosto / totalPasajeros : 0;
   const costoPromViaje = totalViajes > 0 ? totalCosto / totalViajes : 0;
