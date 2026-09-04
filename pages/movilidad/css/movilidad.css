@@ -152,6 +152,18 @@ body {
   box-shadow: inset 3px 3px 6px rgba(0,0,0,0.3), inset -3px -3px 6px rgba(255,255,255, 0.1);
 }
 
+#chipIncluirSinBD .chip[data-value="SI"].active {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: inset 3px 3px 6px rgba(0,0,0,0.3), 0 0 12px rgba(16, 185, 129, 0.35) !important;
+}
+
+#chipIncluirSinBD .chip[data-value="NO"].active {
+  background: #d97706 !important;
+  color: #ffffff !important;
+  box-shadow: inset 3px 3px 6px rgba(0,0,0,0.3), 0 0 12px rgba(217, 119, 6, 0.35) !important;
+}
+
 #btnApplyFilters {
   padding: 10px 24px;
   background: #3b82f6;
@@ -1199,4 +1211,93 @@ body {
     border-radius: 20px 20px 0 0;
   }
 }
+
+/* ========================================================
+   Modales Grandes y Responsivos (Directorio y Diagnóstico)
+   ======================================================== */
+.modal-large-container {
+  max-width: 95vw !important;
+  width: 95vw !important;
+  height: 90vh !important;
+  max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.modal-large-container .modal-header {
+  padding: 1.15rem 1.75rem !important;
+  background: #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
+  flex-shrink: 0 !important;
+}
+
+.modal-large-container .modal-body {
+  padding: 1.25rem 1.75rem !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  max-height: none !important;
+  background: #0f172a !important;
+}
+
+.modal-table-scroll {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  background: #1e293b !important;
+}
+
+.modal-table-scroll table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+.modal-table-scroll table td,
+.modal-table-scroll table th {
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  padding: 11px 16px !important;
+}
+
+.modal-table-scroll table thead th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+  font-size: 0.78rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  border-bottom: 2px solid #334155 !important;
+}
+
+.modal-table-scroll table tbody tr {
+  border-bottom: 1px solid #334155 !important;
+  transition: background 0.15s ease !important;
+}
+
+.modal-table-scroll table tbody tr:hover {
+  background: #253347 !important;
+}
+
+@media (max-width: 768px) {
+  .modal-large-container {
+    max-width: 98vw !important;
+    width: 98vw !important;
+    height: 94vh !important;
+    max-height: 94vh !important;
+    border-radius: 14px !important;
+  }
+  .modal-large-container .modal-header {
+    padding: 0.85rem 1rem !important;
+  }
+  .modal-large-container .modal-body {
+    padding: 1rem !important;
+  }
+}
+
 

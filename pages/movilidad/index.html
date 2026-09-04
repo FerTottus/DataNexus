@@ -169,7 +169,7 @@
 
           <!-- Contenedor con Scroll de la Tabla -->
           <div class="table-responsive modal-table-scroll" style="flex: 1; overflow-y: auto; overflow-x: auto; border: 1px solid #334155; border-radius: 14px;">
-            <table class="table" id="tablaModalEmpleados" style="margin-bottom: 0; min-width: 860px;">
+            <table class="table" id="tablaModalEmpleados" style="margin-bottom: 0; width: 100%; min-width: 860px;">
               <thead style="position: sticky; top: 0; background: #0f172a; z-index: 10;">
                 <tr>
                   <th style="min-width: 110px;">DNI</th>
@@ -228,14 +228,14 @@
 
           <!-- Tabla de Pasajeros Sin BD -->
           <div class="table-responsive modal-table-scroll" style="flex: 1; overflow-y: auto; overflow-x: auto; border: 1px solid #334155; border-radius: 14px;">
-            <table class="table" id="tablaModalNoContemplados" style="margin-bottom: 0; min-width: 800px;">
+            <table class="table" id="tablaModalNoContemplados" style="margin-bottom: 0; width: 100%; min-width: 800px;">
               <thead style="position: sticky; top: 0; background: #0f172a; z-index: 10;">
                 <tr>
                   <th style="min-width: 130px;">DNI Registrado</th>
                   <th style="min-width: 140px; text-align: center;">N° Viajes Realizados</th>
                   <th style="min-width: 180px;">Rutas Utilizadas</th>
                   <th style="min-width: 140px;">Última Fecha</th>
-                  <th style="min-width: 220px;">Diagnóstico</th>
+                  <th style="min-width: 290px;">Diagnóstico</th>
                 </tr>
               </thead>
               <tbody id="tbodyModalNoContemplados">
@@ -261,7 +261,7 @@
       <!-- Controles de Filtro -->
       <div class="filters-container">
         
-        <div class="filters-row">
+        <div class="filters-row" style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end;">
           <div class="filter-group">
             <label>Área:</label>
             <div class="chip-group" id="chipArea">
@@ -278,6 +278,22 @@
               <button class="chip active" data-value="TODOS">TODOS</button>
               <button class="chip" data-value="STAFF">STAFF</button>
               <button class="chip" data-value="OPERARIO">OPERARIO</button>
+            </div>
+          </div>
+
+          <div class="filter-group" id="groupFiltroSinBD" style="transition: opacity 0.3s ease;">
+            <label style="display: flex; align-items: center; gap: 6px;">
+              <span>Pasajeros sin BD Maestra:</span>
+              <span id="badgeInfoSinBD" class="badge badge-warning" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 8px;">102 sin BD</span>
+              <span id="labelSinBDHint" style="font-size: 0.75rem; color: #4ade80; font-weight: normal;">(Incluidos)</span>
+            </label>
+            <div class="chip-group" id="chipIncluirSinBD">
+              <button class="chip active" data-value="SI" title="Incluye en 'TODOS' a todos los abordajes reales (Auditados + 102 sin registrar)">
+                <i class="fa-solid fa-users"></i> Incluir en "TODOS"
+              </button>
+              <button class="chip" data-value="NO" title="Excluye a los 102 sin BD; calcula métricas únicamente con personal 100% verificado en BD maestras">
+                <i class="fa-solid fa-user-shield"></i> Excluir (Solo BD)
+              </button>
             </div>
           </div>
         </div>

@@ -274,6 +274,8 @@ function initUIEvents() {
 
   // Chip Group Logic para multi-selección con actualización inmediata
   document.querySelectorAll('.chip-group').forEach(group => {
+    if (group.id === 'chipIncluirSinBD') return; // Switch binario exclusivo manejado aparte
+
     group.addEventListener('click', (e) => {
       if (e.target.classList.contains('chip')) {
         const isTodos = e.target.dataset.value === 'TODOS';
@@ -299,6 +301,18 @@ function initUIEvents() {
       }
     });
   });
+
+  // Switch binario exclusivo para incluir/excluir Pasajeros sin BD Maestra
+  const chipSinBDGroup = document.getElementById('chipIncluirSinBD');
+  if (chipSinBDGroup) {
+    chipSinBDGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip');
+      if (!btn) return;
+      chipSinBDGroup.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      applyFilters();
+    });
+  }
 
   const btnToggle = document.getElementById('btnToggleDetalle');
   if(btnToggle) {
@@ -908,6 +922,9 @@ async function loadAllSheets(sheetId) {
     const bCountUnm = document.getElementById('badgeCountUnmapped');
     if (bCountUnm) bCountUnm.innerText = AppState.unmappedPassengers.length;
 
+    const bInfoSinBD = document.getElementById('badgeInfoSinBD');
+    if (bInfoSinBD) bInfoSinBD.innerText = `${AppState.unmappedPassengers.length} sin BD`;
+
     const mCountEmp = document.getElementById('modalEmpCountBadge');
     if (mCountEmp) mCountEmp.innerText = `${combined.length} colaboradores`;
 
@@ -944,7 +961,40 @@ function applyFilters() {
 
   const filterAreaActive = !areas.includes('TODOS') && areas.length > 0;
   const filterTipoActive = !tipos.includes('TODOS') && tipos.length > 0;
-  const isFiltered = filterAreaActive || filterTipoActive;
+  const isSegmented = filterAreaActive || filterTipoActive;
+
+  // Opción del usuario: Incluir o excluir pasajeros sin BD maestra
+  const chipSinBDEl = document.querySelector('#chipIncluirSinBD .chip.active');
+  const incluirSinBD = chipSinBDEl ? chipSinBDEl.dataset.value : 'SI';
+
+  // Si hay segmentación por Área o Tipo, o si el usuario eligió "NO" (Excluir sin BD), filtramos por BD maestra
+  const isFiltered = isSegmented || (incluirSinBD === 'NO');
+
+  // Actualizar UI del grupo de filtro sin BD
+  const groupSinBDEl = document.getElementById('groupFiltroSinBD');
+  const labelSinBDHint = document.getElementById('labelSinBDHint');
+  if (groupSinBDEl) {
+    if (isSegmented) {
+      groupSinBDEl.style.opacity = '0.55';
+      groupSinBDEl.title = 'Al filtrar por Área o Tipo, los pasajeros sin BD ya quedan excluidos automáticamente al no tener área ni tipo asignado.';
+      if (labelSinBDHint) {
+        labelSinBDHint.innerText = '(Excluidos por filtro)';
+        labelSinBDHint.style.color = '#94a3b8';
+      }
+    } else {
+      groupSinBDEl.style.opacity = '1';
+      groupSinBDEl.title = '';
+      if (labelSinBDHint) {
+        if (incluirSinBD === 'SI') {
+          labelSinBDHint.innerText = '(Incluidos en "TODOS")';
+          labelSinBDHint.style.color = '#4ade80';
+        } else {
+          labelSinBDHint.innerText = '(Excluidos - Solo BD)';
+          labelSinBDHint.style.color = '#f59e0b';
+        }
+      }
+    }
+  }
 
   // Filtrar data demográfica de empleados
   AppState.filteredEmployees = AppState.rawEmployees.filter(emp => {
@@ -1129,6 +1179,20 @@ function renderTables() {
   const elResTotalEmp = document.getElementById('kpiTotalEmps');
   if(elResTotalEmp) {
     elResTotalEmp.innerText = totalEmps;
+    const subTotalEmps = document.querySelector('#kpiTotalEmps + .kpi-subtitle');
+    if (subTotalEmps) {
+      const chipSinBDEl = document.querySelector('#chipIncluirSinBD .chip.active');
+      const incluirSinBDActive = chipSinBDEl ? chipSinBDEl.dataset.value !== 'NO' : true;
+      const areasAct = Array.from(document.querySelectorAll('#chipArea .chip.active')).map(b => b.dataset.value);
+      const tiposAct = Array.from(document.querySelectorAll('#chipTipo .chip.active')).map(b => b.dataset.value);
+      const isSeg = (!areasAct.includes('TODOS') && areasAct.length > 0) || (!tiposAct.includes('TODOS') && tiposAct.length > 0);
+
+      if (!isSeg && incluirSinBDActive && (AppState.unmappedPassengers || []).length > 0) {
+        subTotalEmps.innerText = `En BD (+${AppState.unmappedPassengers.length} sin registrar)`;
+      } else {
+        subTotalEmps.innerText = 'Personal auditado en BD';
+      }
+    }
     document.getElementById('kpiDistPromCD').innerText = countValidCd > 0 ? (sumDistCd / countValidCd).toFixed(2) : '0';
   }
 
@@ -1330,10 +1394,29 @@ function renderTables() {
     // Actualizar KPIs de la parte superior
     document.getElementById('kpiCostoDia').innerText = 'S/ ' + aggDia.costo.toFixed(2);
     document.getElementById('kpiOcupacionDia').innerText = formatPct(aggDia.pasaj, aggDia.cap);
+    const chipSinBDEl = document.querySelector('#chipIncluirSinBD .chip.active');
+    const incluirSinBDActive = chipSinBDEl ? chipSinBDEl.dataset.value !== 'NO' : true;
+    const areasAct = Array.from(document.querySelectorAll('#chipArea .chip.active')).map(b => b.dataset.value);
+    const tiposAct = Array.from(document.querySelectorAll('#chipTipo .chip.active')).map(b => b.dataset.value);
+    const isSeg = (!areasAct.includes('TODOS') && areasAct.length > 0) || (!tiposAct.includes('TODOS') && tiposAct.length > 0);
+
     const subCosto = document.querySelector('#kpiCostoDia + .kpi-subtitle');
-    if (subCosto) subCosto.innerText = isVerTodas ? 'Total invertido acumulado' : 'Total invertido hoy';
+    if (subCosto) {
+      if (!isSeg && !incluirSinBDActive) {
+        subCosto.innerText = isVerTodas ? 'Total invertido (Solo BD)' : 'Invertido hoy (Solo BD)';
+      } else {
+        subCosto.innerText = isVerTodas ? 'Total invertido acumulado' : 'Total invertido hoy';
+      }
+    }
+
     const subOcup = document.querySelector('#kpiOcupacionDia + .kpi-subtitle');
-    if (subOcup) subOcup.innerText = isVerTodas ? 'Eficiencia acumulada' : 'Eficiencia operativa hoy';
+    if (subOcup) {
+      if (!isSeg && !incluirSinBDActive) {
+        subOcup.innerText = isVerTodas ? 'Eficiencia (Solo BD)' : 'Eficiencia hoy (Solo BD)';
+      } else {
+        subOcup.innerText = isVerTodas ? 'Eficiencia acumulada' : 'Eficiencia operativa hoy';
+      }
+    }
 
     // Tablas de Dashboard
     const elRdBusesDia = document.getElementById('rdBusesDia');
@@ -1919,14 +2002,20 @@ function renderModalEmployees() {
       ? '<span class="badge badge-info" style="font-size: 0.72rem;">STAFF</span>'
       : (e.tipo === 'OPERARIO' ? '<span class="badge badge-success" style="font-size: 0.72rem;">OPERARIO</span>' : `<span class="badge" style="background: #334155; color: #94a3b8; font-size: 0.72rem;">${e.tipo}</span>`);
 
+    let rutaDisplay = '-';
+    if (e.ruta) {
+      const rClean = String(e.ruta).trim();
+      rutaDisplay = rClean.toUpperCase().startsWith('RUTA') ? rClean : `Ruta ${rClean}`;
+    }
+
     return `<tr>
-      <td style="font-weight: 600; font-family: monospace; color: #f8fafc;">${e.dni || e.rawDni}</td>
-      <td style="color: #cbd5e1; font-weight: 500;">${e.nombre || 'Sin registrar'}</td>
-      <td>${areaBadge}</td>
-      <td>${tipoBadge}</td>
-      <td style="color: #94a3b8;">${e.distrito || '-'}</td>
-      <td style="color: #60a5fa; font-weight: 600;">${e.ruta ? 'Ruta ' + e.ruta : '-'}</td>
-      <td style="color: #94a3b8; font-size: 0.82rem;">${e.paradero || '-'}</td>
+      <td style="font-weight: 600; font-family: monospace; color: #f8fafc; white-space: nowrap;">${e.dni || e.rawDni}</td>
+      <td style="color: #cbd5e1; font-weight: 500; white-space: nowrap;">${e.nombre || 'Sin registrar'}</td>
+      <td style="text-align: center; white-space: nowrap;">${areaBadge}</td>
+      <td style="text-align: center; white-space: nowrap;">${tipoBadge}</td>
+      <td style="color: #94a3b8; white-space: nowrap;">${e.distrito || '-'}</td>
+      <td style="color: #60a5fa; font-weight: 600; white-space: nowrap;">${rutaDisplay}</td>
+      <td style="color: #cbd5e1; font-size: 0.85rem; white-space: nowrap;">${e.paradero || '-'}</td>
     </tr>`;
   }).join('');
 
@@ -1971,14 +2060,18 @@ function renderModalUnmapped() {
   }
 
   tbody.innerHTML = list.map(u => {
-    const rutasStr = Array.from(u.rutas).map(r => `<span class="badge" style="background: #1e293b; border: 1px solid #334155; color: #93c5fd; margin-right: 4px;">Ruta ${r}</span>`).join('') || '-';
+    const rutasStr = Array.from(u.rutas).map(r => {
+      const rClean = String(r).trim();
+      const rDisp = rClean.toUpperCase().startsWith('RUTA') ? rClean : `Ruta ${rClean}`;
+      return `<span class="badge" style="background: #1e293b; border: 1px solid #334155; color: #93c5fd; margin-right: 4px; white-space: nowrap;">${rDisp}</span>`;
+    }).join('') || '-';
 
     return `<tr>
-      <td style="font-weight: 700; font-family: monospace; color: #f87171;">${u.dni || u.rawDni}</td>
-      <td style="font-weight: 600; color: #f8fafc; text-align: center;">${u.viajesCount}</td>
-      <td>${rutasStr}</td>
-      <td style="color: #94a3b8; font-size: 0.82rem;">${u.ultimaFecha || '-'}</td>
-      <td><span class="file-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">🔴 No figura en BD SECOS/PPA/FRESCOS</span></td>
+      <td style="font-weight: 700; font-family: monospace; color: #f87171; white-space: nowrap;">${u.dni || u.rawDni}</td>
+      <td style="font-weight: 600; color: #f8fafc; text-align: center; white-space: nowrap;">${u.viajesCount}</td>
+      <td style="white-space: nowrap;">${rutasStr}</td>
+      <td style="color: #94a3b8; font-size: 0.82rem; white-space: nowrap;">${u.ultimaFecha || '-'}</td>
+      <td style="white-space: nowrap;"><span class="file-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); white-space: nowrap; display: inline-block;">🔴 No figura en BD SECOS/PPA/FRESCOS</span></td>
     </tr>`;
   }).join('');
 }
