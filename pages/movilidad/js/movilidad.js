@@ -185,7 +185,7 @@ async function openDriveModal() {
     const iconClass = isExcel ? 'fa-triangle-exclamation text-danger' : (isShared ? 'fa-file-excel file-icon-shared' : 'fa-file-excel file-icon-owned');
     const ownerIcon = isShared ? 'fa-users' : 'fa-user';
     
-    const excelWarningHtml = isExcel ? `<span class="file-badge custom-tooltip-icon" style="background: #fee2e2; color: #ef4444; border: 1px solid #fecaca; margin-right: 5px;" data-tooltip="Ábrelo en Drive y dale a 'Guardar como Hoja de cálculo de Google'">⚠️ Inválido (.xlsx)</span>` : '';
+    const excelWarningHtml = isExcel ? `<span class="file-badge custom-tooltip-icon" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); margin-right: 5px;" data-tooltip="Ábrelo en Drive y dale a 'Guardar como Hoja de cálculo de Google'">⚠️ Inválido (.xlsx)</span>` : '';
 
     li.innerHTML = `
       <div class="file-item-icon">

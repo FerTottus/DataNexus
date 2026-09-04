@@ -545,40 +545,226 @@ body {
 }
 
 /* =========================================================
-   Modal de Drive (Dark Mode)
+   Modal de Drive (Dark Mode Moderno & Pulido)
    ========================================================= */
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 1000 !important;
+}
+
+.modal-overlay.hidden {
+  display: none !important;
+}
+
 .modal-content {
   background-color: #1e293b !important;
   color: #cbd5e1 !important;
   border: 1px solid #334155 !important;
-  border-radius: 16px !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  max-width: 650px !important;
+  width: 92% !important;
+  overflow: hidden !important;
 }
 
 .modal-header {
+  background-color: #1e293b !important;
   border-bottom: 1px solid #334155 !important;
-  color: #f8fafc !important;
+  padding: 1.25rem 1.5rem !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
 }
 
 .modal-header h3 {
+  margin: 0 !important;
+  font-size: 1.15rem !important;
+  font-weight: 600 !important;
   color: #f8fafc !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.modal-header h3 i {
+  color: #3b82f6 !important;
 }
 
 .btn-close {
+  background: transparent !important;
+  border: none !important;
   color: #94a3b8 !important;
+  font-size: 1.5rem !important;
+  cursor: pointer !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
 }
 
 .btn-close:hover {
-  color: #f8fafc !important;
-}
-
-.file-list li {
-  border-bottom: 1px solid #334155 !important;
-  color: #cbd5e1 !important;
-}
-
-.file-list li:hover {
   background-color: #334155 !important;
   color: #f8fafc !important;
+}
+
+.modal-body {
+  background-color: #1e293b !important;
+  padding: 1.25rem 1.5rem !important;
+  max-height: 520px !important;
+  overflow-y: auto !important;
+}
+
+/* Scrollbar estilizada para el modal */
+.modal-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: #0f172a;
+  border-radius: 10px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 10px;
+  border: 1px solid #1e293b;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Input de Búsqueda dentro del Modal */
+#drive-search-input {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #f8fafc !important;
+  border-radius: 12px !important;
+  padding: 10px 16px !important;
+  font-size: 0.9rem !important;
+  margin-bottom: 16px !important;
+  transition: all 0.2s ease !important;
+}
+
+#drive-search-input:focus {
+  outline: none !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+#drive-search-input::placeholder {
+  color: #64748b !important;
+}
+
+/* Lista de Archivos */
+.file-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  list-style: none !important;
+}
+
+.file-list-item {
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+  border-radius: 14px !important;
+  padding: 12px 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.file-list-item:hover {
+  background: #253347 !important;
+  border-color: #3b82f6 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 16px -2px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(59, 130, 246, 0.3) !important;
+}
+
+.file-item-icon {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 10px !important;
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 1.3rem !important;
+}
+
+.file-icon-owned {
+  color: #10b981 !important;
+}
+
+.file-icon-shared {
+  color: #3b82f6 !important;
+}
+
+.file-item-content {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.file-item-title {
+  color: #f8fafc !important;
+  font-weight: 600 !important;
+  font-size: 0.92rem !important;
+  margin-bottom: 4px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.file-item-meta {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  font-size: 0.78rem !important;
+  color: #94a3b8 !important;
+}
+
+.file-item-meta span {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.file-item-meta i {
+  color: #64748b !important;
+}
+
+/* Badges de Archivos */
+.file-badge {
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  padding: 4px 10px !important;
+  border-radius: 20px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+.badge-owned {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+
+.badge-shared {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
 }
 
