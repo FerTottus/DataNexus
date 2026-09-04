@@ -1100,6 +1100,14 @@ function renderPieChart(canvasId, dataMap, colors) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: {
+        padding: {
+          top: 22,
+          bottom: 12,
+          left: 10,
+          right: 10
+        }
+      },
       plugins: {
         legend: {
           position: 'bottom',
