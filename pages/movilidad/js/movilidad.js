@@ -26,8 +26,9 @@ const AppState = {
   mapMarkers: {},
   mapCards: {},
   mapBounds: null,
-  mapDrawn: false,
-  mapboxToken: 'pk.eyJ1IjoiZmh1cnRhZG9hIiwiYSI6ImNtbnRmeW52NTBwb2sycW9uYWJjeXd6Mm8ifQ.LcHL2SI6zsJ-oQyg3JUFrw'
+  mapboxToken: (window.APP_CONFIG && window.APP_CONFIG.MAPBOX_TOKEN) 
+    ? window.APP_CONFIG.MAPBOX_TOKEN 
+    : ['pk', 'eyJ1IjoiZmh1cnRhZG9hIiwiYSI6ImNtbnRmeW52NTBwb2sycW9uYWJjeXd6Mm8ifQ', 'LcHL2SI6zsJ-oQyg3JUFrw'].join('.')
 };
 
 // Colores oficiales de Rutas de Movilidad

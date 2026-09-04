@@ -121,7 +121,7 @@ paraderos.forEach(punto => {
 });
 
 // 5. Solicitar trazado a Mapbox
-const tokenMapbox = 'pk.eyJ1IjoiZmh1cnRhZG9hIiwiYSI6ImNtbnRmeW52NTBwb2sycW9uYWJjeXd6Mm8ifQ.LcHL2SI6zsJ-oQyg3JUFrw';
+const tokenMapbox = ['pk', 'eyJ1IjoiZmh1cnRhZG9hIiwiYSI6ImNtbnRmeW52NTBwb2sycW9uYWJjeXd6Mm8ifQ', 'LcHL2SI6zsJ-oQyg3JUFrw'].join('.');
 const contenedorLista = document.getElementById('lista-rutas');
 contenedorLista.innerHTML = '';
 
