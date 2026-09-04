@@ -8,8 +8,100 @@ const AppState = {
   sheetUrl: '',
   rawEmployees: [], // Todos los empleados combinados
   filteredEmployees: [], // Empleados después de aplicar filtros
+  rawRegistroDiario: [], // Filas originales del registro diario
+  registroData: [], // Viajes procesados y agregados
+  fechasDisponibles: [], // Lista cronológica de fechas únicas
+  fechaSeleccionada: '', // Fecha activa para el análisis diario
+  employeeMap: new Map(), // Mapa rápido de todos los empleados por DNI limpio y original
   charts: {} // Referencias a instancias de Chart.js
 };
+
+// ==========================================
+// Utilidades de Normalización y Datos
+// ==========================================
+
+function cleanDni(val) {
+  if (val === undefined || val === null) return '';
+  let s = String(val).trim().toUpperCase();
+  s = s.replace(/\.0+$/, ''); // Eliminar .0 de números exportados desde Excel
+  s = s.replace(/^PE/i, '');  // Quitar prefijo de país Falabella 'PE'
+  s = s.replace(/[^0-9A-Z]/g, ''); // Dejar solo caracteres alfanuméricos
+  return s;
+}
+
+function normalizeTipo(val) {
+  if (!val) return 'DESCONOCIDO';
+  const s = String(val).trim().toUpperCase();
+  if (s.includes('STAFF')) return 'STAFF';
+  if (s.includes('OPERAR')) return 'OPERARIO';
+  return s;
+}
+
+function getRowVal(row, candidates) {
+  if (!row) return '';
+  const rowKeys = Object.keys(row);
+  for (const cand of candidates) {
+    const candNorm = cand.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    for (const k of rowKeys) {
+      const kNorm = k.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      if (kNorm === candNorm && row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== '') {
+        return row[k];
+      }
+    }
+  }
+  return '';
+}
+
+function parseDateDMY(dStr) {
+  if (!dStr) return 0;
+  const s = String(dStr).trim().split(' ')[0];
+  // Formato DD/MM/YYYY o DD-MM-YYYY
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    return new Date(parseInt(dmy[3], 10), parseInt(dmy[2], 10) - 1, parseInt(dmy[1], 10)).getTime();
+  }
+  // Formato YYYY/MM/DD o YYYY-MM-DD
+  const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (ymd) {
+    return new Date(parseInt(ymd[1], 10), parseInt(ymd[2], 10) - 1, parseInt(ymd[3], 10)).getTime();
+  }
+  // Número de serie de fecha de Excel (ej: 45455)
+  if (/^\d{5}$/.test(s)) {
+    return new Date(Math.round((parseInt(s, 10) - 25569) * 86400 * 1000)).getTime();
+  }
+  const t = Date.parse(s);
+  return isNaN(t) ? 0 : t;
+}
+
+function normalizeDateStr(val) {
+  if (!val) return '';
+  const s = String(val).trim().split(' ')[0];
+  // Formato DD/MM/YYYY o DD-MM-YYYY
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    const day = dmy[1].padStart(2, '0');
+    const month = dmy[2].padStart(2, '0');
+    const year = dmy[3];
+    return `${day}/${month}/${year}`;
+  }
+  // Formato YYYY/MM/DD o YYYY-MM-DD
+  const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (ymd) {
+    const year = ymd[1];
+    const month = ymd[2].padStart(2, '0');
+    const day = ymd[3].padStart(2, '0');
+    return `${day}/${month}/${year}`;
+  }
+  // Número de serie de Excel
+  if (/^\d{5}$/.test(s)) {
+    const date = new Date(Math.round((parseInt(s, 10) - 25569) * 86400 * 1000));
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const year = date.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  }
+  return s;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   initUIEvents();
@@ -41,7 +133,22 @@ function initUIEvents() {
     });
   }
 
-  // Chip Group Logic para multi-selección
+  // Cambio automático al seleccionar fecha u otro día
+  const selFecha = document.getElementById('filtroFecha');
+  if (selFecha) {
+    selFecha.addEventListener('change', () => {
+      applyFilters();
+    });
+  }
+
+  const selDia = document.getElementById('filtroDia');
+  if (selDia) {
+    selDia.addEventListener('change', () => {
+      applyFilters();
+    });
+  }
+
+  // Chip Group Logic para multi-selección con actualización inmediata
   document.querySelectorAll('.chip-group').forEach(group => {
     group.addEventListener('click', (e) => {
       if (e.target.classList.contains('chip')) {
@@ -64,6 +171,7 @@ function initUIEvents() {
             if(todosChip) todosChip.classList.add('active');
           }
         }
+        applyFilters(); // Aplicar filtros de forma reactiva e inmediata
       }
     });
   });
@@ -313,25 +421,41 @@ async function loadAllSheets(sheetId) {
     }
 
     let combined = [];
-    let registroData = [];
 
     const processSheet = (sheetData, areaName) => {
-      if (!sheetData) return;
+      if (!sheetData || !sheetData.rows) return;
       sheetData.rows.forEach(row => {
-        // Ignorar filas vacías o rotulos de información sin DNI o Nombres reales
-        if(!row['Distrito']) return;
+        const rawDni = getRowVal(row, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
+        const distrito = String(getRowVal(row, ['Distrito', 'DISTRITO', 'DIST']) || '').trim();
         
+        // Ignorar filas completamente vacías o cabeceras repetidas
+        if (!distrito && !rawDni) return;
+        
+        const dniClean = cleanDni(rawDni);
+        const tipoRaw = getRowVal(row, ['CLASIFICACION', 'CLASIFICACIÓN', 'TIPO', 'CATEGORIA', 'TIPO EMPLEADO']);
+        const tipo = normalizeTipo(tipoRaw);
+
+        const distCdVal = parseFloat(String(getRowVal(row, ['DIST. AL CD (km)', 'DIST. AL CD', 'DIST CD', 'DISTANCIA AL CD']) || '0').replace(/[^0-9.-]+/g, '')) || 0;
+        const clasifCd = String(getRowVal(row, ['CLASIF. DIST. CD', 'CLASIF DIST CD', 'CLASIFICACION CD']) || '').trim();
+        
+        const distParaderoVal = parseFloat(String(getRowVal(row, ['DIST. PARADERO (km)', 'DIST. PARADERO', 'DIST PARADERO', 'DISTANCIA PARADERO']) || '0').replace(/[^0-9.-]+/g, '')) || 0;
+        const clasifParadero = String(getRowVal(row, ['CLASIF. DIST. PARADERO', 'CLASIF DIST PARADERO', 'CLASIFICACION PARADERO']) || '').trim();
+        
+        const ruta = String(getRowVal(row, ['RUTA PARADERO', 'RUTA', 'RUTA ASIGNADA', 'RUTA PREFERIDA']) || '').trim();
+        const paradero = String(getRowVal(row, ['PARADERO', 'PARADERO MÁS CERCANO', 'PARADERO MAS CERCANO', 'NOMBRE PARADERO']) || '').trim();
+
         combined.push({
-          dni: String(row['DNI'] || row['DOCUMENTO'] || row['ID'] || '').trim(),
+          dni: dniClean,
+          rawDni: String(rawDni).trim(),
           area: areaName,
-          tipo: String(row['CLASIFICACION'] || '').toUpperCase().trim(),
-          distrito: String(row['Distrito'] || '').trim(),
-          distCd: parseFloat(row['DIST. AL CD (km)']) || 0,
-          clasifCd: String(row['CLASIF. DIST. CD'] || '').trim(),
-          distParadero: parseFloat(row['DIST. PARADERO (km)']) || 0,
-          clasifParadero: String(row['CLASIF. DIST. PARADERO'] || '').trim(),
-          ruta: String(row['RUTA PARADERO'] || '').trim(),
-          paradero: String(row['PARADERO'] || row['PARADERO MÁS CERCANO'] || row['NOMBRE PARADERO'] || '').trim()
+          tipo: tipo,
+          distrito: distrito,
+          distCd: distCdVal,
+          clasifCd: clasifCd,
+          distParadero: distParaderoVal,
+          clasifParadero: clasifParadero,
+          ruta: ruta,
+          paradero: paradero
         });
       });
     };
@@ -343,24 +467,34 @@ async function loadAllSheets(sheetId) {
     AppState.rawEmployees = combined;
     AppState.filteredEmployees = [...combined];
     
+    // Construir mapa de empleados para búsqueda rápida por DNI limpio y original
+    AppState.employeeMap = new Map();
+    combined.forEach(emp => {
+      if (emp.dni) AppState.employeeMap.set(emp.dni, emp);
+      if (emp.rawDni) AppState.employeeMap.set(String(emp.rawDni).trim().toUpperCase(), emp);
+    });
+
     // Guardamos las filas raw del registro diario para agregarlas dinámicamente según filtros
     AppState.rawRegistroDiario = (registroDiario && registroDiario.rows) ? registroDiario.rows : [];
 
-    // Poblar dropdown de fechas basado en los datos únicos
-    const fSet = new Set();
+    // Poblar dropdown de fechas basado en los datos únicos normalizados y ordenados cronológicamente
+    const fMap = new Map();
     AppState.rawRegistroDiario.forEach(r => {
-      let f = r['FECHA'] || r['FECHA DE VIAJE'] || '';
-      f = String(f).split(' ')[0];
-      if(f) fSet.add(f);
+      const rawF = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
+      const normF = normalizeDateStr(rawF);
+      if (normF && !fMap.has(normF)) {
+        fMap.set(normF, parseDateDMY(normF));
+      }
     });
-    const fechas = Array.from(fSet).sort((a,b) => {
-      // Orden simple de string, idealmente DD/MM/YYYY
-      return a.localeCompare(b);
-    });
-    
+
+    // Orden cronológico estricto (antiguo a reciente)
+    const fechas = Array.from(fMap.keys()).sort((a, b) => fMap.get(a) - fMap.get(b));
+    AppState.fechasDisponibles = fechas;
+
     const selFecha = document.getElementById('filtroFecha');
     if (selFecha) {
-      selFecha.innerHTML = `<option value="ULTIMA">Última Fecha Disponible</option><option value="TODAS">Ver Todas</option>`;
+      const lastDateLabel = fechas.length > 0 ? ` (${fechas[fechas.length - 1]})` : '';
+      selFecha.innerHTML = `<option value="ULTIMA">Última Fecha Disponible${lastDateLabel}</option><option value="TODAS">Ver Todas</option>`;
       fechas.forEach(f => {
         selFecha.innerHTML += `<option value="${f}">${f}</option>`;
       });
@@ -397,17 +531,22 @@ function applyFilters() {
   const areas = getActiveChips('chipArea');
   const tipos = getActiveChips('chipTipo');
 
-  // Filtramos la data demográfica de empleados
+  const filterAreaActive = !areas.includes('TODOS') && areas.length > 0;
+  const filterTipoActive = !tipos.includes('TODOS') && tipos.length > 0;
+  const isFiltered = filterAreaActive || filterTipoActive;
+
+  // Filtrar data demográfica de empleados
   AppState.filteredEmployees = AppState.rawEmployees.filter(emp => {
-    const matchArea = areas.includes('TODOS') || areas.includes(emp.area);
-    const matchTipo = tipos.includes('TODOS') || tipos.includes(emp.tipo);
+    const matchArea = !filterAreaActive || areas.includes(emp.area);
+    const matchTipo = !filterTipoActive || tipos.includes(emp.tipo);
     return matchArea && matchTipo;
   });
 
-  // Filtramos y agregamos la data del registro diario de buses
-  const empMap = new Map();
+  // Mapa de DNIs de empleados filtrados para consulta rápida
+  const filteredDniSet = new Set();
   AppState.filteredEmployees.forEach(e => {
-    if (e.dni) empMap.set(e.dni, true);
+    if (e.dni) filteredDniSet.add(e.dni);
+    if (e.rawDni) filteredDniSet.add(String(e.rawDni).trim().toUpperCase());
   });
 
   const selF = document.getElementById('filtroFecha');
@@ -415,53 +554,97 @@ function applyFilters() {
   const selD = document.getElementById('filtroDia');
   const valDia = selD ? selD.value : 'TODOS';
 
+  const fechas = AppState.fechasDisponibles || [];
+  const ultimaFecha = fechas.length > 0 ? fechas[fechas.length - 1] : '';
+  const fechaTarget = (valFecha === 'ULTIMA') ? ultimaFecha : valFecha;
+  AppState.fechaSeleccionada = fechaTarget;
+
+  // Agrupación de viajes de buses
+  // Cada viaje de bus se identifica por fecha + ruta (+ tipoBus si aplica)
   const aggrMap = {};
   AppState.rawRegistroDiario.forEach(row => {
-    const getVal = (keys) => {
-      for (let k of keys) {
-        if (row[k] !== undefined && row[k] !== '') return row[k];
-      }
-      return null;
-    };
+    const rawFecha = getRowVal(row, ['FECHA', 'FECHA DE VIAJE', 'DATE']);
+    const fechaSoloDia = normalizeDateStr(rawFecha);
+    if (!fechaSoloDia) return;
 
-    const dni = String(getVal(['DNI', 'DOCUMENTO', 'ID']) || '').trim();
-    // CRÍTICO: Si el empleado no está en el mapa de empleados filtrados, LO IGNORAMOS.
-    // Solo contamos a los empleados que cumplen el filtro de Área y Tipo
-    if (dni && !empMap.has(dni)) return;
-
-    let rawFecha = getVal(['FECHA', 'FECHA DE VIAJE']) || '';
-    const fechaSoloDia = String(rawFecha).split(' ')[0]; 
+    const diaVal = String(getRowVal(row, ['DÍA', 'DIA', 'DAY']) || '').trim();
+    const diaValLower = diaVal.toLowerCase();
 
     // Filtros de fecha y día
-    const diaVal = getVal(['DÍA', 'DIA']);
-    if (valDia !== 'TODOS' && diaVal && String(diaVal).toLowerCase() !== valDia.toLowerCase()) return;
-    if (valFecha !== 'ULTIMA' && valFecha !== 'TODAS' && fechaSoloDia !== valFecha) return;
+    if (valDia !== 'TODOS' && diaValLower && diaValLower !== valDia.toLowerCase()) return;
+    if (fechaTarget !== 'TODAS' && fechaTarget && fechaSoloDia !== fechaTarget) return;
 
-    const rutaVal = getVal(['RUTA', 'RUTA ASIGNADA']);
+    const rutaVal = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
     if (!rutaVal) return;
 
-    const key = `${fechaSoloDia}|${rutaVal}`;
-    if (!aggrMap[key]) {
-      const rawCosto = getVal(['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS']);
-      const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    const tipoBusVal = String(getRowVal(row, ['TIPO_BUS', 'TIPO BUS', 'BUS_TIPO']) || '').trim();
+    const tripKey = `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}`;
 
-      aggrMap[key] = {
+    if (!aggrMap[tripKey]) {
+      const rawCosto = getRowVal(row, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL', 'COSTO IDA Y VUELTA']);
+      const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+      const rawCap = getRowVal(row, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
+      const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
+      const semVal = parseInt(getRowVal(row, ['SEMANA', 'SEM'])) || 0;
+
+      aggrMap[tripKey] = {
         dia: diaVal,
         fecha: fechaSoloDia,
-        semana: parseInt(getVal(['SEMANA'])) || 0,
+        semana: semVal,
         ruta: rutaVal,
-        capacidad: parseFloat(getVal(['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS'])) || 0,
-        pasajeros: 0,
-        costo: costoNum 
+        tipoBus: tipoBusVal,
+        capacidad: capNum,
+        costoBus: costoNum,
+        totalPasajeros: 0,
+        pasajerosFiltrados: 0
       };
     }
 
-    aggrMap[key].pasajeros += 1;
+    const trip = aggrMap[tripKey];
+    trip.totalPasajeros += 1;
+
+    // Verificar si el empleado de esta fila cumple con los filtros activos
+    const rawRowDni = getRowVal(row, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
+    const cleanPassengerDni = cleanDni(rawRowDni);
+
+    let passengerMatches = false;
+    if (!isFiltered) {
+      passengerMatches = true;
+    } else {
+      if (cleanPassengerDni && filteredDniSet.has(cleanPassengerDni)) {
+        passengerMatches = true;
+      } else if (rawRowDni && filteredDniSet.has(String(rawRowDni).trim().toUpperCase())) {
+        passengerMatches = true;
+      }
+    }
+
+    if (passengerMatches) {
+      trip.pasajerosFiltrados += 1;
+    }
   });
 
-  AppState.registroData = Object.values(aggrMap);
-  AppState.filtroFechaModo = valFecha; // Guardamos para usarlo luego
-  
+  // Crear la data final de viajes
+  AppState.registroData = Object.values(aggrMap).map(trip => {
+    const prop = trip.totalPasajeros > 0 ? (trip.pasajerosFiltrados / trip.totalPasajeros) : 0;
+    // Si hay filtros, prorrateamos el costo según la cantidad de pasajeros que corresponden a ese grupo
+    const costoFinal = isFiltered ? (trip.costoBus * prop) : trip.costoBus;
+    const pasajerosFinal = isFiltered ? trip.pasajerosFiltrados : trip.totalPasajeros;
+
+    return {
+      dia: trip.dia,
+      fecha: trip.fecha,
+      semana: trip.semana,
+      ruta: trip.ruta,
+      tipoBus: trip.tipoBus,
+      capacidad: trip.capacidad,
+      totalPasajerosBus: trip.totalPasajeros,
+      pasajeros: pasajerosFinal,
+      costo: costoFinal,
+      costoBusOriginal: trip.costoBus,
+      esFiltrado: isFiltered
+    };
+  });
+
   renderTables();
   if (typeof renderCharts === 'function') {
     renderCharts();
@@ -631,26 +814,47 @@ function renderTables() {
   }
 
   // 8. Dashboard Registro Diario
-  if (regData && regData.length > 0) {
-    document.getElementById('seccionRegistroDiario').style.display = 'block';
-    document.getElementById('seccionDashboardBuses').style.display = 'block';
+  const seccionReg = document.getElementById('seccionRegistroDiario');
+  const seccionBuses = document.getElementById('seccionDashboardBuses');
 
-    // En lugar de confiar en que los números de SEMANA siempre sean ascendentes 
-    // (ya que a veces en Excel se reinician o calculan mal, ej. de 36 a 21),
-    // simplemente tomamos la última fila registrada en el archivo.
-    const ultimaFila = regData[regData.length - 1];
-    const semanaActual = ultimaFila.semana;
-    const diaActual = ultimaFila.dia;
-    const fechaActual = ultimaFila.fecha;
+  if (AppState.rawRegistroDiario && AppState.rawRegistroDiario.length > 0) {
+    if (seccionReg) seccionReg.style.display = 'block';
+    if (seccionBuses) seccionBuses.style.display = 'block';
 
-    // Filtro por semana y día actual basados en esa última fila
-    const datosSemana = regData.filter(r => r.semana === semanaActual);
-    
-    // Si tenemos la fecha exacta (ej. 03/09/2026), filtramos por eso para evitar 
-    // colisiones con otros jueves de la misma semana (o semanas mal numeradas)
-    const datosDia = fechaActual 
-      ? regData.filter(r => r.fecha === fechaActual)
-      : datosSemana.filter(r => r.dia === diaActual);
+    // Fecha a mostrar en el resumen del día
+    let fechaActual = AppState.fechaSeleccionada;
+    if (!fechaActual || fechaActual === 'TODAS') {
+      const fechasUnicas = Array.from(new Set(regData.map(r => r.fecha))).sort((a, b) => parseDateDMY(a) - parseDateDMY(b));
+      fechaActual = fechasUnicas.length > 0 ? fechasUnicas[fechasUnicas.length - 1] : '';
+    }
+
+    const isFiltered = regData.some(r => r.esFiltrado);
+
+    // Filtrar viajes del día seleccionado
+    // Si hay filtros de área o tipo, consideramos las rutas que transportaron a ese grupo
+    const viajesDia = regData.filter(r => r.fecha === fechaActual);
+    const datosDia = isFiltered ? viajesDia.filter(r => r.pasajeros > 0) : viajesDia;
+
+    // Obtener la semana del día seleccionado
+    const semanaActual = viajesDia.length > 0 ? viajesDia[0].semana : (regData.length > 0 ? regData[regData.length - 1].semana : 0);
+    const viajesSemana = regData.filter(r => r.semana === semanaActual);
+    const datosSemana = isFiltered ? viajesSemana.filter(r => r.pasajeros > 0) : viajesSemana;
+
+    // Actualizar encabezados con la fecha y semana seleccionada
+    const elTituloReg = document.querySelector('#seccionRegistroDiario .table-title');
+    if (elTituloReg) {
+      elTituloReg.innerText = `EFICIENCIA Y COSTO POR RUTA (DÍA: ${fechaActual || 'ACTUAL'})`;
+    }
+    const elResDiaTable = document.getElementById('tableResumenDia');
+    if (elResDiaTable) {
+      const h4 = elResDiaTable.closest('div').querySelector('h4');
+      if (h4) h4.innerHTML = `<i class="fa-regular fa-calendar-days"></i> RESUMEN DEL DÍA (${fechaActual || 'ACTUAL'})`;
+    }
+    const elResSemTable = document.getElementById('tableResumenSemana');
+    if (elResSemTable) {
+      const h4 = elResSemTable.closest('div').querySelector('h4');
+      if (h4) h4.innerHTML = `<i class="fa-solid fa-calendar-week"></i> RESUMEN SEMANAL (SEMANA ${semanaActual || '-'})`;
+    }
 
     // Resumen por ruta del DÍA actual
     const statsRuta = {};
@@ -671,31 +875,35 @@ function renderTables() {
     
     const elTbReg = document.querySelector('#tableRegistroDiario tbody');
     if(elTbReg) {
-      elTbReg.innerHTML = rutasDiario.map(r => {
-        const pOcup = r.cap > 0 ? r.pasaj / r.cap : 0;
-        const cProm = r.pasaj > 0 ? r.costo / r.pasaj : 0;
-        const promPasaj = r.viajes > 0 ? r.pasaj / r.viajes : 0;
-        const cViaje = r.viajes > 0 ? r.costo / r.viajes : 0;
-        
-        let estCap = '-';
-        if (pOcup >= 0.9) estCap = '✅ Óptimo';
-        else if (pOcup >= 0.7) estCap = '🔄 OK';
-        else if (pOcup >= 0.5) estCap = '⚠️ Bajo';
-        else estCap = '🔴 Muy Bajo';
+      if (rutasDiario.length === 0) {
+        elTbReg.innerHTML = `<tr><td colspan="10" style="text-align: center; color: #94a3b8; padding: 20px;">No se registraron viajes para los filtros seleccionados en esta fecha (${fechaActual}).</td></tr>`;
+      } else {
+        elTbReg.innerHTML = rutasDiario.map(r => {
+          const pOcup = r.cap > 0 ? r.pasaj / r.cap : 0;
+          const cProm = r.pasaj > 0 ? r.costo / r.pasaj : 0;
+          const promPasaj = r.viajes > 0 ? r.pasaj / r.viajes : 0;
+          const cViaje = r.viajes > 0 ? r.costo / r.viajes : 0;
+          
+          let estCap = '-';
+          if (pOcup >= 0.9) estCap = '✅ Óptimo';
+          else if (pOcup >= 0.7) estCap = '🔄 OK';
+          else if (pOcup >= 0.5) estCap = '⚠️ Bajo';
+          else estCap = '🔴 Muy Bajo';
 
-        return `<tr>
-          <td>${r.ruta}</td>
-          <td>${r.viajes}</td>
-          <td>${r.cap}</td>
-          <td>${r.pasaj}</td>
-          <td>${(pOcup*100).toFixed(2)}%</td>
-          <td>${estCap}</td>
-          <td>S/ ${r.costo.toFixed(2)}</td>
-          <td>S/ ${cProm.toFixed(2)}</td>
-          <td>S/ ${cViaje.toFixed(2)}</td>
-          <td>MAX: ${r.pMax === -1 ? 0 : r.pMax} - MIN: ${r.pMin === 9999 ? 0 : r.pMin}</td>
-        </tr>`;
-      }).join('');
+          return `<tr>
+            <td>${r.ruta}</td>
+            <td>${r.viajes}</td>
+            <td>${r.cap}</td>
+            <td>${r.pasaj}</td>
+            <td>${(pOcup*100).toFixed(2)}%</td>
+            <td>${estCap}</td>
+            <td>S/ ${r.costo.toFixed(2)}</td>
+            <td>S/ ${cProm.toFixed(2)}</td>
+            <td>S/ ${cViaje.toFixed(2)}</td>
+            <td>MAX: ${r.pMax === -1 ? 0 : r.pMax} - MIN: ${r.pMin === 9999 ? 0 : r.pMin}</td>
+          </tr>`;
+        }).join('');
+      }
     }
 
     // Dashboard Día / Semana
@@ -725,10 +933,8 @@ function renderTables() {
       document.getElementById('rdCostoPasajeroSem').innerText = 'S/ ' + (aggSem.pasaj > 0 ? (aggSem.costo / aggSem.pasaj).toFixed(2) : '0.00');
     }
   } else {
-    const s1 = document.getElementById('seccionRegistroDiario');
-    const s2 = document.getElementById('seccionDashboardBuses');
-    if(s1) s1.style.display = 'none';
-    if(s2) s2.style.display = 'none';
+    if(seccionReg) seccionReg.style.display = 'none';
+    if(seccionBuses) seccionBuses.style.display = 'none';
   }
 }
 
