@@ -269,6 +269,14 @@ function initUIEvents() {
     }
   });
 
+  // Buscador de archivos en modal Drive
+  const driveSearchInput = document.getElementById('drive-search-input');
+  if (driveSearchInput) {
+    driveSearchInput.addEventListener('input', (e) => {
+      window.filterDriveList(e.target.value);
+    });
+  }
+
   // Toggle Connection Panel
   const toggleConnectionBtn = document.getElementById('toggleConnectionBtn');
   if (toggleConnectionBtn) {
@@ -379,24 +387,39 @@ async function openDriveModal() {
 }
 
 window.filterDriveList = function(searchTerm) {
-  const term = searchTerm.toLowerCase();
+  const term = String(searchTerm || '')
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
   const items = document.querySelectorAll('#drive-file-list .file-list-item');
-  let hasVisible = false;
-  
+  let hasVisible = 0;
+
   items.forEach(item => {
-    if (item.dataset.filename.includes(term)) {
-      item.style.display = 'flex';
-      hasVisible = true;
+    const rawName = item.dataset.filename || '';
+    const normName = rawName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    if (!term || normName.includes(term)) {
+      item.classList.remove('hidden');
+      item.style.removeProperty('display');
+      hasVisible++;
     } else {
-      item.style.display = 'none';
+      item.classList.add('hidden');
+      item.style.setProperty('display', 'none', 'important');
     }
   });
-  
+
   const empty = document.getElementById('drive-empty');
-  if (hasVisible) {
-    empty.classList.add('hidden');
-  } else {
-    empty.classList.remove('hidden');
+  if (empty) {
+    if (hasVisible > 0) {
+      empty.classList.add('hidden');
+      empty.style.display = 'none';
+    } else {
+      empty.classList.remove('hidden');
+      empty.style.display = 'block';
+      empty.innerText = term ? `No se encontraron archivos que coincidan con "${searchTerm}"` : 'No se encontraron hojas de cálculo recientes.';
+    }
   }
 };
 
@@ -1070,14 +1093,26 @@ function renderPieChart(canvasId, dataMap, colors) {
       datasets: [{
         data: data,
         backgroundColor: bgColors,
-        borderWidth: 1
+        borderColor: '#1e293b',
+        borderWidth: 2
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { position: 'bottom' }
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: '#cbd5e1',
+            boxWidth: 14,
+            padding: 18,
+            font: {
+              size: 12,
+              weight: '500'
+            }
+          }
+        }
       }
     }
   });

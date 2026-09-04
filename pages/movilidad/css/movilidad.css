@@ -208,16 +208,27 @@ body {
   color: #64748b;
 }
 
+/* Section Title */
+.section-title {
+  color: #60a5fa !important;
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  letter-spacing: 0.5px;
+}
+
 /* Charts (Dark Claymorphism) */
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 1.75rem;
 }
 
 .chart-container, .clay-card {
   background: #1e293b;
-  padding: 1.5rem;
+  padding: 1.75rem;
   border-radius: 20px;
   box-shadow: 9px 9px 16px #131a25, -9px -9px 16px #293851;
   display: flex;
@@ -232,18 +243,26 @@ body {
 
 .chart-container h3 {
   margin-top: 0;
-  font-size: 1.1rem;
-  margin-bottom: 1rem;
-  color: #1e293b;
-  border-bottom: 1px solid #f1f5f9;
-  padding-bottom: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  color: #f8fafc;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-container h3 i {
+  color: #3b82f6;
 }
 
 /* Tablas Detalladas */
 .tables-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.5rem;
+  gap: 1.75rem;
 }
 
 .table-responsive {
@@ -280,7 +299,12 @@ body {
   background-color: #0f172a;
 }
 .data-table tbody tr:hover {
-  background-color: #334155;
+  background-color: #1e293b !important;
+}
+.data-table td:hover,
+.data-table tbody tr:hover td {
+  background-color: #263349 !important;
+  color: #ffffff !important;
 }
 .table-title {
   margin-top: 0;
@@ -713,12 +737,16 @@ body {
   border: 1px solid #334155 !important;
   border-radius: 14px !important;
   padding: 12px 16px !important;
-  display: flex !important;
+  display: flex;
   align-items: center !important;
   gap: 16px !important;
   cursor: pointer !important;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.file-list-item.hidden {
+  display: none !important;
 }
 
 .file-list-item:hover {
