@@ -299,19 +299,37 @@
         </div>
 
         <div class="filters-row" style="border-top: 1px solid #334155; padding-top: 1rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1.25rem;">
-          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-end;">
-            <div class="filter-group" style="flex-grow: 0; min-width: 200px;">
-              <label>Fecha de Operación:</label>
-              <select id="filtroFecha" class="form-control">
-                <option value="ULTIMA">Última Fecha Disponible</option>
-                <!-- Llenado dinámico -->
+          <div style="display: flex; gap: 1.2rem; flex-wrap: wrap; align-items: flex-end;">
+            <!-- 1. Filtro de Semana de Operación -->
+            <div class="filter-group" style="flex-grow: 0; min-width: 220px;">
+              <label style="display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-calendar-week" style="color: #60a5fa;"></i>
+                <span>Semana de Operación:</span>
+              </label>
+              <select id="filtroSemana" class="form-control" style="font-weight: 600;">
+                <option value="TODAS">Todas las Semanas</option>
               </select>
             </div>
 
-            <div class="filter-group" style="flex-grow: 0; min-width: 200px;">
-              <label>Filtrar por Día:</label>
+            <!-- 2. Filtro por Día de la Semana -->
+            <div class="filter-group" style="flex-grow: 0; min-width: 170px;">
+              <label style="display: flex; align-items: center; gap: 6px;">
+                <i class="fa-regular fa-calendar" style="color: #38bdf8;"></i>
+                <span>Día de la Semana:</span>
+              </label>
               <select id="filtroDia" class="form-control">
                 <option value="TODOS">Todos los Días</option>
+              </select>
+            </div>
+
+            <!-- 3. Filtro de Fecha Específica -->
+            <div class="filter-group" style="flex-grow: 0; min-width: 210px;">
+              <label style="display: flex; align-items: center; gap: 6px;">
+                <i class="fa-regular fa-calendar-check" style="color: #4ade80;"></i>
+                <span>Fecha Específica:</span>
+              </label>
+              <select id="filtroFecha" class="form-control">
+                <option value="TODAS">Todas las Fechas</option>
               </select>
             </div>
           </div>
@@ -800,6 +818,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Script Específico de Movilidad -->
-  <script src="js/movilidad.js"></script>
+  <script src="js/movilidad.js?v=2.2"></script>
 </body>
 </html>
