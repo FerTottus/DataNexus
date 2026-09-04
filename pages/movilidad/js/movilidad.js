@@ -645,12 +645,19 @@ function initUIEvents() {
     btnTabCo.addEventListener('click', () => switchDashboardTab('costos'));
   }
 
-  // Selector de Semana en Análisis de Costos
+  // Selector de Semana en Análisis de Costos (sincronizado con cabecera)
   const selSemCostos = document.getElementById('selectSemanaCostos');
   if (selSemCostos) {
     selSemCostos.addEventListener('change', (e) => {
-      AppState.semanaCostosSeleccionada = e.target.value;
-      renderAnalisisCostos();
+      const valSem = e.target.value;
+      const selSemHeader = document.getElementById('filtroSemana');
+      if (selSemHeader && selSemHeader.value !== valSem) {
+        selSemHeader.value = valSem;
+      }
+      AppState.semanaSeleccionada = valSem;
+      AppState.semanaCostosSeleccionada = valSem;
+      updateFilterOptionsFromSemana(valSem);
+      applyFilters();
     });
   }
 }
@@ -966,70 +973,91 @@ async function loadAllSheets(sheetId) {
     // Guardamos las filas raw del registro diario para agregarlas dinámicamente según filtros
     AppState.rawRegistroDiario = (registroDiario && registroDiario.rows) ? registroDiario.rows : [];
 
-    // Poblar dropdown de fechas y días basado en los datos únicos normalizados
+    // Poblar dropdowns de Semana, Fecha y Día con sincronización y rango de fechas
     const fMap = new Map();
-    const diaCounts = {};
     const dateToDia = new Map();
     const diaToDates = new Map();
+    const semMap = new Map(); // semNum -> { dates: Set, dias: Set, sampleDate: normF }
 
     AppState.rawRegistroDiario.forEach(r => {
       const rawF = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
       const normF = normalizeDateStr(rawF);
       const rawD = getRowVal(r, ['DÍA', 'DIA', 'DAY']);
       const normD = normalizeDiaStr(rawD, normF);
+      const s = parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10);
 
       if (normF && !fMap.has(normF)) {
         fMap.set(normF, parseDateDMY(normF));
       }
 
-      if (normD) {
-        diaCounts[normD] = (diaCounts[normD] || 0) + 1;
-        if (normF) {
-          dateToDia.set(normF, normD);
-          if (!diaToDates.has(normD)) {
-            diaToDates.set(normD, []);
-          }
-          if (!diaToDates.get(normD).includes(normF)) {
-            diaToDates.get(normD).push(normF);
-          }
+      if (normD && normF) {
+        dateToDia.set(normF, normD);
+        if (!diaToDates.has(normD)) diaToDates.set(normD, []);
+        if (!diaToDates.get(normD).includes(normF)) diaToDates.get(normD).push(normF);
+      }
+
+      if (!isNaN(s) && s > 0) {
+        if (!semMap.has(s)) {
+          semMap.set(s, { dates: new Set(), dias: new Set(), sampleDate: normF });
         }
+        const sObj = semMap.get(s);
+        if (normF) {
+          sObj.dates.add(normF);
+          if (!sObj.sampleDate) sObj.sampleDate = normF;
+        }
+        if (normD) sObj.dias.add(normD);
       }
     });
 
-    // Orden cronológico estricto (antiguo a reciente)
     const fechas = Array.from(fMap.keys()).sort((a, b) => fMap.get(a) - fMap.get(b));
     AppState.fechasDisponibles = fechas;
     AppState.dateToDiaMap = dateToDia;
     AppState.diaToDatesMap = diaToDates;
 
-    // Asegurar que las fechas dentro de cada día también estén ordenadas cronológicamente
     diaToDates.forEach((datesList) => {
       datesList.sort((a, b) => (fMap.get(a) || 0) - (fMap.get(b) || 0));
     });
 
-    const selFecha = document.getElementById('filtroFecha');
-    if (selFecha) {
-      const lastDateLabel = fechas.length > 0 ? ` (${fechas[fechas.length - 1]})` : '';
-      selFecha.innerHTML = `<option value="ULTIMA">Última Fecha Disponible${lastDateLabel}</option><option value="TODAS">Ver Todas</option>`;
-      fechas.forEach(f => {
-        selFecha.innerHTML += `<option value="${f}">${f}</option>`;
+    // Poblar Selector de Semana (Cabecera y Tab 2) con formato claro: Lun DD/MM - Dom DD/MM
+    const semanasUnicas = Array.from(semMap.keys()).sort((a, b) => a - b);
+    AppState.semanasDisponibles = semanasUnicas;
+    AppState.semanasInfoMap = semMap;
+
+    const selSemana = document.getElementById('filtroSemana');
+    const selSemCostos = document.getElementById('selectSemanaCostos');
+    const lastSem = semanasUnicas.length > 0 ? String(semanasUnicas[semanasUnicas.length - 1]) : 'TODAS';
+
+    if (semanasUnicas.length > 0) {
+      AppState.semanaSeleccionada = lastSem;
+      AppState.semanaCostosSeleccionada = lastSem;
+
+      let optionsHtml = '';
+      semanasUnicas.slice().reverse().forEach(s => {
+        const sObj = semMap.get(s);
+        const bounds = sObj && sObj.sampleDate ? getWeekBounds(sObj.sampleDate) : null;
+        const rangeText = bounds ? ` (${bounds.label})` : '';
+        const isLatest = (String(s) === lastSem) ? ' - Última' : '';
+        optionsHtml += `<option value="${s}">Semana ${s}${rangeText}${isLatest}</option>`;
       });
-      selFecha.value = 'ULTIMA';
+      optionsHtml += `<option value="TODAS">Todas las Semanas</option>`;
+
+      if (selSemana) {
+        selSemana.innerHTML = optionsHtml;
+        selSemana.value = lastSem;
+      }
+      if (selSemCostos) {
+        selSemCostos.innerHTML = optionsHtml;
+        selSemCostos.value = lastSem;
+      }
+    } else {
+      if (selSemana) selSemana.innerHTML = `<option value="TODAS">Todas las Semanas</option>`;
+      if (selSemCostos) selSemCostos.innerHTML = `<option value="TODAS">Todas las Semanas</option>`;
+      AppState.semanaSeleccionada = 'TODAS';
+      AppState.semanaCostosSeleccionada = 'TODAS';
     }
 
-    // Poblar dropdown de días ÚNICAMENTE con los días que tienen movimiento real (> 0 registros)
-    const diasSemanaOrden = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    const activeDias = diasSemanaOrden.filter(d => (diaCounts[d] || 0) > 0);
-    AppState.diasDisponibles = activeDias;
-
-    const selDia = document.getElementById('filtroDia');
-    if (selDia) {
-      selDia.innerHTML = `<option value="TODOS">Todos los Días</option>`;
-      activeDias.forEach(d => {
-        selDia.innerHTML += `<option value="${d}">${d}</option>`;
-      });
-      selDia.value = 'TODOS';
-    }
+    // Inicializar cascada de Día y Fecha a partir de la semana activa
+    updateFilterOptionsFromSemana(AppState.semanaSeleccionada, false);
 
     badge.className = 'badge badge-success';
     badge.innerHTML = `<i class="fa-solid fa-check"></i> Conectado - ${combined.length} regs`;
@@ -1167,15 +1195,15 @@ function applyFilters() {
     if (e.rawDni) filteredDniSet.add(String(e.rawDni).trim().toUpperCase());
   });
 
-  const selF = document.getElementById('filtroFecha');
-  const valFecha = selF ? selF.value : 'ULTIMA';
+  const selSem = document.getElementById('filtroSemana');
+  const valSem = selSem ? selSem.value : (AppState.semanaSeleccionada || 'TODAS');
   const selD = document.getElementById('filtroDia');
   const valDia = selD ? selD.value : 'TODOS';
+  const selF = document.getElementById('filtroFecha');
+  const valFecha = selF ? selF.value : 'TODAS';
 
-  const fechas = AppState.fechasDisponibles || [];
-  const ultimaFecha = fechas.length > 0 ? fechas[fechas.length - 1] : '';
-  const fechaTarget = (valFecha === 'ULTIMA') ? ultimaFecha : valFecha;
-  AppState.fechaSeleccionada = fechaTarget;
+  AppState.semanaSeleccionada = valSem;
+  AppState.fechaSeleccionada = valFecha;
 
   // Agrupación de viajes de buses
   // Cada viaje de bus se identifica por fecha + ruta (+ tipoBus si aplica)
@@ -1188,13 +1216,15 @@ function applyFilters() {
 
     const rawDia = getRowVal(row, ['DÍA', 'DIA', 'DAY']);
     const diaValNorm = normalizeDiaStr(rawDia, fechaSoloDia);
+    const semVal = parseInt(getRowVal(row, ['SEMANA', 'SEM']), 10);
 
-    // Filtros de fecha y día
+    // Filtros de Semana, Día y Fecha sincronizados
+    if (valSem !== 'TODAS' && String(semVal) !== String(valSem)) return;
     if (valDia !== 'TODOS') {
       const valDiaNorm = normalizeDiaStr(valDia);
       if (diaValNorm !== valDiaNorm) return;
     }
-    if (fechaTarget !== 'TODAS' && fechaTarget && fechaSoloDia !== fechaTarget) return;
+    if (valFecha !== 'TODAS' && fechaSoloDia !== valFecha) return;
 
     const rutaVal = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
     if (!rutaVal) return;
@@ -2374,24 +2404,32 @@ function renderAnalisisCostos() {
     selSem.value = AppState.semanaCostosSeleccionada;
   }
 
-  const semSel = AppState.semanaCostosSeleccionada || (semanas.length > 0 ? String(semanas[semanas.length - 1]) : '9');
-  const isVerTodas = (semSel === 'TODAS');
+  // 2. Obtener filtros activos del encabezado superior (Semana, Día, Fecha, Área, Tipo, Sin BD)
+  const selSemHeader = document.getElementById('filtroSemana');
+  const valSem = selSemHeader ? selSemHeader.value : (AppState.semanaSeleccionada || 'TODAS');
+  const isVerTodas = (valSem === 'TODAS');
+
+  const selDia = document.getElementById('filtroDia');
+  const valDia = selDia ? selDia.value : 'TODOS';
+
+  const selFecha = document.getElementById('filtroFecha');
+  const valFecha = selFecha ? selFecha.value : 'TODAS';
+
+  // Sincronizar selector local de Semana en Tab 2 si existe
+  const selSemTab2 = document.getElementById('selectSemanaCostos');
+  if (selSemTab2 && selSemTab2.value !== valSem) {
+    selSemTab2.value = valSem;
+  }
 
   // Actualizar badge de la tabla
   const badgeSem = document.getElementById('badgeSemanaTabla');
   if (badgeSem) {
-    badgeSem.innerText = isVerTodas ? 'Todas las Semanas' : `Semana ${semSel}`;
+    let text = isVerTodas ? 'Todas las Semanas' : `Semana ${valSem}`;
+    if (valDia !== 'TODOS') text += ` (${valDia})`;
+    if (valFecha !== 'TODAS') text += ` - ${valFecha}`;
+    badgeSem.innerText = text;
   }
 
-  // 3. Filtrar registros por la semana analizada
-  const rowsSemana = isVerTodas 
-    ? rawRows 
-    : rawRows.filter(r => {
-        const s = parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10);
-        return String(s) === String(semSel);
-      });
-
-  // 3.1 Obtener filtros activos del encabezado superior (Área, Tipo, Sin BD, Día)
   const getActiveChips = (containerId) => {
     const activeBtn = document.querySelectorAll(`#${containerId} .chip.active`);
     return Array.from(activeBtn).map(b => b.dataset.value);
@@ -2408,9 +2446,6 @@ function renderAnalisisCostos() {
   const incluirSinBD = chipSinBDEl ? chipSinBDEl.dataset.value : 'SI';
   const isDemographicFiltered = isSegmented || (incluirSinBD === 'NO');
 
-  const selDia = document.getElementById('filtroDia');
-  const valDia = selDia ? selDia.value : 'TODOS';
-
   // Conjunto de DNIs filtrados en base a Área y Tipo
   const filteredDniSet = new Set();
   (AppState.filteredEmployees || []).forEach(e => {
@@ -2422,28 +2457,28 @@ function renderAnalisisCostos() {
   const elFilterBadge = document.getElementById('costFilterStatusBadge');
   if (elFilterBadge) {
     const filterParts = [];
+    if (!isVerTodas) filterParts.push(`Semana: <b>${valSem}</b>`);
+    if (valDia !== 'TODOS') filterParts.push(`Día: <b>${valDia}</b>`);
+    if (valFecha !== 'TODAS') filterParts.push(`Fecha: <b>${valFecha}</b>`);
     if (filterAreaActive) filterParts.push(`Área: <b>${areas.join(', ')}</b>`);
     if (filterTipoActive) filterParts.push(`Tipo: <b>${tipos.join(', ')}</b>`);
     if (incluirSinBD === 'NO') filterParts.push(`<b>Solo BD Maestra</b>`);
-    if (valDia !== 'TODOS') filterParts.push(`Día: <b>${valDia}</b>`);
 
     if (filterParts.length > 0) {
       elFilterBadge.style.display = 'block';
-      elFilterBadge.innerHTML = `<i class="fa-solid fa-filter" style="color: #fbbf24;"></i> Filtros aplicados: ${filterParts.join(' | ')} <span style="color: #94a3b8;">(Métricas y costos prorrateados por colaboradores correspondientes)</span>`;
+      elFilterBadge.innerHTML = `<i class="fa-solid fa-filter" style="color: #fbbf24;"></i> Filtros aplicados: ${filterParts.join(' | ')} <span style="color: #94a3b8;">(Métricas prorrateadas según colaboradores correspondientes)</span>`;
     } else {
       elFilterBadge.style.display = 'none';
     }
   }
 
-  // 4. Agrupar registros por Despacho de Bus (Trip) y contabilizar pasajeros reales
-  // En REGISTRO_DIARIO cada fila representa un abordaje de colaborador con DNI.
-  // La CAPACIDAD y el COSTO corresponden al bus despachado para ese servicio.
+  // 3. Agrupar registros por Despacho de Bus (Trip) y contabilizar pasajeros reales
   const tripsMap = {};
   let anonymousTripCounter = 0;
   let totalPasajerosSemana = 0;
   const uniqueColaboradoresSet = new Set();
 
-  rowsSemana.forEach(r => {
+  rawRows.forEach(r => {
     const rutaRaw = String(getRowVal(r, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
     const rawFecha = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
     const fechaSoloDia = normalizeDateStr(rawFecha);
@@ -2451,12 +2486,22 @@ function renderAnalisisCostos() {
     // Omitir filas sin ruta ni fecha (filas residuales o vacías de fórmulas)
     if (!rutaRaw && !fechaSoloDia) return;
 
-    // Filtro por Día de la semana (si el usuario seleccionó un día específico en el header)
+    const s = parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10);
+    const rawDia = getRowVal(r, ['DÍA', 'DIA', 'DAY']);
+    const diaValNorm = normalizeDiaStr(rawDia, fechaSoloDia);
+
+    // Filtro por Semana
+    if (!isVerTodas && String(s) !== String(valSem)) return;
+
+    // Filtro por Día
     if (valDia !== 'TODOS') {
-      const rawDia = getRowVal(r, ['DÍA', 'DIA', 'DAY']);
-      const diaValNorm = normalizeDiaStr(rawDia, fechaSoloDia);
       const valDiaNorm = normalizeDiaStr(valDia);
       if (diaValNorm !== valDiaNorm) return;
+    }
+
+    // Filtro por Fecha
+    if (valFecha !== 'TODAS') {
+      if (fechaSoloDia !== valFecha) return;
     }
 
     const ruta = rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : (rutaRaw ? `RUTA ${rutaRaw.toUpperCase()}` : 'RUTA DESCONOCIDA');
@@ -2683,9 +2728,9 @@ function renderAnalisisCostos() {
 
   // 7. Tabla Detalle por Ruta
   const tbodyDetalle = document.getElementById('tbodyDetalleCostosSemana');
-  if (tbodyDetalle) {
     if (rutasArray.length === 0) {
-      tbodyDetalle.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 25px;">No se registraron viajes para la semana ${semSel}.</td></tr>`;
+      const filtroContexto = isVerTodas ? 'el rango seleccionado' : `la Semana ${valSem}${valDia !== 'TODOS' ? ' (' + valDia + ')' : ''}${valFecha !== 'TODAS' ? ' - ' + valFecha : ''}`;
+      tbodyDetalle.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 25px;"><i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i> No se registraron viajes de colaboradores para ${filtroContexto} con los filtros demográficos actuales.</td></tr>`;
     } else {
       tbodyDetalle.innerHTML = rutasArray.map(r => `
         <tr>
