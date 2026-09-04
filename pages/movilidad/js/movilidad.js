@@ -256,11 +256,22 @@ async function loadAllSheets(sheetId) {
   badge.innerText = 'Descargando datos...';
 
   try {
+    const tabs = await GoogleSheetsService.fetchSheetTabs(sheetId);
+    const getTabName = (keywords) => {
+      const tab = tabs.find(t => keywords.every(kw => t.title.toUpperCase().includes(kw.toUpperCase())));
+      return tab ? tab.title : null;
+    };
+
+    const nameSecos = getTabName(['BD SECOS']);
+    const namePpa = getTabName(['BD PPA']);
+    const nameFrescos = getTabName(['BD FRESCOS']);
+    const nameRegistro = getTabName(['REGISTRO', 'DIARIO']); // Busca "REGISTRO_DIARIO", "REGISTRO DIARIO", etc.
+
     const [secos, ppa, frescos, registroDiario] = await Promise.all([
-      GoogleSheetsService.fetchSheetData(sheetId, 'BD SECOS').catch(e => null),
-      GoogleSheetsService.fetchSheetData(sheetId, 'BD PPA').catch(e => null),
-      GoogleSheetsService.fetchSheetData(sheetId, 'BD FRESCOS').catch(e => null),
-      GoogleSheetsService.fetchSheetData(sheetId, 'REGISTRO_DIARIO').catch(e => null)
+      nameSecos ? GoogleSheetsService.fetchSheetData(sheetId, nameSecos).catch(e => null) : Promise.resolve(null),
+      namePpa ? GoogleSheetsService.fetchSheetData(sheetId, namePpa).catch(e => null) : Promise.resolve(null),
+      nameFrescos ? GoogleSheetsService.fetchSheetData(sheetId, nameFrescos).catch(e => null) : Promise.resolve(null),
+      nameRegistro ? GoogleSheetsService.fetchSheetData(sheetId, nameRegistro).catch(e => null) : Promise.resolve(null)
     ]);
 
     if (!secos && !ppa && !frescos) {
@@ -296,8 +307,6 @@ async function loadAllSheets(sheetId) {
     
     if (registroDiario && registroDiario.rows) {
       registroDiario.rows.forEach(row => {
-        if (!row['RUTA']) return;
-        
         // Helper para leer múltiples posibles nombres de columna
         const getVal = (keys) => {
           for (let k of keys) {
@@ -306,15 +315,18 @@ async function loadAllSheets(sheetId) {
           return null;
         };
 
+        const rutaVal = getVal(['RUTA', 'RUTA ASIGNADA']);
+        if (!rutaVal) return; // Si no hay ruta, es una fila vacía
+        
         const rawCosto = getVal(['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE']);
         const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
 
         registroData.push({
-          dia: getVal(['DÍA', 'DIA']),
+          dia: getVal(['DÍA', 'DIA', 'FECHA']),
           semana: parseInt(getVal(['SEMANA'])) || 0,
-          ruta: row['RUTA'],
-          capacidad: parseFloat(getVal(['CAPACIDAD', 'CAPACIDAD DE BUS'])) || 0,
-          pasajeros: parseFloat(getVal(['PASAJEROS', 'CANT. PASAJEROS'])) || 0,
+          ruta: rutaVal,
+          capacidad: parseFloat(getVal(['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS'])) || 0,
+          pasajeros: parseFloat(getVal(['PASAJEROS', 'CANT. PASAJEROS', 'CANTIDAD PASAJEROS'])) || 0,
           costo: costoNum
         });
       });
