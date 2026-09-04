@@ -189,6 +189,135 @@ function normalizeDiaStr(dVal, fVal) {
   return '';
 }
 
+function getWeekBounds(dateDMYStr) {
+  const ts = parseDateDMY(dateDMYStr);
+  if (!ts) return null;
+  const d = new Date(ts);
+  const day = d.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+  // Lunes a Domingo (ISO 8601):
+  const diffToMonday = (day === 0 ? -6 : 1 - day);
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmt = (dt) => `${pad(dt.getDate())}/${pad(dt.getMonth() + 1)}`;
+  return { 
+    monday, 
+    sunday, 
+    label: `Lun ${fmt(monday)} - Dom ${fmt(sunday)}` 
+  };
+}
+
+function updateFilterOptionsFromSemana(chosenSemana, keepSelections = false) {
+  const selDia = document.getElementById('filtroDia');
+  const selFecha = document.getElementById('filtroFecha');
+  if (!selDia || !selFecha) return;
+
+  const currentDia = selDia.value;
+  const rows = (chosenSemana === 'TODAS')
+    ? AppState.rawRegistroDiario
+    : AppState.rawRegistroDiario.filter(r => String(parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10)) === String(chosenSemana));
+
+  const diasInSemana = new Set();
+  rows.forEach(r => {
+    const rawF = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
+    const normF = normalizeDateStr(rawF);
+    const rawD = getRowVal(r, ['DÍA', 'DIA', 'DAY']);
+    const normD = normalizeDiaStr(rawD, normF);
+    if (normD) diasInSemana.add(normD);
+  });
+
+  const diasOrden = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+  const activeDias = diasOrden.filter(d => diasInSemana.has(d));
+
+  selDia.innerHTML = `<option value="TODOS">Todos los Días de la Semana</option>`;
+  activeDias.forEach(d => {
+    selDia.innerHTML += `<option value="${d}">${d}</option>`;
+  });
+
+  if (keepSelections && activeDias.includes(currentDia)) {
+    selDia.value = currentDia;
+  } else {
+    selDia.value = 'TODOS';
+  }
+
+  updateFilterOptionsFromDia(selDia.value, chosenSemana, keepSelections);
+}
+
+function updateFilterOptionsFromDia(chosenDia, chosenSemana, keepSelections = false) {
+  const selFecha = document.getElementById('filtroFecha');
+  if (!selFecha) return;
+
+  const currentFecha = selFecha.value;
+
+  let rows = AppState.rawRegistroDiario;
+  if (chosenSemana !== 'TODAS') {
+    rows = rows.filter(r => String(parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10)) === String(chosenSemana));
+  }
+
+  const fMap = new Map();
+  rows.forEach(r => {
+    const rawF = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
+    const normF = normalizeDateStr(rawF);
+    const rawD = getRowVal(r, ['DÍA', 'DIA', 'DAY']);
+    const normD = normalizeDiaStr(rawD, normF);
+
+    if (chosenDia !== 'TODOS' && normD !== chosenDia) return;
+
+    if (normF && !fMap.has(normF)) {
+      fMap.set(normF, parseDateDMY(normF));
+    }
+  });
+
+  const fechas = Array.from(fMap.keys()).sort((a, b) => fMap.get(a) - fMap.get(b));
+
+  selFecha.innerHTML = `<option value="TODAS">Todas las Fechas de la Semana</option>`;
+  fechas.forEach(f => {
+    const diaName = AppState.dateToDiaMap.get(f) || '';
+    const label = diaName ? `${f} (${diaName})` : f;
+    selFecha.innerHTML += `<option value="${f}">${label}</option>`;
+  });
+
+  if (keepSelections && fechas.includes(currentFecha)) {
+    selFecha.value = currentFecha;
+  } else if (fechas.length === 1 && chosenDia !== 'TODOS') {
+    selFecha.value = fechas[0];
+  } else {
+    selFecha.value = 'TODAS';
+  }
+}
+
+function onFechaChanged() {
+  const selFecha = document.getElementById('filtroFecha');
+  const selDia = document.getElementById('filtroDia');
+  const selSemana = document.getElementById('filtroSemana');
+  if (!selFecha) return;
+
+  const valF = selFecha.value;
+  if (valF !== 'TODAS') {
+    const matchingRow = AppState.rawRegistroDiario.find(r => normalizeDateStr(getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA'])) === valF);
+    if (matchingRow) {
+      const rawD = getRowVal(matchingRow, ['DÍA', 'DIA', 'DAY']);
+      const normD = normalizeDiaStr(rawD, valF);
+      const semVal = String(parseInt(getRowVal(matchingRow, ['SEMANA', 'SEM']), 10));
+
+      if (selSemana && semVal && semVal !== 'NaN' && semVal !== '0') {
+        selSemana.value = semVal;
+        AppState.semanaSeleccionada = semVal;
+        AppState.semanaCostosSeleccionada = semVal;
+        const selSemTab2 = document.getElementById('selectSemanaCostos');
+        if (selSemTab2) selSemTab2.value = semVal;
+      }
+      if (selDia && normD) {
+        selDia.value = normD;
+      }
+    }
+  }
+  applyFilters();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   updateParaderosSourceBadge();
   initUIEvents();
@@ -220,50 +349,41 @@ function initUIEvents() {
     });
   }
 
-  // Cambio automático y sincronización inteligente de fecha y día
-  const selFecha = document.getElementById('filtroFecha');
-  if (selFecha) {
-    selFecha.addEventListener('change', () => {
-      const selDia = document.getElementById('filtroDia');
-      const valF = selFecha.value;
-      const fechas = AppState.fechasDisponibles || [];
-      const targetF = (valF === 'ULTIMA') ? (fechas.length > 0 ? fechas[fechas.length - 1] : '') : valF;
+  // 1. Selector de Semana en cabecera
+  const selSem = document.getElementById('filtroSemana');
+  if (selSem) {
+    selSem.addEventListener('change', () => {
+      const valSem = selSem.value;
+      AppState.semanaSeleccionada = valSem;
+      AppState.semanaCostosSeleccionada = (valSem === 'TODAS') ? 'TODAS' : valSem;
 
-      if (valF !== 'TODAS' && targetF && AppState.dateToDiaMap && selDia) {
-        const diaDeFecha = AppState.dateToDiaMap.get(targetF);
-        if (diaDeFecha) {
-          const optExists = Array.from(selDia.options).some(opt => opt.value === diaDeFecha);
-          if (optExists) {
-            selDia.value = diaDeFecha;
-          }
-        }
+      // Sincronizar selector de Tab 2
+      const selSemTab2 = document.getElementById('selectSemanaCostos');
+      if (selSemTab2 && selSemTab2.value !== valSem) {
+        selSemTab2.value = valSem;
       }
+
+      // Cascada a Día y Fecha
+      updateFilterOptionsFromSemana(valSem);
       applyFilters();
     });
   }
 
+  // 2. Selector de Día en cabecera
   const selDia = document.getElementById('filtroDia');
   if (selDia) {
     selDia.addEventListener('change', () => {
-      const selFecha = document.getElementById('filtroFecha');
-      const chosenDia = selDia.value;
-
-      if (chosenDia !== 'TODOS' && AppState.diaToDatesMap && selFecha) {
-        const datesForDia = AppState.diaToDatesMap.get(chosenDia) || [];
-        const fechas = AppState.fechasDisponibles || [];
-        const currentFecha = (selFecha.value === 'ULTIMA')
-          ? (fechas.length > 0 ? fechas[fechas.length - 1] : '')
-          : selFecha.value;
-
-        // Si la fecha seleccionada actualmente no coincide con el día elegido,
-        // cambiamos automáticamente la fecha a la más reciente que sí tiene movimiento ese día
-        if (currentFecha !== 'TODAS' && !datesForDia.includes(currentFecha)) {
-          if (datesForDia.length > 0) {
-            selFecha.value = datesForDia[datesForDia.length - 1];
-          }
-        }
-      }
+      const valSem = document.getElementById('filtroSemana')?.value || 'TODAS';
+      updateFilterOptionsFromDia(selDia.value, valSem);
       applyFilters();
+    });
+  }
+
+  // 3. Selector de Fecha en cabecera
+  const selFecha = document.getElementById('filtroFecha');
+  if (selFecha) {
+    selFecha.addEventListener('change', () => {
+      onFechaChanged();
     });
   }
 
