@@ -11,6 +11,9 @@ const AppState = {
   rawRegistroDiario: [], // Filas originales del registro diario
   registroData: [], // Viajes procesados y agregados
   fechasDisponibles: [], // Lista cronológica de fechas únicas
+  diasDisponibles: [], // Días de la semana que tienen movimiento real (> 0)
+  dateToDiaMap: new Map(), // Mapeo de Fecha normalizada -> Día de la semana
+  diaToDatesMap: new Map(), // Mapeo de Día de la semana -> Lista de fechas
   fechaSeleccionada: '', // Fecha activa para el análisis diario
   employeeMap: new Map(), // Mapa rápido de todos los empleados por DNI limpio y original
   charts: {} // Referencias a instancias de Chart.js
@@ -103,6 +106,27 @@ function normalizeDateStr(val) {
   return s;
 }
 
+function normalizeDiaStr(dVal, fVal) {
+  let s = String(dVal || '').trim().toLowerCase();
+  s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (s.startsWith('lun')) return 'Lunes';
+  if (s.startsWith('mar')) return 'Martes';
+  if (s.startsWith('mie')) return 'Miércoles';
+  if (s.startsWith('jue')) return 'Jueves';
+  if (s.startsWith('vie')) return 'Viernes';
+  if (s.startsWith('sab')) return 'Sábado';
+  if (s.startsWith('dom')) return 'Domingo';
+  // Si no está el texto del día pero hay fecha, calcularlo
+  if (fVal) {
+    const ts = parseDateDMY(fVal);
+    if (ts) {
+      const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      return dias[new Date(ts).getDay()];
+    }
+  }
+  return '';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initUIEvents();
   GoogleSheetsService.initAuth(); // Restaura token
@@ -133,10 +157,24 @@ function initUIEvents() {
     });
   }
 
-  // Cambio automático al seleccionar fecha u otro día
+  // Cambio automático y sincronización inteligente de fecha y día
   const selFecha = document.getElementById('filtroFecha');
   if (selFecha) {
     selFecha.addEventListener('change', () => {
+      const selDia = document.getElementById('filtroDia');
+      const valF = selFecha.value;
+      const fechas = AppState.fechasDisponibles || [];
+      const targetF = (valF === 'ULTIMA') ? (fechas.length > 0 ? fechas[fechas.length - 1] : '') : valF;
+
+      if (valF !== 'TODAS' && targetF && AppState.dateToDiaMap && selDia) {
+        const diaDeFecha = AppState.dateToDiaMap.get(targetF);
+        if (diaDeFecha) {
+          const optExists = Array.from(selDia.options).some(opt => opt.value === diaDeFecha);
+          if (optExists) {
+            selDia.value = diaDeFecha;
+          }
+        }
+      }
       applyFilters();
     });
   }
@@ -144,6 +182,24 @@ function initUIEvents() {
   const selDia = document.getElementById('filtroDia');
   if (selDia) {
     selDia.addEventListener('change', () => {
+      const selFecha = document.getElementById('filtroFecha');
+      const chosenDia = selDia.value;
+
+      if (chosenDia !== 'TODOS' && AppState.diaToDatesMap && selFecha) {
+        const datesForDia = AppState.diaToDatesMap.get(chosenDia) || [];
+        const fechas = AppState.fechasDisponibles || [];
+        const currentFecha = (selFecha.value === 'ULTIMA')
+          ? (fechas.length > 0 ? fechas[fechas.length - 1] : '')
+          : selFecha.value;
+
+        // Si la fecha seleccionada actualmente no coincide con el día elegido,
+        // cambiamos automáticamente la fecha a la más reciente que sí tiene movimiento ese día
+        if (currentFecha !== 'TODAS' && !datesForDia.includes(currentFecha)) {
+          if (datesForDia.length > 0) {
+            selFecha.value = datesForDia[datesForDia.length - 1];
+          }
+        }
+      }
       applyFilters();
     });
   }
@@ -477,19 +533,46 @@ async function loadAllSheets(sheetId) {
     // Guardamos las filas raw del registro diario para agregarlas dinámicamente según filtros
     AppState.rawRegistroDiario = (registroDiario && registroDiario.rows) ? registroDiario.rows : [];
 
-    // Poblar dropdown de fechas basado en los datos únicos normalizados y ordenados cronológicamente
+    // Poblar dropdown de fechas y días basado en los datos únicos normalizados
     const fMap = new Map();
+    const diaCounts = {};
+    const dateToDia = new Map();
+    const diaToDates = new Map();
+
     AppState.rawRegistroDiario.forEach(r => {
       const rawF = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
       const normF = normalizeDateStr(rawF);
+      const rawD = getRowVal(r, ['DÍA', 'DIA', 'DAY']);
+      const normD = normalizeDiaStr(rawD, normF);
+
       if (normF && !fMap.has(normF)) {
         fMap.set(normF, parseDateDMY(normF));
+      }
+
+      if (normD) {
+        diaCounts[normD] = (diaCounts[normD] || 0) + 1;
+        if (normF) {
+          dateToDia.set(normF, normD);
+          if (!diaToDates.has(normD)) {
+            diaToDates.set(normD, []);
+          }
+          if (!diaToDates.get(normD).includes(normF)) {
+            diaToDates.get(normD).push(normF);
+          }
+        }
       }
     });
 
     // Orden cronológico estricto (antiguo a reciente)
     const fechas = Array.from(fMap.keys()).sort((a, b) => fMap.get(a) - fMap.get(b));
     AppState.fechasDisponibles = fechas;
+    AppState.dateToDiaMap = dateToDia;
+    AppState.diaToDatesMap = diaToDates;
+
+    // Asegurar que las fechas dentro de cada día también estén ordenadas cronológicamente
+    diaToDates.forEach((datesList) => {
+      datesList.sort((a, b) => (fMap.get(a) || 0) - (fMap.get(b) || 0));
+    });
 
     const selFecha = document.getElementById('filtroFecha');
     if (selFecha) {
@@ -498,6 +581,21 @@ async function loadAllSheets(sheetId) {
       fechas.forEach(f => {
         selFecha.innerHTML += `<option value="${f}">${f}</option>`;
       });
+      selFecha.value = 'ULTIMA';
+    }
+
+    // Poblar dropdown de días ÚNICAMENTE con los días que tienen movimiento real (> 0 registros)
+    const diasSemanaOrden = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    const activeDias = diasSemanaOrden.filter(d => (diaCounts[d] || 0) > 0);
+    AppState.diasDisponibles = activeDias;
+
+    const selDia = document.getElementById('filtroDia');
+    if (selDia) {
+      selDia.innerHTML = `<option value="TODOS">Todos los Días</option>`;
+      activeDias.forEach(d => {
+        selDia.innerHTML += `<option value="${d}">${d}</option>`;
+      });
+      selDia.value = 'TODOS';
     }
 
     badge.className = 'badge badge-success';
@@ -563,15 +661,18 @@ function applyFilters() {
   // Cada viaje de bus se identifica por fecha + ruta (+ tipoBus si aplica)
   const aggrMap = {};
   AppState.rawRegistroDiario.forEach(row => {
-    const rawFecha = getRowVal(row, ['FECHA', 'FECHA DE VIAJE', 'DATE']);
+    const rawFecha = getRowVal(row, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
     const fechaSoloDia = normalizeDateStr(rawFecha);
     if (!fechaSoloDia) return;
 
-    const diaVal = String(getRowVal(row, ['DÍA', 'DIA', 'DAY']) || '').trim();
-    const diaValLower = diaVal.toLowerCase();
+    const rawDia = getRowVal(row, ['DÍA', 'DIA', 'DAY']);
+    const diaValNorm = normalizeDiaStr(rawDia, fechaSoloDia);
 
     // Filtros de fecha y día
-    if (valDia !== 'TODOS' && diaValLower && diaValLower !== valDia.toLowerCase()) return;
+    if (valDia !== 'TODOS') {
+      const valDiaNorm = normalizeDiaStr(valDia);
+      if (diaValNorm !== valDiaNorm) return;
+    }
     if (fechaTarget !== 'TODAS' && fechaTarget && fechaSoloDia !== fechaTarget) return;
 
     const rutaVal = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
@@ -588,7 +689,7 @@ function applyFilters() {
       const semVal = parseInt(getRowVal(row, ['SEMANA', 'SEM'])) || 0;
 
       aggrMap[tripKey] = {
-        dia: diaVal,
+        dia: diaValNorm || rawDia || '',
         fecha: fechaSoloDia,
         semana: semVal,
         ruta: rutaVal,
@@ -823,37 +924,37 @@ function renderTables() {
 
     // Fecha a mostrar en el resumen del día
     let fechaActual = AppState.fechaSeleccionada;
-    if (!fechaActual || fechaActual === 'TODAS') {
+    const isVerTodas = (fechaActual === 'TODAS');
+    if (!fechaActual || isVerTodas) {
       const fechasUnicas = Array.from(new Set(regData.map(r => r.fecha))).sort((a, b) => parseDateDMY(a) - parseDateDMY(b));
-      fechaActual = fechasUnicas.length > 0 ? fechasUnicas[fechasUnicas.length - 1] : '';
+      fechaActual = isVerTodas ? 'TODAS LAS FECHAS' : (fechasUnicas.length > 0 ? fechasUnicas[fechasUnicas.length - 1] : '');
     }
 
     const isFiltered = regData.some(r => r.esFiltrado);
 
-    // Filtrar viajes del día seleccionado
-    // Si hay filtros de área o tipo, consideramos las rutas que transportaron a ese grupo
-    const viajesDia = regData.filter(r => r.fecha === fechaActual);
+    // Filtrar viajes del día seleccionado (o todos si se seleccionó TODAS)
+    const viajesDia = isVerTodas ? regData : regData.filter(r => r.fecha === fechaActual);
     const datosDia = isFiltered ? viajesDia.filter(r => r.pasajeros > 0) : viajesDia;
 
-    // Obtener la semana del día seleccionado
-    const semanaActual = viajesDia.length > 0 ? viajesDia[0].semana : (regData.length > 0 ? regData[regData.length - 1].semana : 0);
-    const viajesSemana = regData.filter(r => r.semana === semanaActual);
+    // Obtener la semana del día seleccionado (o última semana registrada)
+    const semanaActual = viajesDia.length > 0 ? viajesDia[viajesDia.length - 1].semana : (regData.length > 0 ? regData[regData.length - 1].semana : 0);
+    const viajesSemana = isVerTodas ? regData : regData.filter(r => r.semana === semanaActual);
     const datosSemana = isFiltered ? viajesSemana.filter(r => r.pasajeros > 0) : viajesSemana;
 
     // Actualizar encabezados con la fecha y semana seleccionada
     const elTituloReg = document.querySelector('#seccionRegistroDiario .table-title');
     if (elTituloReg) {
-      elTituloReg.innerText = `EFICIENCIA Y COSTO POR RUTA (DÍA: ${fechaActual || 'ACTUAL'})`;
+      elTituloReg.innerText = `EFICIENCIA Y COSTO POR RUTA (${isVerTodas ? 'TODAS LAS FECHAS' : 'DÍA: ' + (fechaActual || 'ACTUAL')})`;
     }
     const elResDiaTable = document.getElementById('tableResumenDia');
     if (elResDiaTable) {
       const h4 = elResDiaTable.closest('div').querySelector('h4');
-      if (h4) h4.innerHTML = `<i class="fa-regular fa-calendar-days"></i> RESUMEN DEL DÍA (${fechaActual || 'ACTUAL'})`;
+      if (h4) h4.innerHTML = `<i class="fa-regular fa-calendar-days"></i> ${isVerTodas ? 'RESUMEN ACUMULADO (TODAS LAS FECHAS)' : 'RESUMEN DEL DÍA (' + (fechaActual || 'ACTUAL') + ')'}`;
     }
     const elResSemTable = document.getElementById('tableResumenSemana');
     if (elResSemTable) {
       const h4 = elResSemTable.closest('div').querySelector('h4');
-      if (h4) h4.innerHTML = `<i class="fa-solid fa-calendar-week"></i> RESUMEN SEMANAL (SEMANA ${semanaActual || '-'})`;
+      if (h4) h4.innerHTML = `<i class="fa-solid fa-calendar-week"></i> ${isVerTodas ? 'RESUMEN GENERAL' : 'RESUMEN SEMANAL (SEMANA ' + (semanaActual || '-') + ')'}`;
     }
 
     // Resumen por ruta del DÍA actual
@@ -916,6 +1017,10 @@ function renderTables() {
     // Actualizar KPIs de la parte superior
     document.getElementById('kpiCostoDia').innerText = 'S/ ' + aggDia.costo.toFixed(2);
     document.getElementById('kpiOcupacionDia').innerText = formatPct(aggDia.pasaj, aggDia.cap);
+    const subCosto = document.querySelector('#kpiCostoDia + .kpi-subtitle');
+    if (subCosto) subCosto.innerText = isVerTodas ? 'Total invertido acumulado' : 'Total invertido hoy';
+    const subOcup = document.querySelector('#kpiOcupacionDia + .kpi-subtitle');
+    if (subOcup) subOcup.innerText = isVerTodas ? 'Eficiencia acumulada' : 'Eficiencia operativa hoy';
 
     // Tablas de Dashboard
     const elRdBusesDia = document.getElementById('rdBusesDia');
