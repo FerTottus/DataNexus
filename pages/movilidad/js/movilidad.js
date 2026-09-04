@@ -2268,30 +2268,98 @@ function renderAnalisisCostos() {
         return String(s) === String(semSel);
       });
 
-  // 4. Agregar métricas por ruta de la semana
-  const statsRuta = {};
+  // 4. Agrupar registros por Despacho de Bus (Trip) y contabilizar pasajeros reales
+  // En REGISTRO_DIARIO cada fila representa un abordaje de colaborador con DNI.
+  // La CAPACIDAD y el COSTO corresponden al bus despachado para ese servicio.
+  const tripsMap = {};
+  let anonymousTripCounter = 0;
+  let totalPasajerosSemana = 0;
+  const uniqueColaboradoresSet = new Set();
+
   rowsSemana.forEach(r => {
     const rutaRaw = String(getRowVal(r, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
-    if (!rutaRaw) return;
-    const ruta = rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : `RUTA ${rutaRaw.toUpperCase()}`;
+    const rawFecha = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
+    const fechaSoloDia = normalizeDateStr(rawFecha);
 
-    if (!statsRuta[ruta]) {
-      statsRuta[ruta] = { viajes: 0, pasajeros: 0, capacidad: 0, costo: 0 };
+    // Omitir filas sin ruta ni fecha (filas residuales o vacías de fórmulas)
+    if (!rutaRaw && !fechaSoloDia) return;
+
+    const ruta = rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : (rutaRaw ? `RUTA ${rutaRaw.toUpperCase()}` : 'RUTA DESCONOCIDA');
+    const tipoBusVal = String(getRowVal(r, ['TIPO_BUS', 'TIPO BUS', 'BUS_TIPO']) || '').trim();
+    const turnoVal = String(getRowVal(r, ['TURNO', 'HORA', 'HORARIO', 'SENTIDO']) || '').trim();
+    const placaVal = String(getRowVal(r, ['PLACA', 'UNIDAD', 'VEHICULO']) || '').trim();
+
+    // DNI y Nombre del colaborador
+    const rawRowDni = getRowVal(r, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
+    const dniClean = cleanDni(rawRowDni);
+    const rawNombre = String(getRowVal(r, ['APELLIDOS Y NOMBRES', 'NOMBRE Y APELLIDO', 'NOMBRE', 'COLABORADOR', 'EMPLEADO', 'NAME']) || '').trim();
+
+    // Determinar si es una fila de pasajero real con DNI o nombre válido
+    const isPassengerRow = Boolean(
+      (dniClean && dniClean.length >= 4 && !['TOTAL', 'SUBTOTAL', 'NONE', 'N/D', '0'].includes(dniClean)) ||
+      (rawNombre && rawNombre.length >= 3 && !rawNombre.toUpperCase().includes('TOTAL'))
+    );
+
+    // Cantidad si la hoja viniera ya resumida por viaje
+    const rawPasajCol = getRowVal(r, ['PASAJEROS', 'TOTAL PASAJEROS', 'PASAJ', 'CANTIDAD PASAJEROS', 'CANT_PASAJEROS']);
+    const numPasajCol = parseFloat(String(rawPasajCol || '0').replace(/[^0-9.-]+/g, "")) || 0;
+
+    // Si la fila no tiene pasajero real ni cantidad de pasajeros > 0, se descarta (previene contar filas en blanco/totales)
+    if (!isPassengerRow && numPasajCol <= 0) return;
+
+    // Clave única del viaje de bus: un mismo bus atiende a todos los pasajeros de esa fecha + ruta + turno
+    const tripKey = isPassengerRow
+      ? `${fechaSoloDia || 'FECHA'}|${ruta}|${tipoBusVal || 'BUS'}${turnoVal ? '|' + turnoVal : ''}${placaVal ? '|' + placaVal : ''}`
+      : `${fechaSoloDia || 'FECHA'}|${ruta}|${tipoBusVal || 'BUS'}|trip_${anonymousTripCounter++}`;
+
+    if (!tripsMap[tripKey]) {
+      const rawCap = getRowVal(r, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
+      const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
+      const rawCosto = getRowVal(r, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL']);
+      const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+
+      tripsMap[tripKey] = {
+        tripKey,
+        fecha: fechaSoloDia,
+        ruta,
+        tipoBus: tipoBusVal,
+        capacidad: capNum > 0 ? capNum : 50,
+        costo: costoNum,
+        pasajeros: 0,
+        pasajerosList: []
+      };
     }
-    const st = statsRuta[ruta];
+
+    const trip = tripsMap[tripKey];
+    if (isPassengerRow) {
+      trip.pasajeros += 1;
+      totalPasajerosSemana += 1;
+      if (dniClean) uniqueColaboradoresSet.add(dniClean);
+      else if (rawNombre) uniqueColaboradoresSet.add(rawNombre);
+      trip.pasajerosList.push(dniClean || rawNombre);
+    } else {
+      const cant = numPasajCol > 0 ? numPasajCol : 1;
+      trip.pasajeros += cant;
+      totalPasajerosSemana += cant;
+    }
+  });
+
+  // 5. Agregar métricas consolidadas por ruta
+  const statsRuta = {};
+  Object.values(tripsMap).forEach(trip => {
+    if (!statsRuta[trip.ruta]) {
+      statsRuta[trip.ruta] = {
+        viajes: 0,
+        pasajeros: 0,
+        capacidad: 0,
+        costo: 0
+      };
+    }
+    const st = statsRuta[trip.ruta];
     st.viajes += 1;
-
-    const rawCap = getRowVal(r, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
-    const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
-    st.capacidad += capNum;
-
-    const rawPasaj = getRowVal(r, ['PASAJEROS', 'TOTAL PASAJEROS', 'PASAJ', 'CANTIDAD PASAJEROS']);
-    const numPasaj = parseFloat(String(rawPasaj || '0').replace(/[^0-9.-]+/g, "")) || 0;
-    st.pasajeros += (numPasaj > 0 ? numPasaj : 1);
-
-    const rawCosto = getRowVal(r, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL']);
-    const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
-    st.costo += costoNum;
+    st.capacidad += trip.capacidad;
+    st.costo += trip.costo;
+    st.pasajeros += trip.pasajeros;
   });
 
   const rutasArray = Object.keys(statsRuta).map(ruta => {
@@ -2330,15 +2398,15 @@ function renderAnalisisCostos() {
     };
   }).sort((a, b) => a.ruta.localeCompare(b.ruta, undefined, { numeric: true }));
 
-  // 5. Totales Ejecutivos de la Semana
-  let totalViajes = 0, totalPasajeros = 0, totalCapacidad = 0, totalCosto = 0;
+  // 6. Totales Ejecutivos de la Semana
+  let totalViajes = 0, totalCapacidad = 0, totalCosto = 0;
   rutasArray.forEach(r => {
     totalViajes += r.viajes;
-    totalPasajeros += r.pasajeros;
     totalCapacidad += r.capacidad;
     totalCosto += r.costo;
   });
 
+  const totalPasajeros = totalPasajerosSemana;
   const ocupacionPromGlobal = totalCapacidad > 0 ? totalPasajeros / totalCapacidad : 0;
   const costoPromPasajero = totalPasajeros > 0 ? totalCosto / totalPasajeros : 0;
   const costoPromViaje = totalViajes > 0 ? totalCosto / totalViajes : 0;
@@ -2350,6 +2418,15 @@ function renderAnalisisCostos() {
 
   const elPasaj = document.getElementById('costTotalPasajeros');
   if (elPasaj) elPasaj.innerText = totalPasajeros.toLocaleString('es-PE');
+
+  const subPasaj = document.querySelector('#costTotalPasajeros + .kpi-subtitle');
+  if (subPasaj) {
+    if (uniqueColaboradoresSet.size > 0 && uniqueColaboradoresSet.size !== totalPasajeros) {
+      subPasaj.innerText = `${uniqueColaboradoresSet.size} colaboradores únicos`;
+    } else {
+      subPasaj.innerText = 'Colaboradores movilizados';
+    }
+  }
 
   const elCap = document.getElementById('costCapacidadTotal');
   if (elCap) elCap.innerText = totalCapacidad.toLocaleString('es-PE');
@@ -2559,7 +2636,7 @@ function renderAnalisisCostos() {
       <tr>
         <td style="font-weight: 600; color: #f8fafc;">Costo/Pasajero</td>
         <td style="text-align: right;">S/ ${costoPromPasajero.toFixed(2)}</td>
-        <td style="text-align: right; font-weight: 600;">S/ ${(costoPromPasajero * 4).toFixed(2)}</td>
+        <td style="text-align: right; font-weight: 600;">S/ ${costoPromPasajero.toFixed(2)}</td>
       </tr>
     `;
   }
