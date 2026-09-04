@@ -29,6 +29,8 @@ const AppState = {
   mapDrawn: false,
   routeDirectionsCache: {},
   unmappedPassengers: [], // Pasajeros en Registro Diario no encontrados en BD
+  activeTab: 'operacion', // 'operacion' o 'costos'
+  semanaCostosSeleccionada: null, // Semana seleccionada para la hoja ANALISIS_COSTOS
   mapboxToken: (window.APP_CONFIG && window.APP_CONFIG.MAPBOX_TOKEN) 
     ? window.APP_CONFIG.MAPBOX_TOKEN 
     : ['pk', 'eyJ1IjoiZmh1cnRhZG9hIiwiYSI6ImNtbnRmeW52NTBwb2sycW9uYWJjeXd6Mm8ifQ', 'LcHL2SI6zsJ-oQyg3JUFrw'].join('.')
@@ -518,6 +520,61 @@ function initUIEvents() {
     btnCopiarDnis.addEventListener('click', () => {
       copiarDnisNoMapeados();
     });
+  }
+
+  // Pestañas de Navegación del Dashboard
+  const btnTabOp = document.getElementById('btnTabOperacion');
+  if (btnTabOp) {
+    btnTabOp.addEventListener('click', () => switchDashboardTab('operacion'));
+  }
+  const btnTabCo = document.getElementById('btnTabCostos');
+  if (btnTabCo) {
+    btnTabCo.addEventListener('click', () => switchDashboardTab('costos'));
+  }
+
+  // Selector de Semana en Análisis de Costos
+  const selSemCostos = document.getElementById('selectSemanaCostos');
+  if (selSemCostos) {
+    selSemCostos.addEventListener('change', (e) => {
+      AppState.semanaCostosSeleccionada = e.target.value;
+      renderAnalisisCostos();
+    });
+  }
+
+  // Modal Asistente Copilot
+  const btnOpenCopilot = document.getElementById('btnOpenCopilotModal');
+  if (btnOpenCopilot) {
+    btnOpenCopilot.addEventListener('click', () => openCopilotModal());
+  }
+  const btnCloseCopilot = document.getElementById('close-modal-copilot');
+  if (btnCloseCopilot) {
+    btnCloseCopilot.addEventListener('click', () => closeCopilotModal());
+  }
+  const modalCopilot = document.getElementById('modal-copilot');
+  if (modalCopilot) {
+    modalCopilot.addEventListener('click', (e) => {
+      if (e.target === modalCopilot) closeCopilotModal();
+    });
+  }
+  const btnCopilotPrompt = document.getElementById('btnCopilotTabPrompt');
+  const btnCopilotGuia = document.getElementById('btnCopilotTabGuia');
+  if (btnCopilotPrompt && btnCopilotGuia) {
+    btnCopilotPrompt.addEventListener('click', () => {
+      btnCopilotPrompt.className = 'btn btn-primary btn-sm';
+      btnCopilotGuia.className = 'btn btn-secondary btn-sm';
+      document.getElementById('panelCopilotPrompt')?.classList.remove('hidden');
+      document.getElementById('panelCopilotGuia')?.classList.add('hidden');
+    });
+    btnCopilotGuia.addEventListener('click', () => {
+      btnCopilotGuia.className = 'btn btn-primary btn-sm';
+      btnCopilotPrompt.className = 'btn btn-secondary btn-sm';
+      document.getElementById('panelCopilotGuia')?.classList.remove('hidden');
+      document.getElementById('panelCopilotPrompt')?.classList.add('hidden');
+    });
+  }
+  const btnCopyPrompt = document.getElementById('btnCopiarPromptCopilot');
+  if (btnCopyPrompt) {
+    btnCopyPrompt.addEventListener('click', () => copiarPromptCopilot());
   }
 }
 
@@ -1033,6 +1090,7 @@ function applyFilters() {
   // Agrupación de viajes de buses
   // Cada viaje de bus se identifica por fecha + ruta (+ tipoBus si aplica)
   const aggrMap = {};
+  let aggrTripIdx = 0;
   AppState.rawRegistroDiario.forEach(row => {
     const rawFecha = getRowVal(row, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
     const fechaSoloDia = normalizeDateStr(rawFecha);
@@ -1052,7 +1110,9 @@ function applyFilters() {
     if (!rutaVal) return;
 
     const tipoBusVal = String(getRowVal(row, ['TIPO_BUS', 'TIPO BUS', 'BUS_TIPO']) || '').trim();
-    const tripKey = `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}`;
+    const rawRowDni = getRowVal(row, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
+    const isPassengerRow = Boolean(rawRowDni && String(rawRowDni).trim().length >= 4);
+    const tripKey = isPassengerRow ? `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}` : `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}|${aggrTripIdx++}`;
 
     if (!aggrMap[tripKey]) {
       const rawCosto = getRowVal(row, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL', 'COSTO IDA Y VUELTA']);
@@ -1075,25 +1135,29 @@ function applyFilters() {
     }
 
     const trip = aggrMap[tripKey];
-    trip.totalPasajeros += 1;
+    const rawPasajCol = getRowVal(row, ['PASAJEROS', 'TOTAL PASAJEROS', 'PASAJ', 'CANTIDAD PASAJEROS', 'CANT_PASAJEROS']);
+    const numPasajCol = parseFloat(String(rawPasajCol || '0').replace(/[^0-9.-]+/g, "")) || 0;
 
-    // Verificar si el empleado de esta fila cumple con los filtros activos
-    const rawRowDni = getRowVal(row, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
-    const cleanPassengerDni = cleanDni(rawRowDni);
-
-    let passengerMatches = false;
-    if (!isFiltered) {
-      passengerMatches = true;
-    } else {
-      if (cleanPassengerDni && filteredDniSet.has(cleanPassengerDni)) {
+    if (isPassengerRow) {
+      trip.totalPasajeros += 1;
+      const cleanPassengerDni = cleanDni(rawRowDni);
+      let passengerMatches = false;
+      if (!isFiltered) {
         passengerMatches = true;
-      } else if (rawRowDni && filteredDniSet.has(String(rawRowDni).trim().toUpperCase())) {
-        passengerMatches = true;
+      } else {
+        if (cleanPassengerDni && filteredDniSet.has(cleanPassengerDni)) {
+          passengerMatches = true;
+        } else if (rawRowDni && filteredDniSet.has(String(rawRowDni).trim().toUpperCase())) {
+          passengerMatches = true;
+        }
       }
-    }
-
-    if (passengerMatches) {
-      trip.pasajerosFiltrados += 1;
+      if (passengerMatches) {
+        trip.pasajerosFiltrados += 1;
+      }
+    } else {
+      const cant = numPasajCol > 0 ? numPasajCol : 1;
+      trip.totalPasajeros += cant;
+      trip.pasajerosFiltrados += cant;
     }
   });
 
@@ -1123,6 +1187,7 @@ function applyFilters() {
   if (typeof renderCharts === 'function') {
     renderCharts();
   }
+  renderAnalisisCostos();
 }
 
 function renderTables() {
@@ -2150,6 +2215,622 @@ function copiarDnisNoMapeados() {
     else alert(`Se copiaron ${list.length} DNIs al portapapeles`);
   }
 }
+
+// =========================================================
+// MÓDULO: Pestañas de Navegación del Dashboard
+// =========================================================
+
+function switchDashboardTab(tabName) {
+  AppState.activeTab = tabName;
+  const btnOp = document.getElementById('btnTabOperacion');
+  const btnCo = document.getElementById('btnTabCostos');
+  const viewOp = document.getElementById('viewOperacionDemografia');
+  const viewCo = document.getElementById('viewAnalisisCostos');
+
+  if (tabName === 'costos') {
+    if (btnOp) btnOp.classList.remove('active');
+    if (btnCo) btnCo.classList.add('active');
+    if (viewOp) viewOp.classList.add('hidden');
+    if (viewCo) viewCo.classList.remove('hidden');
+    renderAnalisisCostos();
+  } else {
+    if (btnCo) btnCo.classList.remove('active');
+    if (btnOp) btnOp.classList.add('active');
+    if (viewCo) viewCo.classList.add('hidden');
+    if (viewOp) viewOp.classList.remove('hidden');
+  }
+}
+
+// =========================================================
+// MÓDULO: Hoja de Análisis de Costos y Eficiencia
+// =========================================================
+
+function renderAnalisisCostos() {
+  const rawRows = AppState.rawRegistroDiario || [];
+  if (rawRows.length === 0) return;
+
+  // 1. Extraer semanas únicas disponibles
+  const semSet = new Set();
+  rawRows.forEach(r => {
+    const s = parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10);
+    if (!isNaN(s) && s > 0) semSet.add(s);
+  });
+  const semanas = Array.from(semSet).sort((a, b) => a - b);
+
+  // 2. Poblar selector de semana si no tiene opciones suficientes
+  const selSem = document.getElementById('selectSemanaCostos');
+  if (selSem) {
+    if (selSem.options.length <= 1 && semanas.length > 0) {
+      selSem.innerHTML = semanas.map(s => `<option value="${s}">Semana ${s}</option>`).join('');
+      if (semanas.length > 1) {
+        selSem.innerHTML += `<option value="TODAS">Todas las Semanas</option>`;
+      }
+    }
+    if (!AppState.semanaCostosSeleccionada) {
+      AppState.semanaCostosSeleccionada = semanas.length > 0 ? String(semanas[semanas.length - 1]) : '9';
+    }
+    selSem.value = AppState.semanaCostosSeleccionada;
+  }
+
+  const semSel = AppState.semanaCostosSeleccionada || (semanas.length > 0 ? String(semanas[semanas.length - 1]) : '9');
+  const isVerTodas = (semSel === 'TODAS');
+
+  // Actualizar badge de la tabla
+  const badgeSem = document.getElementById('badgeSemanaTabla');
+  if (badgeSem) {
+    badgeSem.innerText = isVerTodas ? 'Todas las Semanas' : `Semana ${semSel}`;
+  }
+
+  // 3. Filtrar registros por la semana analizada
+  const rowsSemana = isVerTodas 
+    ? rawRows 
+    : rawRows.filter(r => {
+        const s = parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10);
+        return String(s) === String(semSel);
+      });
+
+  // 4. Agregar métricas por ruta de la semana
+  const statsRuta = {};
+  rowsSemana.forEach(r => {
+    const rutaRaw = String(getRowVal(r, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
+    if (!rutaRaw) return;
+    const ruta = rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : `RUTA ${rutaRaw.toUpperCase()}`;
+
+    if (!statsRuta[ruta]) {
+      statsRuta[ruta] = { viajes: 0, pasajeros: 0, capacidad: 0, costo: 0 };
+    }
+    const st = statsRuta[ruta];
+    st.viajes += 1;
+
+    const rawCap = getRowVal(r, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
+    const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    st.capacidad += capNum;
+
+    const rawPasaj = getRowVal(r, ['PASAJEROS', 'TOTAL PASAJEROS', 'PASAJ', 'CANTIDAD PASAJEROS']);
+    const numPasaj = parseFloat(String(rawPasaj || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    st.pasajeros += (numPasaj > 0 ? numPasaj : 1);
+
+    const rawCosto = getRowVal(r, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL']);
+    const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    st.costo += costoNum;
+  });
+
+  const rutasArray = Object.keys(statsRuta).map(ruta => {
+    const st = statsRuta[ruta];
+    const pctOcup = st.capacidad > 0 ? st.pasajeros / st.capacidad : 0;
+    const costoViaje = st.viajes > 0 ? st.costo / st.viajes : 0;
+    const costoPasaj = st.pasajeros > 0 ? st.costo / st.pasajeros : 0;
+
+    let estado = '-';
+    let estadoClass = '';
+    if (pctOcup >= 0.9) {
+      estado = '✅ Óptimo';
+      estadoClass = 'badge badge-success';
+    } else if (pctOcup >= 0.7) {
+      estado = '🔄 OK';
+      estadoClass = 'badge badge-info';
+    } else if (pctOcup >= 0.5) {
+      estado = '⚠️ Bajo';
+      estadoClass = 'badge badge-warning';
+    } else {
+      estado = '🔴 Muy Bajo';
+      estadoClass = 'badge badge-danger';
+    }
+
+    return {
+      ruta,
+      viajes: st.viajes,
+      pasajeros: st.pasajeros,
+      capacidad: st.capacidad,
+      pctOcup,
+      costo: st.costo,
+      costoViaje,
+      costoPasaj,
+      estado,
+      estadoClass
+    };
+  }).sort((a, b) => a.ruta.localeCompare(b.ruta, undefined, { numeric: true }));
+
+  // 5. Totales Ejecutivos de la Semana
+  let totalViajes = 0, totalPasajeros = 0, totalCapacidad = 0, totalCosto = 0;
+  rutasArray.forEach(r => {
+    totalViajes += r.viajes;
+    totalPasajeros += r.pasajeros;
+    totalCapacidad += r.capacidad;
+    totalCosto += r.costo;
+  });
+
+  const ocupacionPromGlobal = totalCapacidad > 0 ? totalPasajeros / totalCapacidad : 0;
+  const costoPromPasajero = totalPasajeros > 0 ? totalCosto / totalPasajeros : 0;
+  const costoPromViaje = totalViajes > 0 ? totalCosto / totalViajes : 0;
+  const rutasUnicasCount = rutasArray.filter(r => r.viajes > 0).length;
+
+  // Pintar KPIs en pantalla
+  const elViajes = document.getElementById('costTotalViajes');
+  if (elViajes) elViajes.innerText = totalViajes;
+
+  const elPasaj = document.getElementById('costTotalPasajeros');
+  if (elPasaj) elPasaj.innerText = totalPasajeros.toLocaleString('es-PE');
+
+  const elCap = document.getElementById('costCapacidadTotal');
+  if (elCap) elCap.innerText = totalCapacidad.toLocaleString('es-PE');
+
+  const elOcup = document.getElementById('costOcupacionProm');
+  if (elOcup) elOcup.innerText = `${(ocupacionPromGlobal * 100).toFixed(0)}%`;
+
+  const elCosto = document.getElementById('costTotalSemana');
+  if (elCosto) elCosto.innerText = `S/ ${totalCosto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const elCostoPasaj = document.getElementById('costPromPasajero');
+  if (elCostoPasaj) elCostoPasaj.innerText = `S/ ${costoPromPasajero.toFixed(2)}`;
+
+  const elCostoViaje = document.getElementById('costPromViaje');
+  if (elCostoViaje) elCostoViaje.innerText = `S/ ${costoPromViaje.toFixed(2)}`;
+
+  const elRutasU = document.getElementById('costRutasUnicas');
+  if (elRutasU) elRutasU.innerText = rutasUnicasCount;
+
+  // 6. Alertas de Flota
+  const rutasBajas = rutasArray.filter(r => r.pctOcup < 0.5).length;
+  const rutasAltas = rutasArray.filter(r => r.pctOcup >= 0.9).length;
+
+  let eficienciaGlobalTexto = '🔄 Aceptable';
+  let eficienciaColor = '#38bdf8';
+  let eficienciaMsg = 'Desempeño general balanceado.';
+
+  if (rutasAltas > 7) {
+    eficienciaGlobalTexto = '🟢 Excelente';
+    eficienciaColor = '#4ade80';
+    eficienciaMsg = 'Alta rentabilidad y demanda sólida.';
+  } else if (rutasBajas > 5) {
+    eficienciaGlobalTexto = '🔴 Crítico';
+    eficienciaColor = '#f87171';
+    eficienciaMsg = 'Alta subutilización de buses. Requiere ajuste urgente a unidades menores.';
+  } else if (rutasBajas > 2) {
+    eficienciaGlobalTexto = '⚠️ Mejorar';
+    eficienciaColor = '#fbbf24';
+    eficienciaMsg = 'Existen varias rutas con capacidad ociosa por optimizar.';
+  }
+
+  const elAltas = document.getElementById('alertRutasAltas');
+  if (elAltas) elAltas.innerText = rutasAltas;
+
+  const elBajas = document.getElementById('alertRutasBajas');
+  if (elBajas) elBajas.innerText = rutasBajas;
+
+  const elEfic = document.getElementById('alertEficienciaGlobal');
+  if (elEfic) {
+    elEfic.innerText = eficienciaGlobalTexto;
+    elEfic.style.color = eficienciaColor;
+  }
+
+  const elEficMsg = document.getElementById('alertEficienciaMsg');
+  if (elEficMsg) elEficMsg.innerText = eficienciaMsg;
+
+  // 7. Tabla Detalle por Ruta
+  const tbodyDetalle = document.getElementById('tbodyDetalleCostosSemana');
+  if (tbodyDetalle) {
+    if (rutasArray.length === 0) {
+      tbodyDetalle.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 25px;">No se registraron viajes para la semana ${semSel}.</td></tr>`;
+    } else {
+      tbodyDetalle.innerHTML = rutasArray.map(r => `
+        <tr>
+          <td style="font-weight: 600; color: #f8fafc;">${r.ruta}</td>
+          <td style="text-align: center;">${r.viajes}</td>
+          <td style="text-align: center;">${r.pasajeros}</td>
+          <td style="text-align: center;">${r.capacidad}</td>
+          <td style="text-align: center; font-weight: 700; color: ${r.pctOcup < 0.5 ? '#f87171' : (r.pctOcup >= 0.7 ? '#4ade80' : '#fbbf24')};">${(r.pctOcup * 100).toFixed(0)}%</td>
+          <td style="text-align: right; color: #60a5fa; font-weight: 600;">S/ ${r.costo.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+          <td style="text-align: right;">S/ ${r.costoViaje.toFixed(0)}</td>
+          <td style="text-align: right;">S/ ${r.costoPasaj.toFixed(2)}</td>
+          <td style="text-align: center;"><span class="${r.estadoClass}">${r.estado}</span></td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  const tfootDetalle = document.getElementById('tfootDetalleCostosSemana');
+  if (tfootDetalle) {
+    tfootDetalle.innerHTML = `
+      <tr>
+        <td style="color: #60a5fa;">TOTAL</td>
+        <td style="text-align: center;">${totalViajes}</td>
+        <td style="text-align: center;">${totalPasajeros.toLocaleString('es-PE')}</td>
+        <td style="text-align: center;">${totalCapacidad.toLocaleString('es-PE')}</td>
+        <td style="text-align: center; color: #38bdf8;">${(ocupacionPromGlobal * 100).toFixed(0)}%</td>
+        <td style="text-align: right; color: #60a5fa;">S/ ${totalCosto.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+        <td style="text-align: right;">S/ ${costoPromViaje.toFixed(0)}</td>
+        <td style="text-align: right;">S/ ${costoPromPasajero.toFixed(2)}</td>
+        <td style="text-align: center;">-</td>
+      </tr>
+    `;
+  }
+
+  // 8. Rankings Top 3 Más y Menos Eficientes
+  const validRutas = rutasArray.filter(r => r.viajes > 0 && r.capacidad > 0);
+  const top3Mas = [...validRutas].sort((a, b) => b.pctOcup - a.pctOcup).slice(0, 3);
+  const top3Menos = [...validRutas].sort((a, b) => a.pctOcup - b.pctOcup).slice(0, 3);
+
+  const tbTop = document.getElementById('tbodyTopEficientes');
+  if (tbTop) {
+    tbTop.innerHTML = top3Mas.map((r, i) => `
+      <tr>
+        <td style="font-weight: 600; color: #4ade80;">${r.ruta}</td>
+        <td style="text-align: center; font-weight: 700;">${(r.pctOcup * 100).toFixed(0)}%</td>
+        <td style="text-align: right; color: #cbd5e1;">S/ ${r.costoViaje.toFixed(0)}</td>
+      </tr>
+    `).join('');
+  }
+
+  const tbBottom = document.getElementById('tbodyBottomEficientes');
+  if (tbBottom) {
+    tbBottom.innerHTML = top3Menos.map((r, i) => `
+      <tr>
+        <td style="font-weight: 600; color: #f87171;">${r.ruta}</td>
+        <td style="text-align: center; font-weight: 700; color: #f87171;">${(r.pctOcup * 100).toFixed(0)}%</td>
+        <td style="text-align: right; color: #cbd5e1;">S/ ${r.costoViaje.toFixed(0)}</td>
+      </tr>
+    `).join('');
+  }
+
+  // 9. Recomendaciones de Toma de Decisiones
+  const p1Urgente = rutasBajas > 5 ? 'prioridad-urgente' : (rutasBajas > 2 ? 'prioridad-media' : 'prioridad-baja');
+  const p1Texto = rutasBajas > 5 ? '🔴 URGENTE' : (rutasBajas > 2 ? '🟡 MEDIA' : '🟢 BAJA');
+
+  const p2Urgente = rutasAltas > 3 ? 'prioridad-urgente' : (rutasAltas > 1 ? 'prioridad-media' : 'prioridad-baja');
+  const p2Texto = rutasAltas > 3 ? '🔴 URGENTE' : (rutasAltas > 1 ? '🟡 MEDIA' : '🟢 BAJA');
+
+  const p3Urgente = costoPromPasajero > 20 ? 'prioridad-urgente' : (costoPromPasajero > 15 ? 'prioridad-media' : 'prioridad-baja');
+  const p3Texto = costoPromPasajero > 20 ? '🔴 URGENTE' : (costoPromPasajero > 15 ? '🟡 MEDIA' : '🟢 BAJA');
+  const p3Recom = costoPromPasajero > 15 ? '⚠️ Optimizar rutas para reducir costo/pasajero' : '✅ Costo por pasajero controlado y aceptable';
+
+  const p4Urgente = ocupacionPromGlobal < 0.5 ? 'prioridad-urgente' : (ocupacionPromGlobal < 0.7 ? 'prioridad-media' : 'prioridad-baja');
+  const p4Texto = ocupacionPromGlobal < 0.5 ? '🔴 URGENTE' : (ocupacionPromGlobal < 0.7 ? '🟡 MEDIA' : '🟢 BAJA');
+  const p4Recom = ocupacionPromGlobal < 0.6 ? '⚠️ Revisar dimensionamiento general de flota' : (ocupacionPromGlobal < 0.75 ? '🔄 Monitorear tendencia operativa' : '✅ Ocupación saludable');
+
+  const p5Urgente = totalCosto > 35000 ? 'prioridad-urgente' : (totalCosto > 30000 ? 'prioridad-media' : 'prioridad-baja');
+  const p5Texto = totalCosto > 35000 ? '🔴 URGENTE' : (totalCosto > 30000 ? '🟡 MEDIA' : '🟢 BAJA');
+  const p5Recom = totalCosto > 30000 ? '📊 Evaluar renegociación con proveedores' : '✅ Dentro de presupuesto esperado';
+
+  const tbRecom = document.getElementById('tbodyRecomendacionesDecisiones');
+  if (tbRecom) {
+    tbRecom.innerHTML = `
+      <tr>
+        <td style="font-weight: 700; color: #94a3b8;">1</td>
+        <td style="font-weight: 600; color: #f8fafc;">Rutas con muy baja ocupación</td>
+        <td>${rutasBajas} rutas &lt; 50%</td>
+        <td>Considerar cambio a vans o vehículos menores (Sprinter/Custer)</td>
+        <td style="text-align: center;"><span class="prioridad-pill ${p1Urgente}">${p1Texto}</span></td>
+        <td style="color: #4ade80; font-weight: 600;">Ahorro 20-40% en costos</td>
+      </tr>
+      <tr>
+        <td style="font-weight: 700; color: #94a3b8;">2</td>
+        <td style="font-weight: 600; color: #f8fafc;">Rutas con alta demanda</td>
+        <td>${rutasAltas} rutas ≥ 90%</td>
+        <td>Considerar bus adicional si supera capacidad asignada</td>
+        <td style="text-align: center;"><span class="prioridad-pill ${p2Urgente}">${p2Texto}</span></td>
+        <td style="color: #60a5fa;">Mejora satisfacción colaboradores</td>
+      </tr>
+      <tr>
+        <td style="font-weight: 700; color: #94a3b8;">3</td>
+        <td style="font-weight: 600; color: #f8fafc;">Costo promedio por pasajero</td>
+        <td>S/ ${costoPromPasajero.toFixed(2)}</td>
+        <td>${p3Recom}</td>
+        <td style="text-align: center;"><span class="prioridad-pill ${p3Urgente}">${p3Texto}</span></td>
+        <td style="color: #cbd5e1;">Meta: &lt; S/ 15.00</td>
+      </tr>
+      <tr>
+        <td style="font-weight: 700; color: #94a3b8;">4</td>
+        <td style="font-weight: 600; color: #f8fafc;">Ocupación promedio global</td>
+        <td>${(ocupacionPromGlobal * 100).toFixed(0)}%</td>
+        <td>${p4Recom}</td>
+        <td style="text-align: center;"><span class="prioridad-pill ${p4Urgente}">${p4Texto}</span></td>
+        <td style="color: #cbd5e1;">Meta: &gt; 70%</td>
+      </tr>
+      <tr>
+        <td style="font-weight: 700; color: #94a3b8;">5</td>
+        <td style="font-weight: 600; color: #f8fafc;">Inversión semanal en transporte</td>
+        <td>S/ ${Math.round(totalCosto).toLocaleString('es-PE')}</td>
+        <td>${p5Recom}</td>
+        <td style="text-align: center;"><span class="prioridad-pill ${p5Urgente}">${p5Texto}</span></td>
+        <td style="color: #cbd5e1;">Benchmark: S/ 30,000/sem</td>
+      </tr>
+    `;
+  }
+
+  // 10. Proyección Mensual (x4)
+  const tbProy = document.getElementById('tbodyProyeccionMensual');
+  if (tbProy) {
+    tbProy.innerHTML = `
+      <tr>
+        <td style="font-weight: 600; color: #f8fafc;">Costo Total</td>
+        <td style="text-align: right; color: #60a5fa; font-weight: 600;">S/ ${Math.round(totalCosto).toLocaleString('es-PE')}</td>
+        <td style="text-align: right; color: #38bdf8; font-weight: 700;">S/ ${Math.round(totalCosto * 4).toLocaleString('es-PE')}</td>
+      </tr>
+      <tr>
+        <td style="font-weight: 600; color: #f8fafc;">Pasajeros</td>
+        <td style="text-align: right;">${totalPasajeros.toLocaleString('es-PE')}</td>
+        <td style="text-align: right; font-weight: 600;">${(totalPasajeros * 4).toLocaleString('es-PE')}</td>
+      </tr>
+      <tr>
+        <td style="font-weight: 600; color: #f8fafc;">Viajes</td>
+        <td style="text-align: right;">${totalViajes}</td>
+        <td style="text-align: right; font-weight: 600;">${totalViajes * 4}</td>
+      </tr>
+      <tr>
+        <td style="font-weight: 600; color: #f8fafc;">Costo/Pasajero</td>
+        <td style="text-align: right;">S/ ${costoPromPasajero.toFixed(2)}</td>
+        <td style="text-align: right; font-weight: 600;">S/ ${(costoPromPasajero * 4).toFixed(2)}</td>
+      </tr>
+    `;
+  }
+
+  // 11. Gráficos de Costos (Solo si la pestaña está visible para evitar problemas de canvas oculto)
+  const viewCostosEl = document.getElementById('viewAnalisisCostos');
+  if (viewCostosEl && !viewCostosEl.classList.contains('hidden')) {
+    renderGraficosCostos(rutasArray);
+  }
+}
+
+// =========================================================
+// Gráficos de Costos y Eficiencia (Chart.js)
+// =========================================================
+
+function renderGraficosCostos(rutasArray) {
+  // Gráfico 1: % Ocupación por Ruta
+  const ctxOcup = document.getElementById('chartOcupacionRutasCostos');
+  if (ctxOcup) {
+    const labels = rutasArray.map(r => r.ruta.replace('RUTA ', 'R.'));
+    const dataOcup = rutasArray.map(r => Math.round(r.pctOcup * 100));
+    const colorsOcup = rutasArray.map(r => {
+      if (r.pctOcup >= 0.9) return '#22c55e'; // verde
+      if (r.pctOcup >= 0.7) return '#3b82f6'; // azul
+      if (r.pctOcup >= 0.5) return '#eab308'; // amarillo
+      return '#ef4444'; // rojo
+    });
+
+    if (AppState.charts['chartOcupacionRutasCostos']) {
+      AppState.charts['chartOcupacionRutasCostos'].destroy();
+    }
+
+    AppState.charts['chartOcupacionRutasCostos'] = new Chart(ctxOcup, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: '% Ocupación',
+          data: dataOcup,
+          backgroundColor: colorsOcup,
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            ticks: {
+              callback: (v) => v + '%'
+            },
+            grid: { color: 'rgba(255, 255, 255, 0.08)' }
+          },
+          x: {
+            grid: { display: false }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ${ctx.parsed.y}% de ocupación`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Gráfico 2: Costo Total vs Pasajeros por Ruta
+  const ctxCostoPasaj = document.getElementById('chartCostoPasajerosRutas');
+  if (ctxCostoPasaj) {
+    const labels = rutasArray.map(r => r.ruta.replace('RUTA ', 'R.'));
+    const dataCosto = rutasArray.map(r => r.costo);
+    const dataPasaj = rutasArray.map(r => r.pasajeros);
+
+    if (AppState.charts['chartCostoPasajerosRutas']) {
+      AppState.charts['chartCostoPasajerosRutas'].destroy();
+    }
+
+    AppState.charts['chartCostoPasajerosRutas'] = new Chart(ctxCostoPasaj, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Costo Total (S/)',
+            data: dataCosto,
+            backgroundColor: '#3b82f6',
+            borderRadius: 6,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Pasajeros Atendidos',
+            data: dataPasaj,
+            backgroundColor: '#10b981',
+            borderRadius: 6,
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            type: 'linear',
+            position: 'left',
+            ticks: {
+              callback: (v) => 'S/ ' + v
+            },
+            grid: { color: 'rgba(255, 255, 255, 0.08)' }
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            ticks: { precision: 0 }
+          },
+          x: { grid: { display: false } }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: '#cbd5e1', boxWidth: 12 }
+          }
+        }
+      }
+    });
+  }
+}
+
+// =========================================================
+// MÓDULO: Asistente Copilot y Generador de Diagnóstico IA
+// =========================================================
+
+function openCopilotModal() {
+  const modal = document.getElementById('modal-copilot');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+
+  // Generar prompt dinámico para la semana seleccionada
+  const promptText = generarPromptCopilotText();
+  const txtArea = document.getElementById('txtPromptCopilot');
+  if (txtArea) txtArea.value = promptText;
+}
+
+function closeCopilotModal() {
+  const modal = document.getElementById('modal-copilot');
+  if (modal) modal.classList.add('hidden');
+}
+
+function generarPromptCopilotText() {
+  const rawRows = AppState.rawRegistroDiario || [];
+  const semSel = AppState.semanaCostosSeleccionada || '9';
+  const isVerTodas = (semSel === 'TODAS');
+
+  const rowsSemana = isVerTodas 
+    ? rawRows 
+    : rawRows.filter(r => {
+        const s = parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10);
+        return String(s) === String(semSel);
+      });
+
+  const statsRuta = {};
+  rowsSemana.forEach(r => {
+    const rutaRaw = String(getRowVal(r, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
+    if (!rutaRaw) return;
+    const ruta = rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : `RUTA ${rutaRaw.toUpperCase()}`;
+    if (!statsRuta[ruta]) statsRuta[ruta] = { viajes: 0, pasajeros: 0, capacidad: 0, costo: 0 };
+    const st = statsRuta[ruta];
+    st.viajes += 1;
+    st.capacidad += parseFloat(String(getRowVal(r, ['CAPACIDAD', 'CAPACIDAD BUS']) || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    const numPasaj = parseFloat(String(getRowVal(r, ['PASAJEROS', 'PASAJ']) || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    st.pasajeros += (numPasaj > 0 ? numPasaj : 1);
+    st.costo += parseFloat(String(getRowVal(r, ['COSTO TOTAL', 'COSTO']) || '0').replace(/[^0-9.-]+/g, "")) || 0;
+  });
+
+  const rutasArray = Object.keys(statsRuta).map(k => {
+    const st = statsRuta[k];
+    const pct = st.capacidad > 0 ? st.pasajeros / st.capacidad : 0;
+    return { ruta: k, ...st, pctOcup: pct, costoViaje: st.viajes > 0 ? st.costo / st.viajes : 0 };
+  });
+
+  let totalViajes = 0, totalPasajeros = 0, totalCap = 0, totalCosto = 0;
+  rutasArray.forEach(r => { totalViajes += r.viajes; totalPasajeros += r.pasajeros; totalCap += r.capacidad; totalCosto += r.costo; });
+  const ocupGlobal = totalCap > 0 ? (totalPasajeros / totalCap) * 100 : 0;
+  const costoPasaj = totalPasajeros > 0 ? totalCosto / totalPasajeros : 0;
+  const costoViaje = totalViajes > 0 ? totalCosto / totalViajes : 0;
+
+  const rutasBajas = rutasArray.filter(r => r.pctOcup < 0.5);
+  const rutasAltas = rutasArray.filter(r => r.pctOcup >= 0.9);
+
+  const top3Mas = [...rutasArray].sort((a, b) => b.pctOcup - a.pctOcup).slice(0, 3);
+  const top3Menos = [...rutasArray].sort((a, b) => a.pctOcup - b.pctOcup).slice(0, 3);
+
+  return `# AUDITORÍA DE TRANSPORTE Y EFICIENCIA OPERATIVA - SEMANA ${semSel}
+**Centro de Distribución Tottus Huachipa (Falabella)**
+
+## 1. RESUMEN EJECUTIVO
+- Total de Viajes Realizados: ${totalViajes}
+- Total Pasajeros Movilizados: ${totalPasajeros.toLocaleString('es-PE')} colaboradores
+- Capacidad Total Programada: ${totalCap.toLocaleString('es-PE')} asientos
+- % Ocupación Promedio de Flota: ${ocupGlobal.toFixed(1)}% (Meta corporativa: > 70%)
+- Inversión Total Semanal: S/ ${totalCosto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+- Costo Promedio por Pasajero: S/ ${costoPasaj.toFixed(2)} (Meta corporativa: < S/ 15.00)
+- Costo Promedio por Viaje: S/ ${costoViaje.toFixed(2)}
+
+## 2. ALERTAS DE FLOTA CRÍTICAS
+- Rutas con Subutilización (< 50% ocupación): ${rutasBajas.length} rutas (${rutasBajas.map(r => `${r.ruta} [${(r.pctOcup * 100).toFixed(0)}%]`).join(', ') || 'Ninguna'})
+- Rutas Saturadas (≥ 90% ocupación): ${rutasAltas.length} rutas (${rutasAltas.map(r => `${r.ruta} [${(r.pctOcup * 100).toFixed(0)}%]`).join(', ') || 'Ninguna'})
+
+## 3. RANKING DE EFICIENCIA
+- Top 3 Más Eficientes:
+${top3Mas.map((r, i) => `  ${i + 1}. ${r.ruta}: ${(r.pctOcup * 100).toFixed(0)}% ocupación | S/ ${r.costoViaje.toFixed(0)}/viaje`).join('\n')}
+
+- Top 3 Menos Eficientes (Mayor oportunidad de ahorro):
+${top3Menos.map((r, i) => `  ${i + 1}. ${r.ruta}: ${(r.pctOcup * 100).toFixed(0)}% ocupación | S/ ${r.costoViaje.toFixed(0)}/viaje`).join('\n')}
+
+## 4. PROYECCIÓN MENSUAL ESTIMADA (x4)
+- Presupuesto Mensual Proyectado: S/ ${(totalCosto * 4).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+- Volumen de Pasajeros Mensual: ${(totalPasajeros * 4).toLocaleString('es-PE')}
+
+---
+## SOLICITUD DE AUDITORÍA PARA COPILOT:
+Como especialista en Optimización Logística y Supply Chain de Falabella:
+1. Analiza las rutas subutilizadas (< 50%) y propón una estrategia de reducción de tamaño de vehículo (cambio de Bus 50 pax a Minibus 30 pax, Custer 23 pax, Sprinter 16 pax o Minivan 10 pax).
+2. Calcula el ahorro económico mensual proyectado en Soles (S/) que se obtendría al redimensionar dichas unidades.
+3. Elabora 3 recomendaciones concretas para la mesa de negociación con los proveedores de transporte del CD Huachipa.`;
+}
+
+function copiarPromptCopilot() {
+  const txtArea = document.getElementById('txtPromptCopilot');
+  if (!txtArea || !txtArea.value) return;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txtArea.value).then(() => {
+      if (window.ClipboardUtil) ClipboardUtil.showToast('¡Prompt copiado! Pégalo en Microsoft Copilot (Teams o Edge)', 'success');
+      else alert('¡Prompt copiado para Microsoft Copilot!');
+    });
+  } else {
+    txtArea.select();
+    document.execCommand('copy');
+    if (window.ClipboardUtil) ClipboardUtil.showToast('¡Prompt copiado! Pégalo en Microsoft Copilot (Teams o Edge)', 'success');
+    else alert('¡Prompt copiado para Microsoft Copilot!');
+  }
+}
+
 
 
 
