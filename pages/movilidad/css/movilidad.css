@@ -409,8 +409,37 @@ body {
 }
 
 /* =========================================================
-   Botón Google Login & Perfil de Usuario Moderno
+   Área de Autenticación, Botón Google & Perfil
    ========================================================= */
+.auth-area {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.btn-outline-primary {
+  background: #1e293b !important;
+  color: #60a5fa !important;
+  border: 1px solid #334155 !important;
+  padding: 6px 14px !important;
+  border-radius: 20px !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+  font-size: 0.85rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  box-shadow: 3px 3px 8px #101622, -3px -3px 8px #2a3a52 !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-outline-primary:hover {
+  background: #253347 !important;
+  border-color: #3b82f6 !important;
+  color: #93c5fd !important;
+  transform: translateY(-1px);
+}
+
 .btn-google {
   background: #1e293b !important;
   color: #f8fafc !important;
@@ -420,11 +449,17 @@ body {
   font-weight: 600 !important;
   font-size: 0.85rem !important;
   box-shadow: 4px 4px 10px #101622, -4px -4px 10px #2a3a52 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 10px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
   transition: all 0.25s ease !important;
+}
+
+.btn-google.hidden,
+.user-profile.hidden,
+#btnGoogleLogin.hidden {
+  display: none !important;
 }
 
 .btn-google:hover {
@@ -446,7 +481,7 @@ body {
   padding: 6px 14px !important;
   border-radius: 20px !important;
   box-shadow: inset 2px 2px 4px #101622, inset -2px -2px 4px #2a3a52 !important;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   font-weight: 500;

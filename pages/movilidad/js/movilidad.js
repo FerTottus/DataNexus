@@ -248,11 +248,15 @@ function updateAuthUI(isAuthenticated) {
 
   if (isAuthenticated) {
     btnLogin.classList.add('hidden');
+    btnLogin.style.display = 'none';
     userInfo.classList.remove('hidden');
+    userInfo.style.display = 'inline-flex';
     userEmailSpan.innerText = GoogleSheetsService.userEmail || 'Conectado';
   } else {
     btnLogin.classList.remove('hidden');
+    btnLogin.style.display = '';
     userInfo.classList.add('hidden');
+    userInfo.style.display = 'none';
   }
 }
 
