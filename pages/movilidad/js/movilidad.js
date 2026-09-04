@@ -30,6 +30,9 @@ const AppState = {
   routeDirectionsCache: {},
   unmappedPassengers: [], // Pasajeros en Registro Diario no encontrados en BD
   activeTab: 'operacion', // 'operacion' o 'costos'
+  semanaSeleccionada: 'TODAS', // Semana activa en la cabecera
+  semanasDisponibles: [], // Lista de semanas únicas
+  semanasInfoMap: new Map(), // Mapeo de semana -> { dates, dias, sampleDate }
   semanaCostosSeleccionada: null, // Semana seleccionada para la hoja ANALISIS_COSTOS
   mapboxToken: (window.APP_CONFIG && window.APP_CONFIG.MAPBOX_TOKEN) 
     ? window.APP_CONFIG.MAPBOX_TOKEN 
