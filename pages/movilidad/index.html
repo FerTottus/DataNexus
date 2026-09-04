@@ -250,108 +250,6 @@
       </div>
     </div>
 
-    <!-- Modal de Asistente Copilot y Diagnóstico IA -->
-    <div id="modal-copilot" class="modal-overlay hidden">
-      <div class="modal-content modal-large-container">
-        <div class="modal-header" style="background: linear-gradient(135deg, #1e293b, #0f172a); border-bottom: 1px solid #3b82f6;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg, #2563eb, #7c3aed); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);">
-              <i class="fa-solid fa-robot"></i>
-            </div>
-            <div>
-              <h3 style="margin: 0; font-size: 1.15rem; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
-                Asistente Copilot IA: Auditor de Movilidad Huachipa
-                <span class="badge badge-success" style="font-size: 0.72rem;">M365 Corporativo</span>
-              </h3>
-              <small style="color: #94a3b8;">Generador de diagnóstico semanal y guía técnica para Microsoft Copilot Studio</small>
-            </div>
-          </div>
-          <button id="close-modal-copilot" class="btn-close">&times;</button>
-        </div>
-        <div class="modal-body" style="padding: 1.5rem; overflow-y: auto;">
-          
-          <!-- Sub-pestañas del Modal -->
-          <div style="display: flex; gap: 10px; border-bottom: 1px solid #334155; padding-bottom: 12px; margin-bottom: 16px; flex-shrink: 0;">
-            <button id="btnCopilotTabPrompt" class="btn btn-primary btn-sm" style="font-weight: 600; border-radius: 10px;">
-              <i class="fa-solid fa-file-lines"></i> 1. Diagnóstico Semanal Listo para Copilot
-            </button>
-            <button id="btnCopilotTabGuia" class="btn btn-secondary btn-sm" style="font-weight: 600; border-radius: 10px;">
-              <i class="fa-solid fa-book-open"></i> 2. Guía Técnica Copilot Studio (Paso a Paso)
-            </button>
-          </div>
-
-          <!-- Panel A: Prompt Dinámico Listo para Pegar -->
-          <div id="panelCopilotPrompt" class="copilot-panel">
-            <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; font-size: 0.88rem; color: #cbd5e1; line-height: 1.5;">
-              <strong style="color: #60a5fa;"><i class="fa-solid fa-wand-magic-sparkles"></i> ¿Cómo usarlo con Copilot en Falabella?</strong>
-              <p style="margin: 4px 0 0 0;">
-                El siguiente texto se genera <b>automáticamente con los datos en vivo de la semana seleccionada</b> (rutas ineficientes, costo por pasajero, sobrecostos y ocupación). Solo haz clic en <b>"Copiar Prompt"</b> y pégalo en tu <b>Microsoft 365 Copilot</b> (en Teams, navegador Edge o aplicación M365) para obtener propuestas de optimización de rutas, sugerencias de cambio de unidades (bus a van) y argumentos de negociación.
-              </p>
-            </div>
-
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
-              <button id="btnCopiarPromptCopilot" class="btn btn-success btn-sm" style="font-weight: 600; padding: 8px 16px; border-radius: 10px; display: inline-flex; align-items: center; gap: 8px;">
-                <i class="fa-regular fa-copy"></i> Copiar Prompt para Copilot
-              </button>
-            </div>
-
-            <textarea id="txtPromptCopilot" class="form-control" rows="14" readonly style="font-family: 'Consolas', monospace; font-size: 0.85rem; line-height: 1.5; background: #070b13; border-color: #334155; color: #e2e8f0; width: 100%; border-radius: 12px; padding: 14px; box-shadow: inset 2px 2px 6px #03060a;"></textarea>
-          </div>
-
-          <!-- Panel B: Guía Técnica de Configuración en Copilot Studio -->
-          <div id="panelCopilotGuia" class="copilot-panel hidden" style="overflow-y: auto; padding-right: 8px;">
-            
-            <div class="copilot-step-card">
-              <div class="copilot-step-title">
-                <i class="fa-solid fa-circle-1" style="color: #38bdf8;"></i> PASO 1: Acceso a Microsoft Copilot Studio
-              </div>
-              <p style="margin: 0; font-size: 0.86rem; color: #cbd5e1; line-height: 1.5;">
-                Ingresa a <a href="https://copilotstudio.microsoft.com" target="_blank" style="color: #60a5fa; text-decoration: underline;">copilotstudio.microsoft.com</a> con tus credenciales de Falabella. Haz clic en <b>"+ Nuevo Copilot"</b> o <b>"Crear agente"</b> y nómbralo: <code>Auditor de Transporte CD Huachipa</code>.
-              </p>
-            </div>
-
-            <div class="copilot-step-card">
-              <div class="copilot-step-title">
-                <i class="fa-solid fa-circle-2" style="color: #38bdf8;"></i> PASO 2: System Prompt (Instrucciones Maestras del Agente)
-              </div>
-              <p style="margin: 0 0 8px 0; font-size: 0.86rem; color: #cbd5e1; line-height: 1.5;">
-                En la sección <b>"Instructions" (Instrucciones del Agente)</b>, copia y pega las siguientes directrices de negocio para Falabella/Tottus:
-              </p>
-              <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-family: 'Consolas', monospace; font-size: 0.8rem; color: #93c5fd; white-space: pre-wrap; line-height: 1.4;">
-Eres el Especialista Senior de Optimización Logística y Transporte del Centro de Distribución Tottus Huachipa (Falabella).
-Tu objetivo es analizar los datos de la operación de movilidad de colaboradores para:
-1. Detectar ineficiencias de flota (unidades sobredimensionadas con ocupación &lt; 50%).
-2. Proponer reducción de costos cambiando buses grandes (50 pax) por Minibus (30 pax), Custer (23 pax), Sprinter (16 pax) o Minivan (10 pax) según la demanda real.
-3. Alertar rutas con saturación (≥ 90%) para evitar que colaboradores queden varados.
-4. Mantener el costo promedio por pasajero por debajo de S/ 15.00 y la ocupación global sobre el 70%.
-Tus respuestas deben ser ejecutivas, con tablas claras, estimación de ahorro en Soles (S/) y un plan de acción priorizado (Urgente / Medio / Bajo).
-              </div>
-            </div>
-
-            <div class="copilot-step-card">
-              <div class="copilot-step-title">
-                <i class="fa-solid fa-circle-3" style="color: #38bdf8;"></i> PASO 3: Fuente de Conocimiento (Knowledge Base)
-              </div>
-              <p style="margin: 0; font-size: 0.86rem; color: #cbd5e1; line-height: 1.5;">
-                En la pestaña <b>"Knowledge" (Conocimiento)</b>, vincula la carpeta de SharePoint o OneDrive corporativo donde se encuentra <code>ServicioMovilidad.xlsx</code>. Copilot Studio indexará la hoja <code>REGISTRO_DIARIO</code> y <code>BD BUSES</code>, permitiendo a cualquier usuario del equipo preguntarle en lenguaje natural: <i>"¿Cuáles fueron las 3 rutas más caras de la semana pasada?"</i> o <i>"¿Cuánto ahorraríamos si la Ruta 6B pasa a Sprinter?"</i>.
-              </p>
-            </div>
-
-            <div class="copilot-step-card">
-              <div class="copilot-step-title">
-                <i class="fa-solid fa-circle-4" style="color: #38bdf8;"></i> PASO 4: Publicación y Canales
-              </div>
-              <p style="margin: 0; font-size: 0.86rem; color: #cbd5e1; line-height: 1.5;">
-                Haz clic en <b>"Publish" (Publicar)</b> y habilita el canal de <b>Microsoft Teams</b> para que todo el equipo de Operaciones y RRHH pueda chatear con él desde Teams. También puedes habilitar el canal <b>Web Chat</b> para obtener un código <code>&lt;iframe&gt;</code> e incrustarlo directamente como widget interactivo en este dashboard.
-              </p>
-            </div>
-
-          </div>
-
-        </div>
-      </div>
-    </div>
-
     <!-- Filtros del Dashboard (Sticky) -->
     <div class="sticky-filters-wrapper hidden" id="dashboardFiltersWrapper" style="position: sticky; top: 15px; z-index: 100;">
       <div style="display: flex; justify-content: flex-end; margin-bottom: -15px; padding-right: 15px; position: relative; z-index: 101;">
@@ -454,17 +352,8 @@ Tus respuestas deben ser ejecutivas, con tablas claras, estimación de ahorro en
             <span>Operación & Demografía</span>
           </button>
           <button id="btnTabCostos" class="nav-tab-btn" type="button">
-            <i class="fa-solid fa-money-bill-trend-up"></i>
+            <i class="fa-solid fa-chart-line"></i>
             <span>Análisis de Costos y Eficiencia</span>
-            <span class="badge badge-success" style="font-size: 0.7rem; margin-left: 4px;">Hoja Nueva</span>
-          </button>
-        </div>
-
-        <div class="nav-tabs-extra-actions">
-          <button id="btnOpenCopilotModal" class="btn-copilot" type="button" title="Abrir Asistente Copilot y Diagnóstico Inteligente">
-            <i class="fa-solid fa-robot"></i>
-            <span>Asistente Copilot IA</span>
-            <span class="badge-copilot-pill">M365</span>
           </button>
         </div>
       </div>
@@ -625,10 +514,12 @@ Tus respuestas deben ser ejecutivas, con tablas claras, estimación de ahorro en
               <tbody></tbody>
             </table>
           </div>
-      </div> <!-- Fin viewOperacionDemografia -->
+        </div>
+      </div>
+    </div> <!-- Fin viewOperacionDemografia -->
 
-      <!-- VISTA 2: ANÁLISIS DE COSTOS Y EFICIENCIA (Hoja ANALISIS_COSTOS) -->
-      <div id="viewAnalisisCostos" class="tab-view-pane hidden">
+    <!-- VISTA 2: ANÁLISIS DE COSTOS Y EFICIENCIA (Hoja ANALISIS_COSTOS) -->
+    <div id="viewAnalisisCostos" class="tab-view-pane hidden">
 
         <!-- Encabezado de la Hoja de Costos -->
         <div class="clay-card cost-header-card">

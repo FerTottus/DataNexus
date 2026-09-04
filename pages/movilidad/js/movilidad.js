@@ -530,42 +530,6 @@ function initUIEvents() {
       renderAnalisisCostos();
     });
   }
-
-  // Modal Asistente Copilot
-  const btnOpenCopilot = document.getElementById('btnOpenCopilotModal');
-  if (btnOpenCopilot) {
-    btnOpenCopilot.addEventListener('click', () => openCopilotModal());
-  }
-  const btnCloseCopilot = document.getElementById('close-modal-copilot');
-  if (btnCloseCopilot) {
-    btnCloseCopilot.addEventListener('click', () => closeCopilotModal());
-  }
-  const modalCopilot = document.getElementById('modal-copilot');
-  if (modalCopilot) {
-    modalCopilot.addEventListener('click', (e) => {
-      if (e.target === modalCopilot) closeCopilotModal();
-    });
-  }
-  const btnCopilotPrompt = document.getElementById('btnCopilotTabPrompt');
-  const btnCopilotGuia = document.getElementById('btnCopilotTabGuia');
-  if (btnCopilotPrompt && btnCopilotGuia) {
-    btnCopilotPrompt.addEventListener('click', () => {
-      btnCopilotPrompt.className = 'btn btn-primary btn-sm';
-      btnCopilotGuia.className = 'btn btn-secondary btn-sm';
-      document.getElementById('panelCopilotPrompt')?.classList.remove('hidden');
-      document.getElementById('panelCopilotGuia')?.classList.add('hidden');
-    });
-    btnCopilotGuia.addEventListener('click', () => {
-      btnCopilotGuia.className = 'btn btn-primary btn-sm';
-      btnCopilotPrompt.className = 'btn btn-secondary btn-sm';
-      document.getElementById('panelCopilotGuia')?.classList.remove('hidden');
-      document.getElementById('panelCopilotPrompt')?.classList.add('hidden');
-    });
-  }
-  const btnCopyPrompt = document.getElementById('btnCopiarPromptCopilot');
-  if (btnCopyPrompt) {
-    btnCopyPrompt.addEventListener('click', () => copiarPromptCopilot());
-  }
 }
 
 async function openDriveModal() {
@@ -1004,6 +968,7 @@ async function loadAllSheets(sheetId) {
     document.getElementById('dashboardContent').classList.remove('hidden');
 
     applyFilters();
+    renderAnalisisCostos();
 
     if(window.ClipboardUtil) ClipboardUtil.showToast('Datos cargados exitosamente', 'success');
 
@@ -2239,6 +2204,14 @@ function switchDashboardTab(tabName) {
     if (viewOp) viewOp.classList.add('hidden');
     if (viewCo) viewCo.classList.remove('hidden');
     renderAnalisisCostos();
+    setTimeout(() => {
+      if (AppState.charts && AppState.charts['chartOcupacionRutasCostos']) {
+        AppState.charts['chartOcupacionRutasCostos'].resize();
+      }
+      if (AppState.charts && AppState.charts['chartCostoPasajerosRutas']) {
+        AppState.charts['chartCostoPasajerosRutas'].resize();
+      }
+    }, 60);
   } else {
     if (btnCo) btnCo.classList.remove('active');
     if (btnOp) btnOp.classList.add('active');
@@ -2720,123 +2693,3 @@ function renderGraficosCostos(rutasArray) {
     });
   }
 }
-
-// =========================================================
-// MÓDULO: Asistente Copilot y Generador de Diagnóstico IA
-// =========================================================
-
-function openCopilotModal() {
-  const modal = document.getElementById('modal-copilot');
-  if (!modal) return;
-  modal.classList.remove('hidden');
-
-  // Generar prompt dinámico para la semana seleccionada
-  const promptText = generarPromptCopilotText();
-  const txtArea = document.getElementById('txtPromptCopilot');
-  if (txtArea) txtArea.value = promptText;
-}
-
-function closeCopilotModal() {
-  const modal = document.getElementById('modal-copilot');
-  if (modal) modal.classList.add('hidden');
-}
-
-function generarPromptCopilotText() {
-  const rawRows = AppState.rawRegistroDiario || [];
-  const semSel = AppState.semanaCostosSeleccionada || '9';
-  const isVerTodas = (semSel === 'TODAS');
-
-  const rowsSemana = isVerTodas 
-    ? rawRows 
-    : rawRows.filter(r => {
-        const s = parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10);
-        return String(s) === String(semSel);
-      });
-
-  const statsRuta = {};
-  rowsSemana.forEach(r => {
-    const rutaRaw = String(getRowVal(r, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
-    if (!rutaRaw) return;
-    const ruta = rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : `RUTA ${rutaRaw.toUpperCase()}`;
-    if (!statsRuta[ruta]) statsRuta[ruta] = { viajes: 0, pasajeros: 0, capacidad: 0, costo: 0 };
-    const st = statsRuta[ruta];
-    st.viajes += 1;
-    st.capacidad += parseFloat(String(getRowVal(r, ['CAPACIDAD', 'CAPACIDAD BUS']) || '0').replace(/[^0-9.-]+/g, "")) || 0;
-    const numPasaj = parseFloat(String(getRowVal(r, ['PASAJEROS', 'PASAJ']) || '0').replace(/[^0-9.-]+/g, "")) || 0;
-    st.pasajeros += (numPasaj > 0 ? numPasaj : 1);
-    st.costo += parseFloat(String(getRowVal(r, ['COSTO TOTAL', 'COSTO']) || '0').replace(/[^0-9.-]+/g, "")) || 0;
-  });
-
-  const rutasArray = Object.keys(statsRuta).map(k => {
-    const st = statsRuta[k];
-    const pct = st.capacidad > 0 ? st.pasajeros / st.capacidad : 0;
-    return { ruta: k, ...st, pctOcup: pct, costoViaje: st.viajes > 0 ? st.costo / st.viajes : 0 };
-  });
-
-  let totalViajes = 0, totalPasajeros = 0, totalCap = 0, totalCosto = 0;
-  rutasArray.forEach(r => { totalViajes += r.viajes; totalPasajeros += r.pasajeros; totalCap += r.capacidad; totalCosto += r.costo; });
-  const ocupGlobal = totalCap > 0 ? (totalPasajeros / totalCap) * 100 : 0;
-  const costoPasaj = totalPasajeros > 0 ? totalCosto / totalPasajeros : 0;
-  const costoViaje = totalViajes > 0 ? totalCosto / totalViajes : 0;
-
-  const rutasBajas = rutasArray.filter(r => r.pctOcup < 0.5);
-  const rutasAltas = rutasArray.filter(r => r.pctOcup >= 0.9);
-
-  const top3Mas = [...rutasArray].sort((a, b) => b.pctOcup - a.pctOcup).slice(0, 3);
-  const top3Menos = [...rutasArray].sort((a, b) => a.pctOcup - b.pctOcup).slice(0, 3);
-
-  return `# AUDITORÍA DE TRANSPORTE Y EFICIENCIA OPERATIVA - SEMANA ${semSel}
-**Centro de Distribución Tottus Huachipa (Falabella)**
-
-## 1. RESUMEN EJECUTIVO
-- Total de Viajes Realizados: ${totalViajes}
-- Total Pasajeros Movilizados: ${totalPasajeros.toLocaleString('es-PE')} colaboradores
-- Capacidad Total Programada: ${totalCap.toLocaleString('es-PE')} asientos
-- % Ocupación Promedio de Flota: ${ocupGlobal.toFixed(1)}% (Meta corporativa: > 70%)
-- Inversión Total Semanal: S/ ${totalCosto.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-- Costo Promedio por Pasajero: S/ ${costoPasaj.toFixed(2)} (Meta corporativa: < S/ 15.00)
-- Costo Promedio por Viaje: S/ ${costoViaje.toFixed(2)}
-
-## 2. ALERTAS DE FLOTA CRÍTICAS
-- Rutas con Subutilización (< 50% ocupación): ${rutasBajas.length} rutas (${rutasBajas.map(r => `${r.ruta} [${(r.pctOcup * 100).toFixed(0)}%]`).join(', ') || 'Ninguna'})
-- Rutas Saturadas (≥ 90% ocupación): ${rutasAltas.length} rutas (${rutasAltas.map(r => `${r.ruta} [${(r.pctOcup * 100).toFixed(0)}%]`).join(', ') || 'Ninguna'})
-
-## 3. RANKING DE EFICIENCIA
-- Top 3 Más Eficientes:
-${top3Mas.map((r, i) => `  ${i + 1}. ${r.ruta}: ${(r.pctOcup * 100).toFixed(0)}% ocupación | S/ ${r.costoViaje.toFixed(0)}/viaje`).join('\n')}
-
-- Top 3 Menos Eficientes (Mayor oportunidad de ahorro):
-${top3Menos.map((r, i) => `  ${i + 1}. ${r.ruta}: ${(r.pctOcup * 100).toFixed(0)}% ocupación | S/ ${r.costoViaje.toFixed(0)}/viaje`).join('\n')}
-
-## 4. PROYECCIÓN MENSUAL ESTIMADA (x4)
-- Presupuesto Mensual Proyectado: S/ ${(totalCosto * 4).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
-- Volumen de Pasajeros Mensual: ${(totalPasajeros * 4).toLocaleString('es-PE')}
-
----
-## SOLICITUD DE AUDITORÍA PARA COPILOT:
-Como especialista en Optimización Logística y Supply Chain de Falabella:
-1. Analiza las rutas subutilizadas (< 50%) y propón una estrategia de reducción de tamaño de vehículo (cambio de Bus 50 pax a Minibus 30 pax, Custer 23 pax, Sprinter 16 pax o Minivan 10 pax).
-2. Calcula el ahorro económico mensual proyectado en Soles (S/) que se obtendría al redimensionar dichas unidades.
-3. Elabora 3 recomendaciones concretas para la mesa de negociación con los proveedores de transporte del CD Huachipa.`;
-}
-
-function copiarPromptCopilot() {
-  const txtArea = document.getElementById('txtPromptCopilot');
-  if (!txtArea || !txtArea.value) return;
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(txtArea.value).then(() => {
-      if (window.ClipboardUtil) ClipboardUtil.showToast('¡Prompt copiado! Pégalo en Microsoft Copilot (Teams o Edge)', 'success');
-      else alert('¡Prompt copiado para Microsoft Copilot!');
-    });
-  } else {
-    txtArea.select();
-    document.execCommand('copy');
-    if (window.ClipboardUtil) ClipboardUtil.showToast('¡Prompt copiado! Pégalo en Microsoft Copilot (Teams o Edge)', 'success');
-    else alert('¡Prompt copiado para Microsoft Copilot!');
-  }
-}
-
-
-
-
