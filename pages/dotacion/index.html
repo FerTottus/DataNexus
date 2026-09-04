@@ -3,15 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DataNexus - Tablas Dinámicas con Google Sheets</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📊</text></svg>">
+  <title>DataNexus - Dotación</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👥</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="css/styles.css">
-  <!-- LZ-String para compresión de estado en la URL -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
+  <link rel="stylesheet" href="../../css/styles.css">
+  <link rel="stylesheet" href="css/dotacion.css">
   <!-- Google Identity Services (GSI) para OAuth 2.0 -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -19,33 +18,22 @@
   <!-- Header / Barra de Navegación -->
   <header class="navbar">
     <div class="nav-brand">
-      <div class="logo-icon">
-        <i class="fa-solid fa-table-cells text-primary"></i>
-      </div>
-      <div>
-        <h1 class="logo-title">DataNexus</h1>
-        <span class="logo-subtitle">Tablas dinámicas y persistencia en URL</span>
-      </div>
+      <a href="../../index.html" style="text-decoration: none; display: flex; align-items: center; gap: 0.75rem; color: inherit;">
+        <div class="logo-icon">
+          <i class="fa-solid fa-users text-primary"></i>
+        </div>
+        <div>
+          <h1 class="logo-title">DataNexus</h1>
+          <span class="logo-subtitle">Módulo de Dotación</span>
+        </div>
+      </a>
     </div>
 
     <div class="nav-actions">
-      <!-- Menú Desplegable de Gráficos/Páginas -->
-      <div class="nav-dropdown">
-        <button class="btn btn-outline-info btn-sm">
-          <i class="fa-solid fa-chart-pie"></i> Ver Graficos <i class="fa-solid fa-chevron-down" style="font-size: 0.8em; margin-left: 4px;"></i>
-        </button>
-        <div class="nav-dropdown-content">
-          <a href="pages/movilidad/index.html" target="_blank"><i class="fa-solid fa-van-shuttle"></i> Servicio Movilidad</a>
-          <a href="pages/Throughput/index.html" target="_blank"><i class="fa-solid fa-boxes-stacked"></i> Throughput Secos/Frescos</a>
-          <a href="pages/dotacion/index.html" target="_blank"><i class="fa-solid fa-users"></i> Dotación</a>
-          <a href="pages/lector.html" target="_blank"><i class="fa-solid fa-file-excel"></i> Lector (Extraer Excel)</a>
-        </div>
-      </div>
-
-      <!-- Botón Guardar / Compartir enlace comprimido -->
-      <button id="btnShareUrl" class="btn btn-outline-primary btn-sm" title="Guarda el estado actual en la URL y copia el enlace">
-        <i class="fa-solid fa-share-nodes"></i> Compartir / Guardar URL
-      </button>
+      <!-- Botón Volver a Inicio DataNexus -->
+      <a href="../../index.html" class="btn btn-outline-primary btn-sm" title="Volver al menú principal">
+        <i class="fa-solid fa-arrow-left"></i> Inicio DataNexus
+      </a>
 
       <!-- Estado de Autenticación de Google -->
       <div id="authContainer" class="auth-box">
@@ -73,7 +61,7 @@
   </header>
 
   <!-- Contenedor Principal -->
-  <main class="main-container">
+  <main class="main-container dotacion-container">
 
     <!-- Sección 1: Conexión con el Google Sheet -->
     <section class="card sheet-connector-card">
@@ -152,49 +140,15 @@
       </div>
     </div>
 
-    <!-- Sección 2: Espacio de Trabajo / Tablas -->
-    <section id="workspaceSection" class="workspace-section">
-      <div class="workspace-toolbar">
-        <div class="toolbar-left">
-          <h2><i class="fa-solid fa-chart-simple text-primary"></i> Tablas Dinámicas y Vistas</h2>
-          <span class="counter-badge" id="tableCountBadge">0 tablas</span>
-        </div>
-        <div class="toolbar-right">
-          <button id="btnAddPivotTable" class="btn btn-success">
-            <i class="fa-solid fa-plus"></i> + Tabla Dinámica (Pivot)
-          </button>
-          <button id="btnAddFlatTable" class="btn btn-secondary">
-            <i class="fa-solid fa-plus"></i> + Tabla Plana / Filtrada
-          </button>
-          <button id="btnResetWorkspace" class="btn btn-outline-danger btn-sm" title="Eliminar todas las tablas">
-            <i class="fa-solid fa-trash-can"></i> Limpiar Todo
-          </button>
-        </div>
-      </div>
-
-      <!-- Contenedor dinámico de tablas -->
-      <div id="tablesContainer" class="tables-grid">
-        <!-- Las tablas creadas por el usuario se insertan aquí -->
-        <div id="emptyWorkspaceState" class="empty-state">
-          <i class="fa-solid fa-table-cells-large empty-icon"></i>
-          <h3>No hay tablas creadas aún</h3>
-          <p>Conecta un Google Sheet o carga los datos de demostración, luego haz clic en <strong>+ Tabla Dinámica</strong> o <strong>+ Tabla Plana</strong> para comenzar a analizar tu información.</p>
-        </div>
-      </div>
-    </section>
-
   </main>
 
   <!-- Toast / Notificaciones Flotantes -->
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts Modulares -->
-  <script src="js/config.js"></script>
-  <script src="js/clipboard.js"></script>
-  <script src="js/url-state.js"></script>
-  <script src="js/pivot-engine.js"></script>
-  <script src="js/google-sheets.js"></script>
-  <script src="js/cell-selection.js"></script>
-  <script src="js/app.js"></script>
+  <script src="../../js/config.js"></script>
+  <script src="../../js/clipboard.js"></script>
+  <script src="../../js/google-sheets.js"></script>
+  <script src="js/dotacion.js"></script>
 </body>
 </html>
