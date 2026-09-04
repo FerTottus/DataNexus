@@ -3,7 +3,7 @@
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;
-  background-color: #f8fafc;
+  background-color: #f0f4f8; /* Soft blue-grey for Claymorphism base */
   color: #334155;
 }
 
@@ -12,9 +12,9 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  background-color: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  background-color: #f0f4f8;
+  border-bottom: none;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
 }
 
 .logo-area {
@@ -32,7 +32,7 @@ body {
 
 .logo-area i {
   font-size: 1.5rem;
-  color: #2563eb;
+  color: #4f81bd;
 }
 
 .dashboard-container {
@@ -48,12 +48,12 @@ body {
 /* Utils overrides for components in global styles */
 .hidden { display: none !important; }
 
-/* Connection Panel */
+/* Connection Panel (Claymorphism) */
 .connection-panel {
-  background: white;
+  background: #f0f4f8;
   padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+  box-shadow: 9px 9px 16px #d1d9e6, -9px -9px 16px #ffffff;
 }
 
 .connection-panel .card-header {
@@ -68,44 +68,74 @@ body {
   font-size: 1.1rem;
 }
 
-/* Filters */
+/* Filters (Claymorphism) */
 .filters-panel {
   display: flex;
   gap: 1.5rem;
-  background: white;
+  background: #f0f4f8;
   padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 20px;
+  box-shadow: 9px 9px 16px #d1d9e6, -9px -9px 16px #ffffff;
   align-items: flex-end;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.8rem;
   flex-grow: 1;
 }
 
 .filter-group label {
-  font-weight: 500;
-  font-size: 0.9rem;
-  color: #475569;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #4f81bd;
 }
 
-/* KPIs */
+/* Chips Multi-select */
+.chip-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 8px 18px;
+  background: #f0f4f8;
+  border: none;
+  border-radius: 20px;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: 5px 5px 10px #d1d9e6, -5px -5px 10px #ffffff;
+  transition: all 0.2s ease;
+}
+
+.chip:active {
+  box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff;
+}
+
+.chip.active {
+  background: #4f81bd;
+  color: white;
+  box-shadow: inset 3px 3px 6px rgba(0,0,0,0.2), inset -3px -3px 6px rgba(255,255,255, 0.1);
+}
+
+/* KPIs (Claymorphism) */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .kpi-card {
-  background: white;
+  background: #f0f4f8;
   padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 20px;
+  box-shadow: 9px 9px 16px #d1d9e6, -9px -9px 16px #ffffff;
   text-align: center;
-  border-top: 4px solid #3b82f6;
+  border-top: none;
 }
 
 .kpi-title {
@@ -127,18 +157,18 @@ body {
   color: #94a3b8;
 }
 
-/* Charts */
+/* Charts (Claymorphism) */
 .charts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   gap: 1.5rem;
 }
 
-.chart-container {
-  background: white;
+.chart-container, .clay-card {
+  background: #f0f4f8;
   padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-radius: 20px;
+  box-shadow: 9px 9px 16px #d1d9e6, -9px -9px 16px #ffffff;
   display: flex;
   flex-direction: column;
 }

@@ -1,0 +1,37 @@
+/* ==========================================================================
+   DataNexus - Módulo de Dotación
+   Estilos específicos para la sección de Dotación
+   ========================================================================== */
+
+/* Ajustes de diseño y contenedor */
+.dotacion-container {
+  max-width: 1500px;
+  width: 100%;
+  margin: 1.5rem auto;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  flex: 1;
+}
+
+/* Detalles para la tarjeta de conexión */
+.sheet-connector-card {
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.sheet-connector-card .card-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 1.25rem;
+}
+
+/* Indicadores y badges */
+.badge-dotacion {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
+}

@@ -86,27 +86,32 @@
         </button>
       </div>
       <section id="dashboardFilters" class="filters-panel" style="transition: all 0.3s ease;">
+      <!-- Controles de Filtro -->
+      <div class="filters-container">
+        
         <div class="filter-group">
-          <label for="filterArea">Área:</label>
-          <select id="filterArea" class="form-control">
-            <option value="TODOS">TODOS</option>
-            <option value="SECOS">SECOS</option>
-            <option value="PPA">PPA</option>
-            <option value="FRESCOS">FRESCOS</option>
-          </select>
+          <label>Área:</label>
+          <div class="chip-group" id="chipArea">
+            <button class="chip active" data-value="TODOS">TODOS</button>
+            <button class="chip" data-value="SECOS">SECOS</button>
+            <button class="chip" data-value="PPA">PPA</button>
+            <button class="chip" data-value="FRESCOS">FRESCOS</button>
+          </div>
         </div>
-        <div class="filter-group">
-          <label for="filterTipo">Tipo de Empleado:</label>
-          <select id="filterTipo" class="form-control">
-            <option value="TODOS">TODOS</option>
-            <option value="STAFF">STAFF</option>
-            <option value="OPERARIO">OPERARIO</option>
-          </select>
-        </div>
-        <button id="btnApplyFilters" class="btn btn-success">Actualizar Gráficos</button>
-      </section>
-    </div> <!-- End sticky-filters-wrapper -->
 
+        <div class="filter-group">
+          <label>Tipo de Empleado:</label>
+          <div class="chip-group" id="chipTipo">
+            <button class="chip active" data-value="TODOS">TODOS</button>
+            <button class="chip" data-value="STAFF">STAFF</button>
+            <button class="chip" data-value="OPERARIO">OPERARIO</button>
+          </div>
+        </div>
+
+        <button id="btnApplyFilters" class="btn-primary" style="align-self: flex-end;">
+          <i class="fa-solid fa-rotate"></i> Actualizar
+        </button>
+      </div></section>
     </div> <!-- End sticky-filters-wrapper -->
 
     <!-- Contenedor de Métricas y Gráficos (Oculto hasta cargar datos) -->
@@ -137,7 +142,7 @@
       </div>
 
       <!-- NIVEL 2: El Pulso de la Operación (Buses diarios) -->
-      <div class="card p-3 mt-4" id="seccionDashboardBuses" style="display: none;">
+      <div class="clay-card mt-4" id="seccionDashboardBuses" style="display: none;">
         <h3 class="table-title mb-3">📊 ESTADO DE OPERACIÓN DIARIA DE BUSES</h3>
         <div class="dashboard-buses-grid">
           <div>
@@ -171,7 +176,7 @@
         </div>
       </div>
 
-      <div class="card p-3 mt-4" id="seccionRegistroDiario" style="display: none;">
+      <div class="clay-card mt-4" id="seccionRegistroDiario" style="display: none;">
         <h3 class="table-title">EFICIENCIA Y COSTO POR RUTA (DÍA ACTUAL)</h3>
         <div class="table-responsive">
           <table class="data-table" id="tableRegistroDiario">
@@ -190,13 +195,13 @@
       <!-- NIVEL 3: Distribución Demográfica -->
       <h3 class="mt-4 mb-3" style="color: #1e293b; font-size: 1.1rem;"><i class="fa-solid fa-chart-pie"></i> DISTRIBUCIÓN DEMOGRÁFICA</h3>
       <div class="charts-grid">
-        <div class="chart-container card">
+        <div class="chart-container clay-card">
           <h3>Clasificación: Distancia al CD</h3>
           <div class="chart-wrapper">
             <canvas id="chartDistCD"></canvas>
           </div>
         </div>
-        <div class="chart-container card">
+        <div class="chart-container clay-card">
           <h3>Clasificación: Distancia a Paraderos</h3>
           <div class="chart-wrapper">
             <canvas id="chartDistParadero"></canvas>
@@ -205,7 +210,7 @@
       </div>
 
       <div class="charts-grid">
-        <div class="chart-container card" style="grid-column: span 2;">
+        <div class="chart-container clay-card" style="grid-column: span 2;">
           <h3>Top Distritos por Volumen de Empleados</h3>
           <div class="chart-wrapper">
             <canvas id="chartTopDistritos"></canvas>
@@ -214,7 +219,7 @@
       </div>
 
       <div class="tables-grid mt-4" style="grid-template-columns: 1fr 1fr;">
-        <div class="card p-3">
+        <div class="clay-card">
           <h3 class="table-title">RUTAS DISPONIBLES</h3>
           <div class="table-responsive">
             <table class="data-table" id="tableRutasDisponibles">
@@ -223,7 +228,7 @@
             </table>
           </div>
         </div>
-        <div class="card p-3">
+        <div class="clay-card">
           <h3 class="table-title">TOP 10 PARADEROS MÁS CERCANOS</h3>
           <div class="table-responsive">
             <table class="data-table" id="tableTopParaderos">
@@ -235,10 +240,10 @@
       </div>
 
       <!-- NIVEL 4: Detalles Operativos (Anexo) -->
-      <div class="card p-3 mt-4">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.5rem; margin-bottom: 1rem;">
-          <h3 class="table-title" style="border: none; margin: 0; padding: 0;"><i class="fa-solid fa-list"></i> ANEXO: ANÁLISIS DETALLADO POR DISTRITO</h3>
-          <button id="btnToggleDetalle" class="btn btn-secondary btn-sm">Mostrar / Ocultar</button>
+      <div class="clay-card mt-4">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4f81bd; padding-bottom: 0.5rem; margin-bottom: 1rem;">
+          <h3 class="table-title" style="border: none; margin: 0; padding: 0; color:#4f81bd;"><i class="fa-solid fa-list"></i> ANEXO: ANÁLISIS DETALLADO POR DISTRITO</h3>
+          <button id="btnToggleDetalle" class="btn btn-secondary btn-sm" style="border-radius: 12px;">Mostrar / Ocultar</button>
         </div>
         
         <div id="contenedorDetalleDistritos" style="display: none;">

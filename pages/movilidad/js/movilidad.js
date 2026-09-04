@@ -34,8 +34,38 @@ function initUIEvents() {
     fetchData();
   });
 
-  document.getElementById('btnApplyFilters').addEventListener('click', () => {
-    applyFilters();
+  const btnApply = document.getElementById('btnApplyFilters');
+  if(btnApply) {
+    btnApply.addEventListener('click', () => {
+      applyFilters();
+    });
+  }
+
+  // Chip Group Logic para multi-selección
+  document.querySelectorAll('.chip-group').forEach(group => {
+    group.addEventListener('click', (e) => {
+      if (e.target.classList.contains('chip')) {
+        const isTodos = e.target.dataset.value === 'TODOS';
+        
+        if (isTodos) {
+          // Si hace clic en TODOS, deseleccionar los demás
+          group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+          e.target.classList.add('active');
+        } else {
+          // Si hace clic en otro, deseleccionar TODOS
+          const todosChip = group.querySelector('.chip[data-value="TODOS"]');
+          if(todosChip) todosChip.classList.remove('active');
+          
+          // Toggle el botón actual
+          e.target.classList.toggle('active');
+          
+          // Si no queda nada seleccionado, forzar TODOS
+          if (group.querySelectorAll('.chip.active').length === 0) {
+            if(todosChip) todosChip.classList.add('active');
+          }
+        }
+      }
+    });
   });
 
   const btnToggle = document.getElementById('btnToggleDetalle');
@@ -360,12 +390,17 @@ async function loadAllSheets(sheetId) {
 }
 
 function applyFilters() {
-  const filterArea = document.getElementById('filterArea').value;
-  const filterTipo = document.getElementById('filterTipo').value;
+  const getActiveChips = (containerId) => {
+    const activeBtn = document.querySelectorAll(`#${containerId} .chip.active`);
+    return Array.from(activeBtn).map(b => b.dataset.value);
+  };
+
+  const areas = getActiveChips('chipArea');
+  const tipos = getActiveChips('chipTipo');
 
   AppState.filteredEmployees = AppState.rawEmployees.filter(emp => {
-    let matchArea = filterArea === 'TODOS' || emp.area === filterArea;
-    let matchTipo = filterTipo === 'TODOS' || emp.tipo === filterTipo;
+    const matchArea = areas.includes('TODOS') || areas.includes(emp.area);
+    const matchTipo = tipos.includes('TODOS') || tipos.includes(emp.tipo);
     return matchArea && matchTipo;
   });
 
