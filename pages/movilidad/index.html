@@ -141,7 +141,7 @@
 
     <!-- Modal Directorio de Colaboradores Registrados -->
     <div id="modal-empleados" class="modal-overlay hidden">
-      <div class="modal-content" style="max-width: 960px; width: 95%; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-content modal-large-container">
         <div class="modal-header">
           <h3>
             <i class="fa-solid fa-users text-primary"></i> 
@@ -150,16 +150,16 @@
           </h3>
           <button id="close-modal-empleados" class="btn-close">&times;</button>
         </div>
-        <div class="modal-body" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 1.25rem 1.5rem;">
+        <div class="modal-body">
           <!-- Barra de Búsqueda y Filtros Rápidos -->
-          <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
-            <input type="text" id="inputBuscarEmpleado" class="form-control" placeholder="🔍 Buscar por DNI, Nombre, Área, Distrito o Ruta..." style="flex: 1; min-width: 240px;">
-            <select id="filtroModalEmpTipo" class="form-control form-control-sm" style="width: auto; min-width: 130px;">
+          <div style="display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; flex-shrink: 0;">
+            <input type="text" id="inputBuscarEmpleado" class="form-control" placeholder="🔍 Buscar por DNI, Nombre, Área, Distrito o Ruta..." style="flex: 1; min-width: 250px;">
+            <select id="filtroModalEmpTipo" class="form-control form-control-sm" style="width: auto; min-width: 140px;">
               <option value="TODOS">Todos los Tipos</option>
               <option value="STAFF">Solo Staff</option>
               <option value="OPERARIO">Solo Operarios</option>
             </select>
-            <select id="filtroModalEmpArea" class="form-control form-control-sm" style="width: auto; min-width: 130px;">
+            <select id="filtroModalEmpArea" class="form-control form-control-sm" style="width: auto; min-width: 140px;">
               <option value="TODOS">Todas las Áreas</option>
               <option value="SECOS">SECOS</option>
               <option value="PPA">PPA</option>
@@ -168,17 +168,17 @@
           </div>
 
           <!-- Contenedor con Scroll de la Tabla -->
-          <div class="table-responsive" style="flex: 1; overflow-y: auto; border: 1px solid #334155; border-radius: 12px; max-height: calc(88vh - 220px);">
-            <table class="table" id="tablaModalEmpleados" style="margin-bottom: 0;">
+          <div class="table-responsive modal-table-scroll" style="flex: 1; overflow-y: auto; overflow-x: auto; border: 1px solid #334155; border-radius: 14px;">
+            <table class="table" id="tablaModalEmpleados" style="margin-bottom: 0; min-width: 860px;">
               <thead style="position: sticky; top: 0; background: #0f172a; z-index: 10;">
                 <tr>
-                  <th>DNI</th>
-                  <th>Colaborador / Nombre</th>
-                  <th>Área</th>
-                  <th>Clasificación</th>
-                  <th>Distrito</th>
-                  <th>Ruta Asignada</th>
-                  <th>Paradero</th>
+                  <th style="min-width: 110px;">DNI</th>
+                  <th style="min-width: 250px;">Colaborador / Nombre</th>
+                  <th style="min-width: 100px; text-align: center;">Área</th>
+                  <th style="min-width: 130px; text-align: center;">Clasificación</th>
+                  <th style="min-width: 140px;">Distrito</th>
+                  <th style="min-width: 130px;">Ruta Asignada</th>
+                  <th style="min-width: 220px;">Paradero</th>
                 </tr>
               </thead>
               <tbody id="tbodyModalEmpleados">
@@ -186,7 +186,7 @@
               </tbody>
             </table>
           </div>
-          <div id="footerModalEmpleados" style="padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; color: #94a3b8;">
+          <div id="footerModalEmpleados" style="padding-top: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #94a3b8; flex-shrink: 0;">
             <span id="labelTotalMostradosEmp">Mostrando 0 colaboradores</span>
           </div>
         </div>
@@ -195,7 +195,7 @@
 
     <!-- Modal de Pasajeros No Contemplados en BD / Excluidos -->
     <div id="modal-no-contemplados" class="modal-overlay hidden">
-      <div class="modal-content" style="max-width: 900px; width: 95%; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="modal-content modal-large-container">
         <div class="modal-header">
           <h3>
             <i class="fa-solid fa-user-slash" style="color: #f59e0b;"></i> 
@@ -204,38 +204,38 @@
           </h3>
           <button id="close-modal-no-contemplados" class="btn-close">&times;</button>
         </div>
-        <div class="modal-body" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: 1.25rem 1.5rem;">
+        <div class="modal-body">
           
           <!-- Banner Informativo de Diagnóstico de KPIs -->
-          <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; font-size: 0.85rem; color: #cbd5e1; line-height: 1.5;">
+          <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 14px; padding: 12px 18px; margin-bottom: 14px; font-size: 0.86rem; color: #cbd5e1; line-height: 1.5; flex-shrink: 0;">
             <strong style="color: #fbbf24;"><i class="fa-solid fa-circle-info"></i> Diagnóstico de Impacto en KPIs:</strong>
             <p style="margin: 4px 0 0 0;">
               Estos colaboradores registraron viajes en la hoja <b>REGISTRO_DIARIO</b>, pero su DNI <b>no existe en las bases maestras de SECOS, FRESCOS ni PPA</b>.
             </p>
-            <ul style="margin: 6px 0 0 16px; padding: 0;">
+            <ul style="margin: 6px 0 0 18px; padding: 0;">
               <li><b>Con filtros en "TODOS":</b> Sí se suman al conteo general de pasajeros porque abordaron el servicio.</li>
               <li><b>Al filtrar por Área (Secos/PPA/Frescos) o por Tipo (Staff/Operario):</b> <u>NO se pueden contemplar</u> ya que al no existir en la base de datos se desconoce su área y si son staff u operarios, quedando excluidos de los KPIs prorrateados.</li>
             </ul>
           </div>
 
           <!-- Acciones y Búsqueda -->
-          <div style="display: flex; gap: 10px; margin-bottom: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-            <input type="text" id="inputBuscarNoContemplado" class="form-control" placeholder="🔍 Buscar por DNI o Ruta..." style="flex: 1; min-width: 240px;">
-            <button id="btnCopiarDnisNoMapeados" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
+          <div style="display: flex; gap: 10px; margin-bottom: 14px; justify-content: space-between; align-items: center; flex-wrap: wrap; flex-shrink: 0;">
+            <input type="text" id="inputBuscarNoContemplado" class="form-control" placeholder="🔍 Buscar por DNI o Ruta..." style="flex: 1; min-width: 250px;">
+            <button id="btnCopiarDnisNoMapeados" class="btn btn-secondary btn-sm" style="white-space: nowrap; height: 38px; border-radius: 10px;">
               <i class="fa-regular fa-copy"></i> Copiar lista de DNIs
             </button>
           </div>
 
           <!-- Tabla de Pasajeros Sin BD -->
-          <div class="table-responsive" style="flex: 1; overflow-y: auto; border: 1px solid #334155; border-radius: 12px; max-height: calc(88vh - 300px);">
-            <table class="table" id="tablaModalNoContemplados" style="margin-bottom: 0;">
+          <div class="table-responsive modal-table-scroll" style="flex: 1; overflow-y: auto; overflow-x: auto; border: 1px solid #334155; border-radius: 14px;">
+            <table class="table" id="tablaModalNoContemplados" style="margin-bottom: 0; min-width: 800px;">
               <thead style="position: sticky; top: 0; background: #0f172a; z-index: 10;">
                 <tr>
-                  <th>DNI Registrado</th>
-                  <th>N° Viajes Realizados</th>
-                  <th>Rutas Utilizadas</th>
-                  <th>Última Fecha</th>
-                  <th>Diagnóstico</th>
+                  <th style="min-width: 130px;">DNI Registrado</th>
+                  <th style="min-width: 140px; text-align: center;">N° Viajes Realizados</th>
+                  <th style="min-width: 180px;">Rutas Utilizadas</th>
+                  <th style="min-width: 140px;">Última Fecha</th>
+                  <th style="min-width: 220px;">Diagnóstico</th>
                 </tr>
               </thead>
               <tbody id="tbodyModalNoContemplados">
@@ -243,7 +243,7 @@
               </tbody>
             </table>
           </div>
-          <div id="footerModalNoContemplados" style="padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; color: #94a3b8;">
+          <div id="footerModalNoContemplados" style="padding-top: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: #94a3b8; flex-shrink: 0;">
             <span id="labelTotalMostradosUnmapped">Total: 0 pasajeros sin registro</span>
           </div>
         </div>
