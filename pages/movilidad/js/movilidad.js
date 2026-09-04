@@ -26,6 +26,8 @@ const AppState = {
   mapMarkers: {},
   mapCards: {},
   mapBounds: null,
+  mapDrawn: false,
+  routeDirectionsCache: {},
   mapboxToken: (window.APP_CONFIG && window.APP_CONFIG.MAPBOX_TOKEN) 
     ? window.APP_CONFIG.MAPBOX_TOKEN 
     : ['pk', 'eyJ1IjoiZmh1cnRhZG9hIiwiYSI6ImNtbnRmeW52NTBwb2sycW9uYWJjeXd6Mm8ifQ', 'LcHL2SI6zsJ-oQyg3JUFrw'].join('.')
@@ -401,7 +403,7 @@ function initUIEvents() {
   const btnResetMap = document.getElementById('btnResetMapView');
   if (btnResetMap) {
     btnResetMap.addEventListener('click', () => {
-      resetearVistaMapa();
+      resetearVistaMapa(true);
     });
   }
 
@@ -1385,17 +1387,27 @@ function initRoutesMap() {
 
   const map = L.map('mapaRutas', {
     center: [-12.046374, -77.042793],
-    zoom: 11
+    zoom: 11,
+    wheelDebounceTime: 60,
+    wheelPxPerZoomLevel: 100
   });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
-    maxZoom: 19
+    maxZoom: 19,
+    keepBuffer: 6,
+    updateWhenZooming: false,
+    updateWhenIdle: true
   }).addTo(map);
 
   map.on('click', function (e) {
     if (e.originalEvent.target.id === 'mapaRutas' || e.originalEvent.target.classList.contains('leaflet-container')) {
-      resetearVistaMapa();
+      // Si el usuario hace clic en el mapa, quitamos el filtro de ruta sin cambiar el zoom ni la posición de la cámara
+      const sel = document.getElementById('selectFiltroRutaMapa');
+      if (sel && sel.value !== 'TODAS') {
+        sel.value = 'TODAS';
+        resetearVistaMapa(false); // recenter = false: ¡NUNCA aleja ni recentra!
+      }
     }
   });
 
@@ -1479,7 +1491,7 @@ function dibujarRutasEnMapa() {
     AppState.mapInstance.fitBounds(AppState.mapBounds, { padding: [40, 40] });
   }
 
-  // Dibujar Pines con Tooltips
+  // Dibujar Pines con Tooltips eficientes (solo al hover o al seleccionar ruta)
   sortedRutas.forEach(rId => {
     const puntos = rutasAgrupadas[rId];
     const color = getRutaColor(rId);
@@ -1488,10 +1500,10 @@ function dibujarRutasEnMapa() {
       const marcador = L.marker([p.lat, p.lng], { icon: crearIconoDePinColoreado(color) })
         .addTo(AppState.mapInstance)
         .bindTooltip(`<b>Ruta ${rId}</b>: ${p.nombre}`, {
-          permanent: true,
+          permanent: false, // Solo visible en hover o al filtrar ruta -> 100% fluido y sin sobrecargar la pantalla
           direction: 'top',
           className: 'etiqueta-paradero',
-          offset: [0, -20]
+          offset: [0, -18]
         })
         .on('click', (e) => {
           L.DomEvent.stopPropagation(e);
@@ -1504,7 +1516,7 @@ function dibujarRutasEnMapa() {
 
   if (contenedorLista) contenedorLista.innerHTML = '';
 
-  // Solicitar trazado a Mapbox o fallback directo
+  // Solicitar trazado a Mapbox o reutilizar Caché
   sortedRutas.forEach(nombreRuta => {
     const puntos = rutasAgrupadas[nombreRuta];
     if (puntos.length < 2) return;
@@ -1552,59 +1564,75 @@ function dibujarRutasEnMapa() {
     if (contenedorLista) contenedorLista.appendChild(tarjetaRuta);
     AppState.mapCards[nombreRuta] = tarjetaRuta;
 
-    // Conectar con Mapbox Directions
-    const stringCoordenadas = puntos.map(p => `${p.lng},${p.lat}`).join(';');
-    const urlMapbox = `https://api.mapbox.com/directions/v5/mapbox/driving/${stringCoordenadas}?geometries=geojson&access_token=${AppState.mapboxToken}`;
+    // Helpers para aplicar trazado en mapa
+    const aplicarTrazadoGeoJSON = (rutaData) => {
+      const distKM = (rutaData.distance / 1000).toFixed(1);
+      const durMin = Math.round(rutaData.duration / 60);
 
-    fetch(urlMapbox)
-      .then(r => r.json())
-      .then(data => {
-        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-          const rutaData = data.routes[0];
-          const distKM = (rutaData.distance / 1000).toFixed(1);
-          const durMin = Math.round(rutaData.duration / 60);
+      const statsEl = document.getElementById(`stats-ruta-${nombreRuta}`);
+      if (statsEl) {
+        statsEl.innerHTML = `<span><i class="fa-solid fa-road"></i> ${distKM} km</span><span><i class="fa-regular fa-clock"></i> ~${durMin} min</span>`;
+      }
 
-          const statsEl = document.getElementById(`stats-ruta-${nombreRuta}`);
-          if (statsEl) {
-            statsEl.innerHTML = `<span><i class="fa-solid fa-road"></i> ${distKM} km</span><span><i class="fa-regular fa-clock"></i> ~${durMin} min</span>`;
-          }
+      const layer = L.geoJSON(rutaData.geometry, {
+        style: { color: colorAsignado, weight: 4, opacity: 0.8 }
+      }).addTo(AppState.mapInstance);
 
-          const layer = L.geoJSON(rutaData.geometry, {
-            style: { color: colorAsignado, weight: 4, opacity: 0.8 }
-          }).addTo(AppState.mapInstance);
-
-          layer.on('click', (e) => {
-            L.DomEvent.stopPropagation(e);
-            resaltarRutaEnMapa(nombreRuta);
-          });
-
-          AppState.mapLines[nombreRuta] = layer;
-        } else {
-          throw new Error('Sin trazado Mapbox');
-        }
-      })
-      .catch(() => {
-        // Fallback: polilínea directa
-        const latLngs = puntos.map(p => [p.lat, p.lng]);
-        const layer = L.polyline(latLngs, {
-          color: colorAsignado,
-          weight: 4,
-          opacity: 0.8,
-          dashArray: '6, 6'
-        }).addTo(AppState.mapInstance);
-
-        layer.on('click', (e) => {
-          L.DomEvent.stopPropagation(e);
-          resaltarRutaEnMapa(nombreRuta);
-        });
-
-        AppState.mapLines[nombreRuta] = layer;
-
-        const statsEl = document.getElementById(`stats-ruta-${nombreRuta}`);
-        if (statsEl) {
-          statsEl.innerHTML = `<span><i class="fa-solid fa-road"></i> Trazado directo</span><span><i class="fa-regular fa-compass"></i> ${puntos.length} paraderos</span>`;
-        }
+      layer.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        resaltarRutaEnMapa(nombreRuta);
       });
+
+      AppState.mapLines[nombreRuta] = layer;
+    };
+
+    const aplicarTrazadoDirecto = () => {
+      const latLngs = puntos.map(p => [p.lat, p.lng]);
+      const layer = L.polyline(latLngs, {
+        color: colorAsignado,
+        weight: 4,
+        opacity: 0.8,
+        dashArray: '6, 6'
+      }).addTo(AppState.mapInstance);
+
+      layer.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        resaltarRutaEnMapa(nombreRuta);
+      });
+
+      AppState.mapLines[nombreRuta] = layer;
+
+      const statsEl = document.getElementById(`stats-ruta-${nombreRuta}`);
+      if (statsEl) {
+        statsEl.innerHTML = `<span><i class="fa-solid fa-road"></i> Trazado directo</span><span><i class="fa-regular fa-compass"></i> ${puntos.length} paraderos</span>`;
+      }
+    };
+
+    const stringCoordenadas = puntos.map(p => `${p.lng},${p.lat}`).join(';');
+    const cacheKey = nombreRuta + '_' + stringCoordenadas;
+
+    // Si ya lo tenemos en caché, dibujar al instante (0ms)
+    if (AppState.routeDirectionsCache && AppState.routeDirectionsCache[cacheKey]) {
+      aplicarTrazadoGeoJSON(AppState.routeDirectionsCache[cacheKey]);
+    } else {
+      const urlMapbox = `https://api.mapbox.com/directions/v5/mapbox/driving/${stringCoordenadas}?geometries=geojson&access_token=${AppState.mapboxToken}`;
+      fetch(urlMapbox)
+        .then(r => r.json())
+        .then(data => {
+          if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+            const rutaData = data.routes[0];
+            if (AppState.routeDirectionsCache) {
+              AppState.routeDirectionsCache[cacheKey] = rutaData;
+            }
+            aplicarTrazadoGeoJSON(rutaData);
+          } else {
+            aplicarTrazadoDirecto();
+          }
+        })
+        .catch(() => {
+          aplicarTrazadoDirecto();
+        });
+    }
   });
 
   AppState.mapDrawn = true;
@@ -1612,7 +1640,7 @@ function dibujarRutasEnMapa() {
 
 function resaltarRutaEnMapa(idRutaSeleccionada) {
   if (!idRutaSeleccionada || idRutaSeleccionada === 'TODAS') {
-    resetearVistaMapa();
+    resetearVistaMapa(false);
     return;
   }
 
@@ -1633,12 +1661,13 @@ function resaltarRutaEnMapa(idRutaSeleccionada) {
     }
   }
 
-  // 3. Marcadores y Tooltips
+  // 3. Marcadores y Tooltips: abrir etiquetas SOLO para la ruta seleccionada
   for (const [idRuta, marcadores] of Object.entries(AppState.mapMarkers)) {
     if (idRuta === idRutaSeleccionada) {
       marcadores.forEach(m => {
         m.setOpacity(1);
         m.setZIndexOffset(1000);
+        m.openTooltip(); // Muestra el nombre solo para los paraderos de esta ruta
         const tooltipEl = m.getTooltip()?.getElement();
         if (tooltipEl) tooltipEl.style.opacity = '1';
       });
@@ -1646,6 +1675,7 @@ function resaltarRutaEnMapa(idRutaSeleccionada) {
       marcadores.forEach(m => {
         m.setOpacity(0.18);
         m.setZIndexOffset(0);
+        m.closeTooltip(); // Oculta el nombre de las otras rutas
         const tooltipEl = m.getTooltip()?.getElement();
         if (tooltipEl) tooltipEl.style.opacity = '0.15';
       });
@@ -1669,7 +1699,7 @@ function resaltarRutaEnMapa(idRutaSeleccionada) {
   }
 }
 
-function resetearVistaMapa() {
+function resetearVistaMapa(recenter = false) {
   // Restaurar líneas
   for (const [id, linea] of Object.entries(AppState.mapLines)) {
     linea.setStyle({ weight: 4, color: getRutaColor(id), opacity: 0.8 });
@@ -1678,11 +1708,12 @@ function resetearVistaMapa() {
   // Restaurar paneles
   document.querySelectorAll('.tarjeta-resaltada').forEach(t => t.classList.remove('tarjeta-resaltada'));
 
-  // Restaurar marcadores
+  // Restaurar marcadores y cerrar tooltips
   for (const [id, marcadores] of Object.entries(AppState.mapMarkers)) {
     marcadores.forEach(m => {
       m.setOpacity(1);
       m.setZIndexOffset(0);
+      m.closeTooltip(); // Cierra tooltip para que el mapa quede despejado y veloz
       const tooltipEl = m.getTooltip()?.getElement();
       if (tooltipEl) tooltipEl.style.opacity = '1';
     });
@@ -1692,8 +1723,8 @@ function resetearVistaMapa() {
   const sel = document.getElementById('selectFiltroRutaMapa');
   if (sel) sel.value = 'TODAS';
 
-  // Centrar mapa
-  if (AppState.mapBounds && AppState.mapBounds.isValid() && AppState.mapInstance) {
+  // Solo re-centrar el mapa si se solicitó explícitamente desde el botón [Centrar]
+  if (recenter && AppState.mapBounds && AppState.mapBounds.isValid() && AppState.mapInstance) {
     AppState.mapInstance.fitBounds(AppState.mapBounds, { padding: [40, 40] });
   }
 }
