@@ -1350,4 +1350,367 @@ body {
   }
 }
 
+/* =========================================================
+   Barra de Pestañas (Navegación tipo Hojas de Excel)
+   ========================================================= */
+.nav-tabs-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.5rem 0 1rem 0;
+  border-bottom: 2px solid #1e293b;
+  margin-bottom: 0.5rem;
+}
+
+.nav-tabs-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nav-tab-btn {
+  background: #1e293b;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  padding: 10px 20px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.25s ease;
+  box-shadow: 4px 4px 10px #101622, -4px -4px 10px #2a3a52;
+}
+
+.nav-tab-btn:hover {
+  background: #243247;
+  color: #f8fafc;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+}
+
+.nav-tab-btn.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: inset 2px 2px 5px rgba(0,0,0,0.3), 0 0 16px rgba(37, 99, 235, 0.4) !important;
+}
+
+.btn-copilot {
+  background: linear-gradient(135deg, #1e293b, #312e81);
+  color: #c7d2fe;
+  border: 1px solid #4f46e5;
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.25s ease;
+  box-shadow: 4px 4px 10px #101622, -4px -4px 10px #2a3a52;
+}
+
+.btn-copilot:hover {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #ffffff;
+  border-color: #818cf8;
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.45);
+  transform: translateY(-1px);
+}
+
+.badge-copilot-pill {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* Tab View Panes */
+.tab-view-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+  transition: opacity 0.2s ease;
+}
+
+.tab-view-pane.hidden {
+  display: none !important;
+}
+
+/* =========================================================
+   Estilos de Vista Análisis de Costos y Eficiencia
+   ========================================================= */
+.cost-header-card {
+  padding: 1.5rem 1.85rem;
+}
+
+.cost-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.cost-view-title {
+  margin: 0 0 0.4rem 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.3px;
+}
+
+.cost-week-selector-box {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: inset 2px 2px 6px #070b13, inset -2px -2px 6px #172233;
+}
+
+.cost-week-selector-box label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.week-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.select-semana-highlight {
+  font-size: 1.15rem !important;
+  font-weight: 700 !important;
+  color: #38bdf8 !important;
+  border-color: #3b82f6 !important;
+  background: #1e293b !important;
+  padding: 6px 14px !important;
+  cursor: pointer;
+  min-width: 140px;
+}
+
+.week-selector-hint {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Cost Summary Grid (KPIs + Alertas) */
+.cost-summary-grid {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 1100px) {
+  .cost-summary-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cost-kpis-8 {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important;
+  gap: 1rem !important;
+}
+
+.cost-sub-kpi {
+  padding: 1rem !important;
+  border-radius: 16px !important;
+}
+
+.cost-sub-kpi .kpi-value {
+  font-size: 1.6rem !important;
+  margin: 4px 0 !important;
+}
+
+.cost-sub-kpi .kpi-title {
+  font-size: 0.78rem !important;
+  letter-spacing: 0.5px;
+}
+
+.cost-sub-kpi .kpi-subtitle {
+  font-size: 0.75rem !important;
+}
+
+/* Bloque de Alertas */
+.cost-alert-block {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-left: 4px solid #ef4444;
+  background: linear-gradient(180deg, #1e293b, #182232);
+}
+
+.cost-alert-heading {
+  margin: 0 0 1rem 0;
+  color: #f87171;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cost-alert-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cost-alert-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.cost-alert-label {
+  font-size: 0.86rem;
+  color: #cbd5e1;
+}
+
+.cost-alert-val {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.alert-info-footer {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+/* Rankings Grid (Top 3 Más vs Menos Eficientes) */
+.ranking-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .ranking-split-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ranking-panel {
+  background: #0f172a;
+  border-radius: 14px;
+  padding: 1.25rem;
+  border: 1px solid #334155;
+  box-shadow: inset 2px 2px 6px #070b13, inset -2px -2px 6px #172233;
+}
+
+.ranking-header {
+  margin: 0 0 0.85rem 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ranking-header.top-header {
+  color: #22c55e;
+}
+
+.ranking-header.bottom-header {
+  color: #f43f5e;
+}
+
+.ranking-table th {
+  background: #1e293b !important;
+  font-size: 0.8rem !important;
+}
+
+/* Grid de Recomendaciones y Proyección */
+.recommendations-projection-grid {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1024px) {
+  .recommendations-projection-grid {
+    flex-direction: column;
+  }
+}
+
+.prioridad-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.prioridad-urgente {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.prioridad-media {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.prioridad-baja {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+/* Copilot Modal & Panels */
+.copilot-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.copilot-panel.hidden {
+  display: none !important;
+}
+
+.copilot-step-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 12px;
+}
+
+.copilot-step-title {
+  color: #60a5fa;
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
 
