@@ -48,12 +48,35 @@ body {
 /* Utils overrides for components in global styles */
 .hidden { display: none !important; }
 
+/* Global overrides for dark theme cards & headers */
+.card {
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+.card-header {
+  background-color: transparent !important;
+  border-bottom: 1px solid #334155 !important;
+  color: #f8fafc !important;
+}
+
+.card-header h2, .card-header h3 {
+  color: #f8fafc !important;
+}
+
+.card-body {
+  background-color: transparent !important;
+  color: #cbd5e1 !important;
+}
+
 /* Connection Panel (Dark Claymorphism) */
 .connection-panel {
-  background: #1e293b;
+  background: #1e293b !important;
   padding: 1.5rem;
   border-radius: 20px;
   box-shadow: 9px 9px 16px #131a25, -9px -9px 16px #293851;
+  border: none !important;
 }
 
 .connection-panel .card-header {
@@ -61,12 +84,18 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  padding: 0 !important;
+  border-bottom: none !important;
 }
 
 .connection-panel .card-header h2 {
   margin: 0;
   font-size: 1.1rem;
-  color: #f8fafc;
+  color: #f8fafc !important;
+}
+
+.connection-panel .card-body {
+  padding: 0 !important;
 }
 
 /* Filters (Dark Claymorphism) */
@@ -378,3 +407,178 @@ body {
   gap: 1.5rem;
   align-items: center;
 }
+
+/* =========================================================
+   Botón Google Login & Perfil de Usuario Moderno
+   ========================================================= */
+.btn-google {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  padding: 8px 18px !important;
+  border-radius: 20px !important;
+  font-weight: 600 !important;
+  font-size: 0.85rem !important;
+  box-shadow: 4px 4px 10px #101622, -4px -4px 10px #2a3a52 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  cursor: pointer;
+  transition: all 0.25s ease !important;
+}
+
+.btn-google:hover {
+  background: #243247 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.3) !important;
+  transform: translateY(-1px);
+}
+
+.btn-google i {
+  color: #4285F4; /* Google Blue */
+  font-size: 1.1rem;
+}
+
+.user-profile {
+  background: #1e293b !important;
+  color: #93c5fd !important;
+  border: 1px solid #334155 !important;
+  padding: 6px 14px !important;
+  border-radius: 20px !important;
+  box-shadow: inset 2px 2px 4px #101622, inset -2px -2px 4px #2a3a52 !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.user-profile::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+#btnGoogleLogout {
+  background: transparent !important;
+  border: none !important;
+  color: #f87171 !important;
+  cursor: pointer;
+  padding: 4px 8px !important;
+  border-radius: 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+#btnGoogleLogout:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+}
+
+/* =========================================================
+   Badges Dark Mode
+   ========================================================= */
+.badge {
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  padding: 0.35rem 0.75rem !important;
+  border-radius: 20px !important;
+  letter-spacing: 0.3px;
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+.badge-danger {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+
+.badge-info {
+  background: rgba(14, 165, 233, 0.15) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(14, 165, 233, 0.3) !important;
+}
+
+/* =========================================================
+   Botones de Acción (Explorar Drive / Cargar Datos)
+   ========================================================= */
+#btnBrowseDrive {
+  background: #334155 !important;
+  color: #f8fafc !important;
+  border: 1px solid #475569 !important;
+  border-radius: 12px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+#btnBrowseDrive:hover {
+  background: #475569 !important;
+  border-color: #64748b !important;
+}
+
+#btnFetchData {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
+  transition: all 0.2s ease !important;
+}
+
+#btnFetchData:hover {
+  background: #1d4ed8 !important;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4) !important;
+}
+
+/* =========================================================
+   Modal de Drive (Dark Mode)
+   ========================================================= */
+.modal-content {
+  background-color: #1e293b !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+}
+
+.modal-header {
+  border-bottom: 1px solid #334155 !important;
+  color: #f8fafc !important;
+}
+
+.modal-header h3 {
+  color: #f8fafc !important;
+}
+
+.btn-close {
+  color: #94a3b8 !important;
+}
+
+.btn-close:hover {
+  color: #f8fafc !important;
+}
+
+.file-list li {
+  border-bottom: 1px solid #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+.file-list li:hover {
+  background-color: #334155 !important;
+  color: #f8fafc !important;
+}
+

@@ -40,10 +40,10 @@
 
   <main class="dashboard-container" style="max-width: 98% !important; width: 100% !important;">
     <!-- Panel de Conexión -->
-    <section class="card connection-panel">
-      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <section class="connection-panel">
+      <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; background: transparent; border: none; padding: 0 0 1rem 0;">
         <h2 style="display: flex; align-items: center; gap: 8px;">
-          <i class="fa-solid fa-link"></i> Conectar a Google Sheet 
+          <i class="fa-solid fa-link" style="color: #3b82f6;"></i> Conectar a Google Sheet 
           <i class="fa-solid fa-circle-info text-info custom-tooltip-icon" data-tooltip="Elegir el archivo ServicioMovilidad"></i>
         </h2>
         <div style="display: flex; align-items: center; gap: 12px;">
@@ -53,7 +53,7 @@
           </button>
         </div>
       </div>
-      <div class="card-body" id="connectionCardBody" style="transition: all 0.3s ease;">
+      <div class="card-body" id="connectionCardBody" style="transition: all 0.3s ease; padding: 0;">
         <div class="input-with-action" style="display: flex; gap: 8px;">
           <input type="text" id="sheetUrlInput" class="form-control" placeholder="Pega el enlace del Excel..." style="flex-grow: 1;">
           <button id="btnBrowseDrive" class="btn btn-secondary"><i class="fa-solid fa-folder-open"></i> Explorar Drive</button>
@@ -81,7 +81,7 @@
     <!-- Filtros del Dashboard (Sticky) -->
     <div class="sticky-filters-wrapper hidden" id="dashboardFiltersWrapper" style="position: sticky; top: 15px; z-index: 100;">
       <div style="display: flex; justify-content: flex-end; margin-bottom: -15px; padding-right: 15px; position: relative; z-index: 101;">
-        <button id="toggleFiltersBtn" class="btn-icon" style="background: white; border: 1px solid #e2e8f0; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 32px; height: 32px; cursor: pointer;" title="Ocultar/Mostrar filtros">
+        <button id="toggleFiltersBtn" class="btn-icon" style="border-radius: 50%; width: 32px; height: 32px; cursor: pointer;" title="Ocultar/Mostrar filtros">
           <i class="fa-solid fa-chevron-up"></i>
         </button>
       </div>

@@ -335,47 +335,6 @@ async function loadAllSheets(sheetId) {
     processSheet(secos, 'SECOS');
     processSheet(ppa, 'PPA');
     processSheet(frescos, 'FRESCOS');
-    
-    if (registroDiario && registroDiario.rows) {
-      const aggrMap = {};
-      
-      registroDiario.rows.forEach(row => {
-        // Helper para leer múltiples posibles nombres de columna
-        const getVal = (keys) => {
-          for (let k of keys) {
-            if (row[k] !== undefined && row[k] !== '') return row[k];
-          }
-          return null;
-        };
-
-        const rutaVal = getVal(['RUTA', 'RUTA ASIGNADA']);
-        if (!rutaVal) return;
-        
-        let rawFecha = getVal(['FECHA', 'FECHA DE VIAJE']) || '';
-        // La fecha ahora trae hora (Ej: "21/05/2026 12:05:00"), extraemos solo la fecha
-        const fechaSoloDia = String(rawFecha).split(' ')[0]; 
-
-        const key = `${fechaSoloDia}|${rutaVal}`;
-
-        if (!aggrMap[key]) {
-          const rawCosto = getVal(['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS']);
-          const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
-
-          aggrMap[key] = {
-            dia: getVal(['DÍA', 'DIA']),
-            fecha: fechaSoloDia,
-            semana: parseInt(getVal(['SEMANA'])) || 0,
-            ruta: rutaVal,
-            capacidad: parseFloat(getVal(['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS'])) || 0,
-            pasajeros: 0,
-            costo: costoNum 
-          };
-        }
-
-        // Cada fila de empleado suma 1 pasajero a ese bus en esa fecha
-        aggrMap[key].pasajeros += 1;
-      });
-
 
     AppState.rawEmployees = combined;
     AppState.filteredEmployees = [...combined];
@@ -771,7 +730,10 @@ function renderTables() {
 
 function initCharts() {
   Chart.defaults.font.family = "'Inter', sans-serif";
-  Chart.defaults.color = '#475569';
+  Chart.defaults.color = '#94a3b8';
+  if (Chart.defaults.scale && Chart.defaults.scale.grid) {
+    Chart.defaults.scale.grid.color = 'rgba(255, 255, 255, 0.08)';
+  }
 }
 
 function renderPieChart(canvasId, dataMap, colors) {
