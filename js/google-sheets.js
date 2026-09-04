@@ -310,22 +310,34 @@ const GoogleSheetsService = {
       return { headers: [], rows: [], rawValues: [] };
     }
 
-    // Identificar el último índice de columna que realmente contiene un título o datos
+    // Encontrar la primera fila que tenga datos (para usarla como cabecera)
+    // Esto previene errores si la Fila 1 de Excel está totalmente en blanco
+    let headerRowIndex = 0;
+    let rawHeaders = [];
     let lastValidColIndex = -1;
-    const rawHeaders = values[0] || [];
-    
-    // Primero, verificamos el ancho real buscando la última celda con datos en la cabecera
-    for (let i = 0; i < rawHeaders.length; i++) {
-      const h = rawHeaders[i];
-      if (h !== null && h !== undefined && String(h).trim() !== '') {
-        lastValidColIndex = i;
+
+    for (let r = 0; r < Math.min(values.length, 10); r++) {
+      const row = values[r] || [];
+      let maxCol = -1;
+      let dataCount = 0;
+      for (let c = 0; c < row.length; c++) {
+        if (row[c] !== null && row[c] !== undefined && String(row[c]).trim() !== '') {
+          maxCol = c;
+          dataCount++;
+        }
+      }
+      // Si la fila tiene al menos 2 columnas con texto, asumimos que es la cabecera
+      // (O si es la única que tiene algo)
+      if (dataCount >= 2 || (dataCount > 0 && lastValidColIndex === -1)) {
+        headerRowIndex = r;
+        rawHeaders = row;
+        lastValidColIndex = maxCol;
+        break; // Encontramos la cabecera
       }
     }
 
-    // Si la cabecera está totalmente vacía (ej. hoja en blanco), limitamos a 0 columnas
-    // para no crear un scroll infinito
     if (lastValidColIndex === -1) {
-      return { headers: [], rows: [], rawValues: values };
+      return { headers: [], rows: [], rawValues: values }; // Hoja totalmente en blanco
     }
 
     // Construir cabeceras solo hasta la última columna válida
@@ -336,10 +348,10 @@ const GoogleSheetsService = {
       headers.push(title || `Columna_${i + 1}`);
     }
 
-    // Filas subsiguientes
+    // Filas subsiguientes (a partir de la fila siguiente a la cabecera)
     const rows = [];
-    for (let r = 1; r < values.length; r++) {
-      const rowArr = values[r];
+    for (let r = headerRowIndex + 1; r < values.length; r++) {
+      const rowArr = values[r] || [];
       const rowObj = {};
       let hasData = false;
 
