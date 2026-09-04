@@ -322,7 +322,8 @@ async function loadAllSheets(sheetId) {
         const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
 
         registroData.push({
-          dia: getVal(['DÍA', 'DIA', 'FECHA']),
+          dia: getVal(['DÍA', 'DIA']),
+          fecha: getVal(['FECHA', 'FECHA DE VIAJE']),
           semana: parseInt(getVal(['SEMANA'])) || 0,
           ruta: rutaVal,
           capacidad: parseFloat(getVal(['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS'])) || 0,
@@ -544,10 +545,16 @@ function renderTables() {
     const ultimaFila = regData[regData.length - 1];
     const semanaActual = ultimaFila.semana;
     const diaActual = ultimaFila.dia;
+    const fechaActual = ultimaFila.fecha;
 
     // Filtro por semana y día actual basados en esa última fila
     const datosSemana = regData.filter(r => r.semana === semanaActual);
-    const datosDia = datosSemana.filter(r => r.dia === diaActual);
+    
+    // Si tenemos la fecha exacta (ej. 03/09/2026), filtramos por eso para evitar 
+    // colisiones con otros jueves de la misma semana (o semanas mal numeradas)
+    const datosDia = fechaActual 
+      ? regData.filter(r => r.fecha === fechaActual)
+      : datosSemana.filter(r => r.dia === diaActual);
 
     // Resumen por ruta de la SEMANA actual
     const statsRuta = {};
