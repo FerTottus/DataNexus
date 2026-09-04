@@ -336,6 +336,8 @@ async function loadAllSheets(sheetId) {
     processSheet(frescos, 'FRESCOS');
     
     if (registroDiario && registroDiario.rows) {
+      const aggrMap = {};
+      
       registroDiario.rows.forEach(row => {
         // Helper para leer múltiples posibles nombres de columna
         const getVal = (keys) => {
@@ -346,21 +348,35 @@ async function loadAllSheets(sheetId) {
         };
 
         const rutaVal = getVal(['RUTA', 'RUTA ASIGNADA']);
-        if (!rutaVal) return; // Si no hay ruta, es una fila vacía
+        if (!rutaVal) return;
         
-        const rawCosto = getVal(['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE']);
-        const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+        let rawFecha = getVal(['FECHA', 'FECHA DE VIAJE']) || '';
+        // La fecha ahora trae hora (Ej: "21/05/2026 12:05:00"), extraemos solo la fecha
+        const fechaSoloDia = String(rawFecha).split(' ')[0]; 
 
-        registroData.push({
-          dia: getVal(['DÍA', 'DIA']),
-          fecha: getVal(['FECHA', 'FECHA DE VIAJE']),
-          semana: parseInt(getVal(['SEMANA'])) || 0,
-          ruta: rutaVal,
-          capacidad: parseFloat(getVal(['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS'])) || 0,
-          pasajeros: parseFloat(getVal(['PASAJEROS', 'CANT. PASAJEROS', 'CANTIDAD PASAJEROS'])) || 0,
-          costo: costoNum
-        });
+        const key = `${fechaSoloDia}|${rutaVal}`;
+
+        if (!aggrMap[key]) {
+          const rawCosto = getVal(['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS']);
+          const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+
+          aggrMap[key] = {
+            dia: getVal(['DÍA', 'DIA']),
+            fecha: fechaSoloDia,
+            semana: parseInt(getVal(['SEMANA'])) || 0,
+            ruta: rutaVal,
+            capacidad: parseFloat(getVal(['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS'])) || 0,
+            pasajeros: 0,
+            costo: costoNum 
+          };
+        }
+
+        // Cada fila de empleado suma 1 pasajero a ese bus en esa fecha
+        aggrMap[key].pasajeros += 1;
       });
+
+      // Convertimos el diccionario en un array y lo asignamos
+      registroData = Object.values(aggrMap);
     }
 
     AppState.rawEmployees = combined;
