@@ -14,10 +14,10 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <!-- Estilos Globales de DataNexus (opcional, para botones y modal drive) -->
-  <link rel="stylesheet" href="../../css/styles.css?v=3.0">
+  <link rel="stylesheet" href="../../css/styles.css?v=3.1">
   
   <!-- Estilos Específicos de este Dashboard -->
-  <link rel="stylesheet" href="css/movilidad.css?v=3.0">
+  <link rel="stylesheet" href="css/movilidad.css?v=3.1">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://apis.google.com/js/api.js"></script>
@@ -251,7 +251,7 @@
     </div>
 
     <!-- Filtros del Dashboard (Sticky) -->
-    <div class="sticky-filters-wrapper hidden" id="dashboardFiltersWrapper" style="position: sticky; top: 15px; z-index: 100;">
+    <div class="sticky-filters-wrapper hidden" id="dashboardFiltersWrapper" style="position: -webkit-sticky; position: sticky; top: 8px; z-index: 990;">
       <div style="display: flex; justify-content: flex-end; margin-bottom: -15px; padding-right: 15px; position: relative; z-index: 101;">
         <button id="toggleFiltersBtn" class="btn-icon" style="border-radius: 50%; width: 32px; height: 32px; cursor: pointer;" title="Ocultar/Mostrar filtros">
           <i class="fa-solid fa-chevron-up"></i>
@@ -499,18 +499,18 @@
       <div class="tables-grid mt-4">
         <div class="clay-card">
           <h3 class="table-title">RUTAS DISPONIBLES</h3>
-          <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+          <div class="table-responsive table-vertical-scroll" style="max-height: 350px; overflow-y: auto;">
             <table class="data-table" id="tableRutasDisponibles">
-              <thead style="position: sticky; top: 0; background: #2563eb; z-index: 5;"><tr><th>Ruta</th><th>Empleados</th><th>%</th></tr></thead>
+              <thead style="position: -webkit-sticky; position: sticky; top: 0; background: #2563eb; z-index: 5;"><tr><th>Ruta</th><th>Empleados</th><th>%</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
         </div>
         <div class="clay-card">
           <h3 class="table-title">TOP 10 PARADEROS MÁS CERCANOS</h3>
-          <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+          <div class="table-responsive table-vertical-scroll" style="max-height: 350px; overflow-y: auto;">
             <table class="data-table" id="tableTopParaderos">
-              <thead style="position: sticky; top: 0; background: #2563eb; z-index: 5;"><tr><th>#</th><th>Paradero</th><th>Empleados</th><th>Ruta</th></tr></thead>
+              <thead style="position: -webkit-sticky; position: sticky; top: 0; background: #2563eb; z-index: 5;"><tr><th>#</th><th>Paradero</th><th>Empleados</th><th>Ruta</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -889,6 +889,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Script Específico de Movilidad -->
-  <script src="js/movilidad.js?v=3.0"></script>
+  <script src="js/movilidad.js?v=3.1"></script>
 </body>
 </html>
