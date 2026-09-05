@@ -3108,7 +3108,7 @@ async function fetchAvailableModels(apiKey) {
   return null;
 }
 
-async function callGeminiApiMultiModel(apiKey, promptPayload, systemInstructionText) {
+async function callGeminiApiMultiModel(apiKey, promptPayload, systemInstructionText, chatHistory = []) {
   // 1. Intentar descubrir modelos habilitados en este proyecto
   const discovered = await fetchAvailableModels(apiKey);
   let modelsToTry = discovered || [...GEMINI_FALLBACK_MODELS];
@@ -3125,15 +3125,30 @@ async function callGeminiApiMultiModel(apiKey, promptPayload, systemInstructionT
 
   for (const m of modelsToTry) {
     const url = `https://generativelanguage.googleapis.com/${m.version}/models/${m.model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    // Construir contents respetando la alternancia de turnos (user -> model -> user)
+    const contents = [];
+    if (chatHistory && Array.isArray(chatHistory) && chatHistory.length > 0) {
+      // Tomamos hasta los últimos 6 turnos para mantener el prompt ágil y con contexto
+      const recent = chatHistory.slice(-6);
+      recent.forEach(msg => {
+        contents.push({
+          role: msg.role === 'model' ? 'model' : 'user',
+          parts: [{ text: msg.content }]
+        });
+      });
+    }
+
+    // Agregar el turno actual del usuario con el contexto logístico embebido
+    contents.push({
+      role: 'user',
+      parts: [{ text: promptPayload }]
+    });
+
     const bodyPayload = {
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: promptPayload }]
-        }
-      ],
+      contents: contents,
       generationConfig: {
-        temperature: 0.2,
+        temperature: 0.35,
         maxOutputTokens: 2048
       }
     };
@@ -3340,6 +3355,104 @@ function updateAiContextBanner() {
   banner.innerHTML = `<i class="fa-solid fa-database" style="color: #38bdf8;"></i> <span>Contexto: <b>${semText}</b> • ${pasajEl} pasajeros • Ocup. ${ocupEl} • ${costoEl}</span>`;
 }
 
+function getHistoricalWeeksSummary() {
+  if (!AppState.rawRegistroDiario || AppState.rawRegistroDiario.length === 0) {
+    return 'No hay datos cargados en el Registro Diario.';
+  }
+
+  const semMap = {};
+
+  AppState.rawRegistroDiario.forEach(r => {
+    const rawSem = getRowVal(r, ['SEMANA', 'SEM']);
+    const s = parseInt(rawSem, 10);
+    if (isNaN(s) || s <= 0) return;
+
+    if (!semMap[s]) {
+      semMap[s] = { trips: {}, pasajerosTotal: 0 };
+    }
+
+    const rawFecha = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
+    const fecha = normalizeDateStr(rawFecha) || 'FECHA';
+    const rutaRaw = String(getRowVal(r, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
+    if (!rutaRaw && fecha === 'FECHA') return;
+
+    const ruta = rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : (rutaRaw ? `RUTA ${rutaRaw.toUpperCase()}` : 'RUTA DESCONOCIDA');
+    const tipoBus = String(getRowVal(r, ['TIPO_BUS', 'TIPO BUS', 'BUS_TIPO']) || '').trim();
+    const turno = String(getRowVal(r, ['TURNO', 'HORA', 'HORARIO', 'SENTIDO']) || '').trim();
+    const placa = String(getRowVal(r, ['PLACA', 'UNIDAD', 'VEHICULO']) || '').trim();
+
+    const rawDni = getRowVal(r, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
+    const dniClean = cleanDni(rawDni);
+    const rawNom = String(getRowVal(r, ['APELLIDOS Y NOMBRES', 'NOMBRE Y APELLIDO', 'NOMBRE', 'COLABORADOR', 'EMPLEADO']) || '').trim();
+    const isPassenger = Boolean(
+      (dniClean && dniClean.length >= 4 && !['TOTAL', 'SUBTOTAL', 'NONE', 'N/D', '0'].includes(dniClean)) ||
+      (rawNom && rawNom.length >= 3 && !rawNom.toUpperCase().includes('TOTAL'))
+    );
+
+    const numPasaj = parseFloat(String(getRowVal(r, ['PASAJEROS', 'TOTAL PASAJEROS', 'PASAJ']) || '0').replace(/[^0-9.-]+/g, '')) || 0;
+    if (!isPassenger && numPasaj <= 0) return;
+
+    const tripKey = `${fecha}|${ruta}|${tipoBus}|${turno}|${placa}`;
+    const semData = semMap[s];
+
+    if (!semData.trips[tripKey]) {
+      const cap = parseFloat(String(getRowVal(r, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS']) || '0').replace(/[^0-9.-]+/g, '')) || 50;
+      const costo = parseFloat(String(getRowVal(r, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE']) || '0').replace(/[^0-9.-]+/g, '')) || 0;
+      semData.trips[tripKey] = {
+        ruta,
+        capacidad: cap > 0 ? cap : 50,
+        costo: costo,
+        pasajeros: 0
+      };
+    }
+
+    const t = semData.trips[tripKey];
+    const addPas = isPassenger ? 1 : (numPasaj > 0 ? numPasaj : 1);
+    t.pasajeros += addPas;
+    semData.pasajerosTotal += addPas;
+  });
+
+  const sortedWeeks = Object.keys(semMap).map(Number).sort((a, b) => a - b);
+  if (sortedWeeks.length === 0) return 'Sin historial de semanas disponible.';
+
+  const lines = sortedWeeks.map(s => {
+    const semData = semMap[s];
+    const tripList = Object.values(semData.trips);
+    const viajes = tripList.length;
+    let capTotal = 0;
+    let costoTotal = 0;
+    let pasTotal = 0;
+    const rutaStats = {};
+
+    tripList.forEach(t => {
+      capTotal += t.capacidad;
+      costoTotal += t.costo;
+      pasTotal += t.pasajeros;
+      if (!rutaStats[t.ruta]) rutaStats[t.ruta] = { cap: 0, pas: 0 };
+      rutaStats[t.ruta].cap += t.capacidad;
+      rutaStats[t.ruta].pas += t.pasajeros;
+    });
+
+    const ocup = capTotal > 0 ? Math.round((pasTotal / capTotal) * 100) : 0;
+    const costoPas = pasTotal > 0 ? (costoTotal / pasTotal).toFixed(2) : '0.00';
+
+    const criticas = Object.keys(rutaStats)
+      .map(r => ({
+        ruta: r,
+        pct: rutaStats[r].cap > 0 ? Math.round((rutaStats[r].pas / rutaStats[r].cap) * 100) : 0
+      }))
+      .filter(r => r.pct < 50)
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 3)
+      .map(r => `${r.ruta} (${r.pct}%)`);
+
+    const critStr = criticas.length > 0 ? ` | Críticas (<50%): ${criticas.join(', ')}` : ' | Ocupación balanceada';
+    return `• Semana ${s}: ${viajes} viajes | ${pasTotal} pasajeros | Capacidad: ${capTotal} (${ocup}% ocupación) | Costo: S/ ${Math.round(costoTotal).toLocaleString('es-PE')} | Costo/Pasajero: S/ ${costoPas}${critStr}`;
+  });
+
+  return lines.join('\n');
+}
+
 function getLogisticsLiveContext() {
   const selSem = document.getElementById('filtroSemana')?.value || AppState.semanaSeleccionada || 'TODAS';
   const selDia = document.getElementById('filtroDia')?.value || 'TODOS';
@@ -3381,19 +3494,24 @@ function getLogisticsLiveContext() {
     rutasSummary = 'No hay rutas calculadas actualmente con los filtros seleccionados.';
   }
 
+  const multiWeekSummary = getHistoricalWeeksSummary();
+
   return `
-[DATOS LOGÍSTICOS EN PANTALLA - TOTTUS HUACHIPA]
+[SEMANA Y FILTROS ACTIVOS EN PANTALLA]
 - Período Activo: ${selSem === 'TODAS' ? 'Todas las Semanas' : 'Semana ' + selSem} | Día: ${selDia} | Fecha: ${selFecha}
 - Viajes Totales: ${totalViajes}
 - Pasajeros Totales: ${totalPasaj}
-- Capacidad Total de Flota: ${totalCap}
+- Capacidad Total de Flota: ${totalCap} asientos
 - % Ocupación Global: ${ocupProm} (Meta benchmark: > 70%)
 - Costo Total Invertido: ${totalCosto}
 - Costo Promedio por Viaje: ${costoPromViaje}
 - Costo Promedio por Pasajero: ${costoPromPasaj} (Meta benchmark: < S/ 15.00)
 
-[DESGLOSE DE RUTAS EVALUADAS]
+[DESGLOSE DE RUTAS EVALUADAS EN PANTALLA]
 ${rutasSummary}
+
+[HISTORIAL MULTI-SEMANAL DISPONIBLE EN EL SISTEMA (SEMANA A SEMANA)]
+${multiWeekSummary}
 `.trim();
 }
 
@@ -3433,26 +3551,23 @@ async function sendUserAiMessage() {
   const systemInstructionText = `Eres el Asistente Experto en Optimización de Transporte y Logística del Centro de Distribución Tottus Huachipa (Falabella).
 Tu labor es asesorar a gerentes, jefaturas y supervisores sobre la eficiencia del transporte de colaboradores, costos, ocupación y rutas.
 
-REGLAS DE NEGOCIO Y BENCHMARKS:
-- Meta de Ocupación de Flota: Mayor al 70%. Rutas con ocupación < 50% son críticas por subutilización y generan sobrecostos evitables.
-- Meta de Costo por Pasajero: Menor a S/ 15.00 por traslado.
-- Tipología y Dimensionamiento:
-  * Bus: 50 asientos. Recomendado solo para rutas de alta demanda (>= 35 personas).
-  * Sprinter / Van: 15-20 asientos. Recomendado prioritariamente para rutas con < 20 pasajeros para ahorrar entre 25% y 40% del costo por viaje.
-- Semanas operativas: Se calculan de Lunes a Domingo según norma ISO 8601 de logística retail.
+DIRECTRICES CONVERSACIONALES (MUY IMPORTANTE):
+1. **Sé Dinámico y Natural:** NUNCA empieces cada respuesta con la misma introducción rígida ("Estimado equipo gerencial..."). Varía tu estilo, ve directo al grano y habla como un asesor logístico senior en una reunión real.
+2. **Memoria y Continuidad de Chat:** Si el usuario te hace preguntas de seguimiento (por ejemplo: "¿qué más sugieres?", "¿por qué?", "¿cómo lo implemento?", "¿qué rutas cambiarías?"), continúa la conversación aportando NUEVAS ideas, desgloses tácticos o respuestas específicas sin repetir diagnósticos ni introducciones de mensajes previos.
+3. **Análisis Multi-semanal y Comparativas:** Cuentas con el [HISTORIAL MULTI-SEMANAL] de la Semana 30 a la Semana 36. Si te preguntan por un rango de semanas, compara los números reales semana a semana (viajes, pasajeros, ocupación % y costo por pasajero) y explica la tendencia (si empeoró, mejoró o se estancó).
+4. **Cálculos Reales:** Basa tus respuestas exclusivamente en las cifras provistas en el contexto. No inventes números.
+5. **Benchmarks:**
+   - Meta de Ocupación: > 70%. Rutas con < 50% son críticas.
+   - Meta de Costo por Pasajero: < S/ 15.00.
+   - Sugerencia de Unidades: Para rutas con < 20 pasajeros en bus de 50, recomienda sustituir por Vans/Sprinter (15-20 asientos) ahorrando 25% a 40% por viaje.
+6. **Formato:** Usa viñetas limpias y resalta las cifras y nombres de ruta en **negrita**.`;
 
-PAUTAS DE RESPUESTA:
-- Responde siempre con tono ejecutivo, analítico, directo y profesional.
-- Utiliza las cifras reales provistas en el contexto (no inventes números).
-- Resalta con **negrita** los hallazgos críticos y oportunidades de ahorro.
-- Si detectas rutas con < 50% de ocupación, sugiere explícitamente el cambio de unidad a van/sprinter y cuantifica el ahorro potencial.`;
-
-  // Construir el prompt completo para Gemini
+  // Construir el prompt para Gemini
   const promptPayload = includeContext 
-    ? `DATOS ACTUALES DEL DASHBOARD:\n${liveContext}\n\nCONSULTA DEL USUARIO:\n${userText}`
+    ? `DATOS LOGÍSTICOS DEL DASHBOARD:\n${liveContext}\n\nCONSULTA DEL USUARIO:\n${userText}`
     : userText;
 
-  const result = await callGeminiApiMultiModel(apiKey, promptPayload, systemInstructionText);
+  const result = await callGeminiApiMultiModel(apiKey, promptPayload, systemInstructionText, AppState.aiHistory);
 
   removeTypingIndicator(typingBubbleId);
 
@@ -3468,7 +3583,7 @@ El bot se ha pausado preventivamente y se reanudará automáticamente en <b>60 s
 
   if (result.status === 400) {
     appendSystemChatMessage(`❌ <b>Clave API Inválida (HTTP 400)</b><br>
-Google AI Studio no reconoció la clave configurada en <code>config.js</code>. Verifica que sea la clave correcta (empieza con <code>AIzaSy...</code>).`);
+Google AI Studio no reconoció la clave configurada. Verifica que sea la clave correcta.`);
     return;
   }
 
@@ -3480,7 +3595,14 @@ Google AI Studio no reconoció la clave configurada en <code>config.js</code>. V
   const botReply = result.data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (botReply) {
     appendAssistantChatMessage(botReply);
-    AppState.aiHistory.push({ role: 'user', content: userText }, { role: 'assistant', content: botReply });
+    AppState.aiHistory.push(
+      { role: 'user', content: userText },
+      { role: 'model', content: botReply }
+    );
+    // Limitar historial a los últimos 10 mensajes para que la memoria sea rápida y relevante
+    if (AppState.aiHistory.length > 10) {
+      AppState.aiHistory = AppState.aiHistory.slice(-10);
+    }
   } else {
     appendSystemChatMessage('No se recibió respuesta válida del modelo.');
   }
