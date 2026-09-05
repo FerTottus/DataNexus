@@ -14,10 +14,10 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <!-- Estilos Globales de DataNexus (opcional, para botones y modal drive) -->
-  <link rel="stylesheet" href="../../css/styles.css?v=2.9">
+  <link rel="stylesheet" href="../../css/styles.css?v=3.0">
   
   <!-- Estilos Específicos de este Dashboard -->
-  <link rel="stylesheet" href="css/movilidad.css?v=2.9">
+  <link rel="stylesheet" href="css/movilidad.css?v=3.0">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://apis.google.com/js/api.js"></script>
@@ -499,18 +499,18 @@
       <div class="tables-grid mt-4">
         <div class="clay-card">
           <h3 class="table-title">RUTAS DISPONIBLES</h3>
-          <div class="table-responsive">
+          <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
             <table class="data-table" id="tableRutasDisponibles">
-              <thead><tr><th>Ruta</th><th>Empleados</th><th>%</th></tr></thead>
+              <thead style="position: sticky; top: 0; background: #2563eb; z-index: 5;"><tr><th>Ruta</th><th>Empleados</th><th>%</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
         </div>
         <div class="clay-card">
           <h3 class="table-title">TOP 10 PARADEROS MÁS CERCANOS</h3>
-          <div class="table-responsive">
+          <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
             <table class="data-table" id="tableTopParaderos">
-              <thead><tr><th>#</th><th>Paradero</th><th>Empleados</th><th>Ruta</th></tr></thead>
+              <thead style="position: sticky; top: 0; background: #2563eb; z-index: 5;"><tr><th>#</th><th>Paradero</th><th>Empleados</th><th>Ruta</th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -544,28 +544,6 @@
 
     <!-- VISTA 2: ANÁLISIS DE COSTOS Y EFICIENCIA (Hoja ANALISIS_COSTOS) -->
     <div id="viewAnalisisCostos" class="tab-view-pane hidden">
-
-        <!-- Encabezado de la Hoja de Costos (Unificado con filtros superiores) -->
-        <div class="clay-card cost-header-card" style="margin-bottom: 1.5rem;">
-          <div class="cost-header-top" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div>
-              <h2 class="cost-view-title" style="margin: 0; font-size: 1.25rem;">
-                <i class="fa-solid fa-chart-line" style="color: #60a5fa;"></i> ANÁLISIS DE COSTOS Y EFICIENCIA - TRANSPORTE CD TOTTUS HUACHIPA
-              </h2>
-              <span class="kpi-subtitle" style="font-size: 0.85rem; color: #94a3b8; display: block; margin-top: 4px;">
-                <i class="fa-solid fa-arrows-rotate" style="color: #3b82f6;"></i> Calculado dinámicamente desde <b>REGISTRO_DIARIO</b> | Controlado por los filtros de la barra superior
-              </span>
-              <div id="costFilterStatusBadge" style="margin-top: 6px; font-size: 0.82rem; color: #38bdf8; display: none;"></div>
-            </div>
-
-            <!-- Badge Informativo de Semana y Período Activo -->
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span id="badgeSemanaTabla" class="badge badge-info" style="font-size: 0.88rem; padding: 6px 14px; border-radius: 10px; font-weight: 600;">
-                <i class="fa-regular fa-calendar-check"></i> Todas las Semanas
-              </span>
-            </div>
-          </div>
-        </div>
 
         <!-- NIVEL 1: Resumen Ejecutivo de la Semana (KPIs) & Alertas -->
         <div class="cost-summary-grid">
@@ -911,6 +889,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Script Específico de Movilidad -->
-  <script src="js/movilidad.js?v=2.9"></script>
+  <script src="js/movilidad.js?v=3.0"></script>
 </body>
 </html>
