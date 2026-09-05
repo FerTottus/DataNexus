@@ -3046,21 +3046,75 @@ function getGeminiApiKey() {
   return '';
 }
 
-const GEMINI_CANDIDATE_MODELS = [
+const GEMINI_FALLBACK_MODELS = [
+  { version: 'v1beta', model: 'gemini-flash-lite-latest' },
+  { version: 'v1beta', model: 'gemini-2.5-flash-lite' },
+  { version: 'v1beta', model: 'gemini-flash-latest' },
   { version: 'v1beta', model: 'gemini-2.5-flash' },
-  { version: 'v1beta', model: 'gemini-2.0-flash' },
-  { version: 'v1beta', model: 'gemini-1.5-flash-latest' },
-  { version: 'v1',     model: 'gemini-1.5-flash' },
-  { version: 'v1beta', model: 'gemini-1.5-flash' },
-  { version: 'v1beta', model: 'gemini-flash-latest' }
+  { version: 'v1beta', model: 'gemini-3.1-flash-lite' },
+  { version: 'v1beta', model: 'gemini-3-flash-preview' },
+  { version: 'v1beta', model: 'gemini-pro-latest' },
+  { version: 'v1beta', model: 'gemini-2.5-pro' }
 ];
 
+async function fetchAvailableModels(apiKey) {
+  if (AppState.discoveredGeminiModels && AppState.discoveredGeminiModels.length > 0) {
+    return AppState.discoveredGeminiModels;
+  }
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`, {
+      headers: { 'x-goog-api-key': apiKey }
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.models && Array.isArray(json.models)) {
+        const nonChatKeywords = ['tts', 'image', 'transcribe', 'veo', 'lyria', 'robotics', 'computer-use', 'deep-research', 'embedding', 'aqa', 'banana'];
+        const supported = json.models
+          .filter(m => {
+            if (!m.supportedGenerationMethods || !m.supportedGenerationMethods.includes('generateContent')) return false;
+            const name = (m.name || '').toLowerCase();
+            return !nonChatKeywords.some(kw => name.includes(kw));
+          })
+          .map(m => ({
+            version: 'v1beta',
+            model: m.name.replace(/^models\//, '')
+          }));
+
+        console.log('✅ Modelos de texto disponibles en tu proyecto Google:', supported.map(s => s.model));
+
+        // Priorizar: flash-lite (más rápido, sin saturación 503), flash, pro, otros
+        supported.sort((a, b) => {
+          const score = (name) => {
+            if (name.includes('flash-lite')) return 1;
+            if (name.includes('flash')) return 2;
+            if (name.includes('pro')) return 3;
+            return 4;
+          };
+          return score(a.model) - score(b.model);
+        });
+
+        if (supported.length > 0) {
+          AppState.discoveredGeminiModels = supported;
+          return supported;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('No se pudo listar modelos dinámicamente:', err);
+  }
+  return null;
+}
+
 async function callGeminiApiMultiModel(apiKey, promptPayload, systemInstructionText) {
-  let modelsToTry = [...GEMINI_CANDIDATE_MODELS];
+  // 1. Intentar descubrir modelos habilitados en este proyecto
+  const discovered = await fetchAvailableModels(apiKey);
+  let modelsToTry = discovered || [...GEMINI_FALLBACK_MODELS];
+
+  // Si ya descubrimos un modelo que respondió con éxito antes, ponerlo primero
   if (AppState.confirmedGeminiModel) {
     modelsToTry = [
       AppState.confirmedGeminiModel,
-      ...GEMINI_CANDIDATE_MODELS.filter(m => m.model !== AppState.confirmedGeminiModel.model || m.version !== AppState.confirmedGeminiModel.version)
+      ...modelsToTry.filter(m => m.model !== AppState.confirmedGeminiModel.model)
     ];
   }
 
@@ -3087,46 +3141,69 @@ async function callGeminiApiMultiModel(apiKey, promptPayload, systemInstructionT
       };
     }
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPayload)
-      });
+    // Hasta 2 intentos por modelo en caso de 503 (spikes momentáneos de demanda)
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
+          body: JSON.stringify(bodyPayload)
+        });
 
-      if (response.ok) {
-        AppState.confirmedGeminiModel = m;
-        const data = await response.json();
-        return { ok: true, data };
-      }
-
-      if (response.status === 429) {
-        return { ok: false, status: 429 };
-      }
-
-      if (response.status === 400) {
-        const errJson = await response.json().catch(() => ({}));
-        const msg = errJson?.error?.message || '';
-        if (msg.includes('API key not valid') || msg.includes('API_KEY_INVALID')) {
-          return { ok: false, status: 400, message: msg };
+        if (response.ok) {
+          AppState.confirmedGeminiModel = m;
+          const data = await response.json();
+          return { ok: true, data };
         }
-      }
 
-      if (response.status === 404) {
+        if (response.status === 429) {
+          return { ok: false, status: 429 };
+        }
+
+        if (response.status === 400) {
+          const errJson = await response.json().catch(() => ({}));
+          console.warn(`Error 400 en modelo ${m.model}:`, errJson);
+          const msg = errJson?.error?.message || '';
+          if (msg.includes('API key not valid') || msg.includes('API_KEY_INVALID')) {
+            return { ok: false, status: 400, message: msg };
+          }
+          lastErrorDetail = errJson;
+          break;
+        }
+
+        // Si es 503 (alta demanda en este modelo específico de Google)
+        if (response.status === 503) {
+          lastErrorDetail = await response.json().catch(() => ({ error: { message: 'El modelo tiene alta demanda temporal.' } }));
+          console.warn(`Modelo ${m.model} con alta demanda (503, intento ${attempt}), probando alternativa...`);
+          if (attempt === 1) {
+            await new Promise(r => setTimeout(r, 600));
+            continue;
+          } else {
+            break; // Salta al siguiente modelo de la lista
+          }
+        }
+
+        // Si es 404 (modelo no soportado en este endpoint)
+        if (response.status === 404) {
+          console.warn(`Modelo ${m.model} no encontrado (404), saltando al siguiente...`);
+          lastErrorDetail = await response.json().catch(() => ({}));
+          break; // Pasa al siguiente modelo
+        }
+
         lastErrorDetail = await response.json().catch(() => ({}));
-        continue;
+      } catch (networkErr) {
+        lastErrorDetail = { error: { message: networkErr.message } };
       }
-
-      lastErrorDetail = await response.json().catch(() => ({}));
-    } catch (networkErr) {
-      lastErrorDetail = { error: { message: networkErr.message } };
     }
   }
 
   return {
     ok: false,
-    status: 404,
-    message: lastErrorDetail?.error?.message || 'No se pudo conectar con ningún modelo de Gemini disponible en tu proyecto.'
+    status: lastErrorDetail?.error?.code || 500,
+    message: lastErrorDetail?.error?.message || 'Los servidores de Google presentan alta demanda en este momento. Por favor reintenta en unos segundos.'
   };
 }
 
