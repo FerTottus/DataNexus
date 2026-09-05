@@ -1,10 +1,27 @@
 /* css/movilidad.css */
 
+html {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
 body {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   font-family: 'Inter', sans-serif;
   background-color: #0f172a; /* Slate 900 base */
   color: #cbd5e1; /* Slate 300 text */
+  -webkit-font-smoothing: antialiased;
 }
 
 .movilidad-header {
@@ -38,11 +55,13 @@ body {
 .dashboard-container {
   max-width: 98% !important;
   width: 100% !important;
+  box-sizing: border-box !important;
   margin: 2rem auto;
   padding: 0 1rem;
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  overflow-x: hidden;
 }
 
 .dashboard-content {
@@ -1719,8 +1738,8 @@ body {
 /* Botón Flotante en la esquina inferior derecha */
 .floating-ai-trigger {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  right: 20px;
   z-index: 9990;
   display: flex;
   align-items: center;
@@ -1733,6 +1752,7 @@ body {
   box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  touch-action: manipulation;
 }
 
 .floating-ai-trigger:hover {
@@ -1842,11 +1862,15 @@ body {
   flex-direction: column;
   overflow: hidden;
   transform: translateX(115%);
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s ease;
 }
 
 .ai-chat-drawer.open {
   transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
 }
 
 /* Header del Drawer */
@@ -2303,6 +2327,340 @@ body {
   border-radius: 6px;
   font-size: 0.75rem;
 }
+
+/* =========================================================
+   RESPONSIVE DESIGN & MOBILE OPTIMIZATIONS (iPhone & Android)
+   ========================================================= */
+
+/* Tablets y pantallas medianas (≤ 1024px) */
+@media (max-width: 1024px) {
+  .dashboard-container {
+    max-width: 100% !important;
+    padding: 0 0.85rem;
+    margin: 1.25rem auto;
+  }
+  .charts-grid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+  .tables-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .cost-summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .recommendations-projection-grid {
+    flex-direction: column;
+  }
+}
+
+/* Smartphones y pantallas pequeñas (≤ 768px - iPhone 14 Pro Max / Android) */
+@media (max-width: 768px) {
+  /* Header minimalista móvil */
+  .movilidad-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 0.85rem 1rem;
+  }
+  .logo-area {
+    justify-content: flex-start;
+  }
+  .logo-area h1 {
+    font-size: 1.05rem;
+  }
+  .auth-area {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+  #userInfo {
+    max-width: 100%;
+  }
+  #userEmail {
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: middle;
+    font-size: 0.8rem;
+  }
+
+  /* Contenedor principal sin desborde horizontal */
+  .dashboard-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 1rem auto !important;
+    padding: 0 0.65rem !important;
+    gap: 1.25rem !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Panel de conexión */
+  .connection-panel {
+    padding: 1.1rem;
+    border-radius: 16px;
+  }
+  .connection-panel .card-header h2 {
+    font-size: 0.98rem;
+  }
+  .input-with-action {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+  .input-with-action input#sheetUrlInput {
+    width: 100% !important;
+  }
+  .input-with-action button {
+    width: 100% !important;
+  }
+
+  /* Barra de filtros y controles */
+  .sticky-filters-wrapper {
+    position: static !important;
+    top: auto !important;
+  }
+  .filters-panel {
+    padding: 1.1rem !important;
+    border-radius: 16px !important;
+  }
+  .filters-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 1rem !important;
+  }
+  .filters-row > div {
+    width: 100% !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 1rem !important;
+  }
+  .filter-group {
+    width: 100% !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
+  .filter-group select.form-control {
+    width: 100% !important;
+  }
+  .chip-group {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chip {
+    padding: 7px 14px;
+    font-size: 0.8rem;
+  }
+
+  /* Botones de acción en filtros: Matriz 2x2 */
+  .filter-map-action {
+    width: 100% !important;
+    margin-left: 0 !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+  .filter-map-action .btn-filter-action,
+  .filter-map-action .btn-mapa-rutas {
+    width: 100% !important;
+    justify-content: center !important;
+    font-size: 0.78rem !important;
+    padding: 9px 8px !important;
+  }
+
+  /* Pestañas tipo Excel */
+  .nav-tabs-wrapper {
+    padding: 0 0 0.75rem 0;
+  }
+  .nav-tabs-bar {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+  .nav-tab-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 10px 14px !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* KPIs: Distribución en 2 columnas parejas */
+  .kpi-grid,
+  .cost-kpis-8 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+  }
+  .kpi-card,
+  .cost-sub-kpi {
+    padding: 0.85rem 0.65rem !important;
+    border-radius: 14px !important;
+  }
+  .kpi-title,
+  .cost-sub-kpi .kpi-title {
+    font-size: 0.72rem !important;
+  }
+  .kpi-value,
+  .cost-sub-kpi .kpi-value {
+    font-size: 1.35rem !important;
+  }
+  .kpi-subtitle,
+  .cost-sub-kpi .kpi-subtitle {
+    font-size: 0.68rem !important;
+  }
+
+  /* Gráficos a ancho completo sin recorte */
+  .charts-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.25rem !important;
+  }
+  .charts-grid > div[style*="grid-column: span 2"],
+  .charts-grid .clay-card {
+    grid-column: span 1 !important;
+  }
+  .chart-container,
+  .clay-card {
+    padding: 1.15rem 0.95rem !important;
+    border-radius: 16px !important;
+  }
+  .chart-wrapper {
+    height: 270px !important;
+  }
+
+  /* Tablas responsivas con scroll horizontal táctil suave */
+  .tables-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .data-table th,
+  .data-table td {
+    padding: 8px 10px;
+    font-size: 0.82rem;
+  }
+  .table-responsive {
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Botón Flotante IA: FAB Circular compacto (nunca tapa filtros) */
+  .floating-ai-trigger {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    right: 16px !important;
+    width: 48px !important;
+    height: 48px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.6) !important;
+  }
+  .floating-ai-trigger .ai-trigger-text {
+    display: none !important;
+  }
+  .floating-ai-trigger .ai-sparkle-icon {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 1.15rem !important;
+  }
+
+  /* Asistente IA: Modal Completo (Full Sheet) en Móvil */
+  .ai-chat-drawer {
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    transform: translateY(105%) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s !important;
+  }
+  .ai-chat-drawer.open {
+    transform: translateY(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+  .ai-drawer-footer {
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Modales en Móvil */
+  .modal-content,
+  .modal-large-container,
+  .modal-mapa-container {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 90vh !important;
+    border-radius: 16px !important;
+  }
+  .modal-header {
+    padding: 12px 16px !important;
+  }
+  .modal-header h3 {
+    font-size: 0.95rem !important;
+  }
+  .modal-body {
+    padding: 12px !important;
+  }
+}
+
+/* Pantallas extra pequeñas (≤ 380px) */
+@media (max-width: 380px) {
+  .kpi-grid,
+  .cost-kpis-8 {
+    gap: 0.5rem !important;
+  }
+  .kpi-value,
+  .cost-sub-kpi .kpi-value {
+    font-size: 1.15rem !important;
+  }
+  .kpi-title,
+  .cost-sub-kpi .kpi-title {
+    font-size: 0.68rem !important;
+  }
+  .cost-view-title {
+    font-size: 1.05rem !important;
+  }
+}
+
+/* Modo Paisaje en Celulares (iPhone Landscape) */
+@media (orientation: landscape) and (max-height: 520px) {
+  .floating-ai-trigger {
+    bottom: 12px !important;
+    right: 12px !important;
+    width: 44px !important;
+    height: 44px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
+  }
+  .floating-ai-trigger .ai-trigger-text {
+    display: none !important;
+  }
+  .ai-chat-drawer {
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: auto !important;
+    width: 85vw !important;
+    max-width: 480px !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    transform: translateX(105%) !important;
+  }
+  .ai-chat-drawer.open {
+    transform: translateX(0) !important;
+  }
+}
+
 
 
 

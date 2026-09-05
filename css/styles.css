@@ -50,6 +50,11 @@
   padding: 0;
 }
 
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-main);
@@ -885,22 +890,61 @@ body {
 @media (max-width: 768px) {
   .navbar {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 0.75rem;
+    padding: 0.85rem 1rem;
+  }
+  .nav-brand {
+    justify-content: flex-start;
   }
   .nav-actions {
     width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
     justify-content: flex-start;
+  }
+  .nav-dropdown {
+    position: relative;
+  }
+  .nav-dropdown-content {
+    left: 0 !important;
+    right: auto !important;
+    min-width: 220px !important;
+    max-width: 85vw !important;
+  }
+  #userEmail {
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: middle;
   }
   .input-with-action {
     flex-direction: column;
+    gap: 8px;
+  }
+  .input-with-action input {
+    width: 100%;
+  }
+  .input-with-action button {
+    width: 100%;
   }
   .workspace-toolbar {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.75rem;
   }
   .toolbar-right {
     width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .main-container {
+    padding: 1rem 0.75rem;
   }
 }
 
@@ -1081,14 +1125,16 @@ body {
   display: none;
   position: absolute;
   background-color: #ffffff;
-  min-width: 200px;
-  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.1);
+  min-width: 220px;
+  max-width: 90vw;
+  box-shadow: 0px 10px 25px 0px rgba(0,0,0,0.15);
   z-index: 1000;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   top: 100%;
-  right: 0;
-  margin-top: 0; /* Soluciona el bug de que se cierra al bajar el mouse */
+  left: 0;
+  right: auto;
+  margin-top: 4px;
   overflow: hidden;
 }
 
@@ -1119,7 +1165,8 @@ body {
   color: var(--primary-color);
 }
 
-.nav-dropdown:hover .nav-dropdown-content {
+.nav-dropdown:hover .nav-dropdown-content,
+.nav-dropdown.active .nav-dropdown-content {
   display: block;
 }
 

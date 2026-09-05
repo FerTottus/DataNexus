@@ -114,8 +114,20 @@ function initUIEvents() {
     }
   });
 
-  // 5. (Removido botón Demo, la funcionalidad ahora es un dropdown CSS)
-  // El botón Cargar Datos Demo fue reemplazado por el menú desplegable.
+  // 5. Manejo táctil del Menú Desplegable "Ver Gráficos" (Mobile / Touch friendly)
+  const navDropdown = document.querySelector('.nav-dropdown');
+  const navDropdownBtn = navDropdown?.querySelector('button');
+  if (navDropdown && navDropdownBtn) {
+    navDropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      navDropdown.classList.toggle('active');
+    });
+    document.addEventListener('click', (e) => {
+      if (!navDropdown.contains(e.target)) {
+        navDropdown.classList.remove('active');
+      }
+    });
+  }
 
   // 6. Botón Compartir / Guardar URL
   document.getElementById('btnShareUrl').addEventListener('click', () => {
