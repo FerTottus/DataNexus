@@ -2432,7 +2432,7 @@ function renderAnalisisCostos() {
     let text = isVerTodas ? 'Todas las Semanas' : `Semana ${valSem}`;
     if (valDia !== 'TODOS') text += ` (${valDia})`;
     if (valFecha !== 'TODAS') text += ` - ${valFecha}`;
-    badgeSem.innerText = text;
+    badgeSem.innerHTML = `<i class="fa-regular fa-calendar-check"></i> ${text}`;
   }
 
   const getActiveChips = (containerId) => {

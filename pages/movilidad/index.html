@@ -545,30 +545,24 @@
     <!-- VISTA 2: ANÁLISIS DE COSTOS Y EFICIENCIA (Hoja ANALISIS_COSTOS) -->
     <div id="viewAnalisisCostos" class="tab-view-pane hidden">
 
-        <!-- Encabezado de la Hoja de Costos -->
-        <div class="clay-card cost-header-card">
-          <div class="cost-header-top">
+        <!-- Encabezado de la Hoja de Costos (Unificado con filtros superiores) -->
+        <div class="clay-card cost-header-card" style="margin-bottom: 1.5rem;">
+          <div class="cost-header-top" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
             <div>
-              <h2 class="cost-view-title">
+              <h2 class="cost-view-title" style="margin: 0; font-size: 1.25rem;">
                 <i class="fa-solid fa-chart-line" style="color: #60a5fa;"></i> ANÁLISIS DE COSTOS Y EFICIENCIA - TRANSPORTE CD TOTTUS HUACHIPA
               </h2>
-              <span class="kpi-subtitle" style="font-size: 0.85rem; color: #94a3b8;">
-                <i class="fa-solid fa-arrows-rotate" style="color: #3b82f6;"></i> Datos dinámicos calculados desde <b>REGISTRO_DIARIO</b> | Actualización automática
+              <span class="kpi-subtitle" style="font-size: 0.85rem; color: #94a3b8; display: block; margin-top: 4px;">
+                <i class="fa-solid fa-arrows-rotate" style="color: #3b82f6;"></i> Calculado dinámicamente desde <b>REGISTRO_DIARIO</b> | Controlado por los filtros de la barra superior
               </span>
               <div id="costFilterStatusBadge" style="margin-top: 6px; font-size: 0.82rem; color: #38bdf8; display: none;"></div>
             </div>
 
-            <!-- Selector de Semana Analizada -->
-            <div class="cost-week-selector-box">
-              <label for="selectSemanaCostos">
-                <i class="fa-regular fa-calendar-check"></i> SEMANA ANALIZADA:
-              </label>
-              <div class="week-select-wrapper">
-                <select id="selectSemanaCostos" class="form-control select-semana-highlight">
-                  <!-- Llenado dinámicamente -->
-                </select>
-                <small class="week-selector-hint">← Cambie este número para analizar otra semana</small>
-              </div>
+            <!-- Badge Informativo de Semana y Período Activo -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span id="badgeSemanaTabla" class="badge badge-info" style="font-size: 0.88rem; padding: 6px 14px; border-radius: 10px; font-weight: 600;">
+                <i class="fa-regular fa-calendar-check"></i> Todas las Semanas
+              </span>
             </div>
           </div>
         </div>
