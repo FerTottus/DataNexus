@@ -324,6 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
   GoogleSheetsService.initAuth(); // Restaura token
   checkAuthAndConfig();
   initCharts();
+  initAiAssistant();
 });
 
 function initUIEvents() {
@@ -1652,6 +1653,10 @@ function renderTables() {
     if(seccionReg) seccionReg.style.display = 'none';
     if(seccionBuses) seccionBuses.style.display = 'none';
   }
+
+  if (typeof updateAiContextBanner === 'function') {
+    updateAiContextBanner();
+  }
 }
 
 function initCharts() {
@@ -2728,6 +2733,7 @@ function renderAnalisisCostos() {
 
   // 7. Tabla Detalle por Ruta
   const tbodyDetalle = document.getElementById('tbodyDetalleCostosSemana');
+  if (tbodyDetalle) {
     if (rutasArray.length === 0) {
       const filtroContexto = isVerTodas ? 'el rango seleccionado' : `la Semana ${valSem}${valDia !== 'TODOS' ? ' (' + valDia + ')' : ''}${valFecha !== 'TODAS' ? ' - ' + valFecha : ''}`;
       tbodyDetalle.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 25px;"><i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i> No se registraron viajes de colaboradores para ${filtroContexto} con los filtros demográficos actuales.</td></tr>`;
@@ -2889,6 +2895,10 @@ function renderAnalisisCostos() {
   if (viewCostosEl && !viewCostosEl.classList.contains('hidden')) {
     renderGraficosCostos(rutasArray);
   }
+
+  if (typeof updateAiContextBanner === 'function') {
+    updateAiContextBanner();
+  }
 }
 
 // =========================================================
@@ -3013,3 +3023,568 @@ function renderGraficosCostos(rutasArray) {
     });
   }
 }
+
+// =========================================================
+// MÓDULO: ASISTENTE LOGÍSTICO IA (GEMINI API & M365 COPILOT)
+// =========================================================
+
+AppState.aiHistory = [];
+AppState.isAiPaused = false;
+AppState.aiPauseRemaining = 0;
+AppState.aiPauseInterval = null;
+
+function initAiAssistant() {
+  const btnFloating = document.getElementById('btnFloatingAi');
+  const btnHeader = document.getElementById('btnHeaderAiAssistant');
+  const drawer = document.getElementById('aiChatDrawer');
+  const overlay = document.getElementById('aiDrawerOverlay');
+  const btnClose = document.getElementById('btnCloseAiDrawer');
+  const btnToggleConfig = document.getElementById('btnToggleAiConfig');
+  const configPanel = document.getElementById('aiConfigPanel');
+  const btnSaveKey = document.getElementById('btnSaveGeminiKey');
+  const inputKey = document.getElementById('inputGeminiApiKey');
+  const btnClearChat = document.getElementById('btnClearAiChat');
+  const btnExportCopilot = document.getElementById('btnExportCopilotQuick');
+  const btnSend = document.getElementById('btnSendAiChat');
+  const inputMsg = document.getElementById('aiChatInput');
+
+  // Cargar clave guardada si existe
+  const savedKey = localStorage.getItem('DATANEXUS_GEMINI_KEY') || '';
+  if (savedKey && inputKey) {
+    inputKey.value = savedKey;
+  }
+  updateAiStatusUI();
+
+  // Abrir y Cerrar Drawer
+  const openDrawer = () => {
+    if (drawer) drawer.classList.add('open');
+    if (overlay) overlay.classList.add('active');
+    updateAiContextBanner();
+    if (inputMsg) inputMsg.focus();
+  };
+
+  const closeDrawer = () => {
+    if (drawer) drawer.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+  };
+
+  if (btnFloating) btnFloating.addEventListener('click', openDrawer);
+  if (btnHeader) btnHeader.addEventListener('click', openDrawer);
+  if (btnClose) btnClose.addEventListener('click', closeDrawer);
+  if (overlay) overlay.addEventListener('click', closeDrawer);
+
+  // Toggle Panel de Configuración
+  if (btnToggleConfig) {
+    btnToggleConfig.addEventListener('click', () => {
+      if (configPanel) configPanel.classList.toggle('open');
+    });
+  }
+
+  // Guardar clave API
+  if (btnSaveKey && inputKey) {
+    btnSaveKey.addEventListener('click', () => {
+      const keyVal = inputKey.value.trim();
+      if (!keyVal) {
+        if (window.ClipboardUtil) ClipboardUtil.showToast('Por favor ingresa una clave de API válida', 'warning');
+        else alert('Por favor ingresa una clave de API válida');
+        return;
+      }
+      localStorage.setItem('DATANEXUS_GEMINI_KEY', keyVal);
+      updateAiStatusUI();
+      if (configPanel) configPanel.classList.remove('open');
+      if (window.ClipboardUtil) ClipboardUtil.showToast('✅ Clave de Gemini guardada (Tier 100% Gratuito)', 'success');
+      appendSystemChatMessage('🔑 <b>Clave configurada con éxito.</b> Tu cuenta está en el nivel gratuito (0 costo). Ya puedes realizar consultas sobre transporte.');
+    });
+  }
+
+  // Limpiar Chat
+  if (btnClearChat) {
+    btnClearChat.addEventListener('click', () => {
+      AppState.aiHistory = [];
+      const container = document.getElementById('aiMessagesContainer');
+      if (container) {
+        container.innerHTML = `
+          <div class="ai-msg assistant">
+            <div class="ai-msg-avatar"><i class="fa-solid fa-robot"></i></div>
+            <div class="ai-msg-bubble">
+              <p>¡Conversación reiniciada! Soy tu <b>Asistente de Optimización de Transporte</b> para el CD Tottus Huachipa.</p>
+              <p>Tengo acceso a las semanas operativas, ocupación de buses, costos y personal. ¿Qué deseas analizar?</p>
+            </div>
+          </div>
+        `;
+      }
+    });
+  }
+
+  // Exportar a Microsoft Copilot
+  if (btnExportCopilot) {
+    btnExportCopilot.addEventListener('click', () => {
+      exportToMicrosoftCopilot();
+    });
+  }
+
+  // Chips de Preguntas Rápidas
+  document.querySelectorAll('.ai-chip-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const query = btn.getAttribute('data-query');
+      if (query && inputMsg) {
+        inputMsg.value = query;
+        sendUserAiMessage();
+      }
+    });
+  });
+
+  // Enviar Mensaje
+  if (btnSend) {
+    btnSend.addEventListener('click', () => {
+      sendUserAiMessage();
+    });
+  }
+
+  if (inputMsg) {
+    inputMsg.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendUserAiMessage();
+      }
+    });
+
+    // Auto-expand textarea
+    inputMsg.addEventListener('input', () => {
+      inputMsg.style.height = 'auto';
+      inputMsg.style.height = Math.min(inputMsg.scrollHeight, 120) + 'px';
+    });
+  }
+}
+
+function updateAiStatusUI() {
+  const dot = document.getElementById('aiStatusDot');
+  const text = document.getElementById('aiStatusText');
+  const key = localStorage.getItem('DATANEXUS_GEMINI_KEY');
+
+  if (AppState.isAiPaused) {
+    if (dot) dot.className = 'ai-status-dot paused';
+    if (text) text.innerText = 'En Pausa (Esperando cuota)';
+    return;
+  }
+
+  if (key) {
+    if (dot) dot.className = 'ai-status-dot';
+    if (text) text.innerText = 'Conectado (Gemini Free)';
+  } else {
+    if (dot) dot.className = 'ai-status-dot error';
+    if (text) text.innerText = 'Requiere Clave (Clic en ⚙️)';
+  }
+}
+
+function updateAiContextBanner() {
+  const banner = document.getElementById('aiContextSummaryText');
+  if (!banner) return;
+
+  const selSem = document.getElementById('filtroSemana')?.value || AppState.semanaSeleccionada || 'TODAS';
+  const selDia = document.getElementById('filtroDia')?.value || 'TODOS';
+  const selFecha = document.getElementById('filtroFecha')?.value || 'TODAS';
+
+  const costoEl = document.getElementById('costTotalSemana')?.innerText || document.getElementById('kpiCostoDia')?.innerText || 'S/ 0';
+  const pasajEl = document.getElementById('costTotalPasajeros')?.innerText || document.getElementById('kpiTotalEmps')?.innerText || '0';
+  const ocupEl = document.getElementById('costOcupacionProm')?.innerText || document.getElementById('kpiOcupacionDia')?.innerText || '0%';
+
+  let semText = (selSem === 'TODAS') ? 'Todas las Semanas' : `Semana ${selSem}`;
+  if (selDia !== 'TODOS') semText += ` (${selDia})`;
+  if (selFecha !== 'TODAS') semText += ` [${selFecha}]`;
+
+  banner.innerHTML = `<i class="fa-solid fa-database" style="color: #38bdf8;"></i> <span>Contexto: <b>${semText}</b> • ${pasajEl} pasajeros • Ocup. ${ocupEl} • ${costoEl}</span>`;
+}
+
+function getLogisticsLiveContext() {
+  const selSem = document.getElementById('filtroSemana')?.value || AppState.semanaSeleccionada || 'TODAS';
+  const selDia = document.getElementById('filtroDia')?.value || 'TODOS';
+  const selFecha = document.getElementById('filtroFecha')?.value || 'TODAS';
+
+  const totalViajes = document.getElementById('costTotalViajes')?.innerText || document.getElementById('rdViajesSem')?.innerText || '0';
+  const totalPasaj = document.getElementById('costTotalPasajeros')?.innerText || document.getElementById('kpiTotalEmps')?.innerText || '0';
+  const totalCap = document.getElementById('costCapacidadTotal')?.innerText || '0';
+  const ocupProm = document.getElementById('costOcupacionProm')?.innerText || document.getElementById('kpiOcupacionDia')?.innerText || '0%';
+  const totalCosto = document.getElementById('costTotalSemana')?.innerText || document.getElementById('kpiCostoDia')?.innerText || 'S/ 0';
+  const costoPromPasaj = document.getElementById('costPromPasajero')?.innerText || 'S/ 0';
+  const costoPromViaje = document.getElementById('costPromViaje')?.innerText || 'S/ 0';
+
+  // Rutas de la tabla de costos
+  const rows = Array.from(document.querySelectorAll('#tbodyDetalleCostosSemana tr'));
+  const rutasData = [];
+  rows.forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    if (tds.length >= 8) {
+      rutasData.push({
+        ruta: tds[0].innerText.trim(),
+        viajes: tds[1].innerText.trim(),
+        pasajeros: tds[2].innerText.trim(),
+        capacidad: tds[3].innerText.trim(),
+        ocupacion: tds[4].innerText.trim(),
+        costoTotal: tds[5].innerText.trim(),
+        costoViaje: tds[6].innerText.trim(),
+        costoPasaj: tds[7].innerText.trim()
+      });
+    }
+  });
+
+  let rutasSummary = '';
+  if (rutasData.length > 0) {
+    rutasSummary = rutasData.map(r => 
+      `- ${r.ruta}: ${r.viajes} viajes | ${r.pasajeros}/${r.capacidad} asientos (${r.ocupacion} ocupación) | Costo Total: ${r.costoTotal} | Costo/Viaje: ${r.costoViaje} | Costo/Pasajero: ${r.costoPasaj}`
+    ).join('\n');
+  } else {
+    rutasSummary = 'No hay rutas calculadas actualmente con los filtros seleccionados.';
+  }
+
+  return `
+[DATOS LOGÍSTICOS EN PANTALLA - TOTTUS HUACHIPA]
+- Período Activo: ${selSem === 'TODAS' ? 'Todas las Semanas' : 'Semana ' + selSem} | Día: ${selDia} | Fecha: ${selFecha}
+- Viajes Totales: ${totalViajes}
+- Pasajeros Totales: ${totalPasaj}
+- Capacidad Total de Flota: ${totalCap}
+- % Ocupación Global: ${ocupProm} (Meta benchmark: > 70%)
+- Costo Total Invertido: ${totalCosto}
+- Costo Promedio por Viaje: ${costoPromViaje}
+- Costo Promedio por Pasajero: ${costoPromPasaj} (Meta benchmark: < S/ 15.00)
+
+[DESGLOSE DE RUTAS EVALUADAS]
+${rutasSummary}
+`.trim();
+}
+
+async function sendUserAiMessage() {
+  const inputMsg = document.getElementById('aiChatInput');
+  if (!inputMsg) return;
+
+  const userText = inputMsg.value.trim();
+  if (!userText) return;
+
+  // Verificar si está en pausa preventiva por cuota (429)
+  if (AppState.isAiPaused) {
+    if (window.ClipboardUtil) ClipboardUtil.showToast(`El asistente está en pausa preventiva (${AppState.aiPauseRemaining}s restantes). Espera a que termine para proteger tu cuota gratuita.`, 'warning');
+    return;
+  }
+
+  // Verificar clave API
+  const apiKey = localStorage.getItem('DATANEXUS_GEMINI_KEY');
+  if (!apiKey) {
+    const configPanel = document.getElementById('aiConfigPanel');
+    if (configPanel) configPanel.classList.add('open');
+    appendSystemChatMessage('⚠️ Para usar el asistente, ingresa primero tu clave gratuita de Google AI Studio en el panel superior (⚙️). <b>Es 100% gratuita y no pide tarjeta de crédito.</b>');
+    return;
+  }
+
+  // Pintar mensaje del usuario
+  appendUserChatMessage(userText);
+  inputMsg.value = '';
+  inputMsg.style.height = 'auto';
+
+  // Mostrar indicador de "Escribiendo..."
+  const typingBubbleId = showTypingIndicator();
+
+  // Preparar contexto logístico si el checkbox está activo
+  const checkContext = document.getElementById('checkIncludeContext');
+  const includeContext = checkContext ? checkContext.checked : true;
+  const liveContext = includeContext ? getLogisticsLiveContext() : '';
+
+  const systemInstructionText = `Eres el Asistente Experto en Optimización de Transporte y Logística del Centro de Distribución Tottus Huachipa (Falabella).
+Tu labor es asesorar a gerentes, jefaturas y supervisores sobre la eficiencia del transporte de colaboradores, costos, ocupación y rutas.
+
+REGLAS DE NEGOCIO Y BENCHMARKS:
+- Meta de Ocupación de Flota: Mayor al 70%. Rutas con ocupación < 50% son críticas por subutilización y generan sobrecostos evitables.
+- Meta de Costo por Pasajero: Menor a S/ 15.00 por traslado.
+- Tipología y Dimensionamiento:
+  * Bus: 50 asientos. Recomendado solo para rutas de alta demanda (>= 35 personas).
+  * Sprinter / Van: 15-20 asientos. Recomendado prioritariamente para rutas con < 20 pasajeros para ahorrar entre 25% y 40% del costo por viaje.
+- Semanas operativas: Se calculan de Lunes a Domingo según norma ISO 8601 de logística retail.
+
+PAUTAS DE RESPUESTA:
+- Responde siempre con tono ejecutivo, analítico, directo y profesional.
+- Utiliza las cifras reales provistas en el contexto (no inventes números).
+- Resalta con **negrita** los hallazgos críticos y oportunidades de ahorro.
+- Si detectas rutas con < 50% de ocupación, sugiere explícitamente el cambio de unidad a van/sprinter y cuantifica el ahorro potencial.`;
+
+  // Construir el prompt completo para Gemini
+  const promptPayload = includeContext 
+    ? `DATOS ACTUALES DEL DASHBOARD:\n${liveContext}\n\nCONSULTA DEL USUARIO:\n${userText}`
+    : userText;
+
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: promptPayload }]
+          }
+        ],
+        systemInstruction: {
+          parts: [{ text: systemInstructionText }]
+        },
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 2048
+        }
+      })
+    });
+
+    removeTypingIndicator(typingBubbleId);
+
+    if (response.status === 429) {
+      // Manejo específico del Rate Limit / Exhausted Quota en tier gratuito
+      triggerAiQuotaPause(60);
+      appendSystemChatMessage(`⏳ <b>Límite Temporal Gratuito Alcanzado (HTTP 429)</b><br>
+Has alcanzado el límite de peticiones por minuto del nivel gratuito de Google AI Studio. 
+<br><br>
+<b>No te preocupes: tu cuenta sigue siendo 100% gratuita y no genera ningún cobro.</b> 
+El bot se ha pausado preventivamente y se reanudará automáticamente en <b>60 segundos</b>.`);
+      return;
+    }
+
+    if (response.status === 400) {
+      appendSystemChatMessage(`❌ <b>Clave API Inválida (HTTP 400)</b><br>
+Google AI Studio no reconoció la clave provista. Por favor abre la configuración (⚙️) y verifica que copiaste la clave completa (empieza con <code>AIzaSy...</code>).`);
+      return;
+    }
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      const errMsg = errJson?.error?.message || `Error HTTP ${response.status}`;
+      appendSystemChatMessage(`⚠️ <b>Error en la consulta:</b> ${errMsg}`);
+      return;
+    }
+
+    const data = await response.json();
+    const botReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (botReply) {
+      appendAssistantChatMessage(botReply);
+      AppState.aiHistory.push({ role: 'user', content: userText }, { role: 'assistant', content: botReply });
+    } else {
+      appendSystemChatMessage('No se recibió respuesta válida del modelo.');
+    }
+
+  } catch (error) {
+    removeTypingIndicator(typingBubbleId);
+    console.error('Error al llamar a Gemini API:', error);
+    appendSystemChatMessage(`⚠️ <b>Error de conexión:</b> No se pudo comunicar con Google Gemini API. Verifica tu conexión a internet o la validez de tu clave API.`);
+  }
+}
+
+function triggerAiQuotaPause(seconds) {
+  AppState.isAiPaused = true;
+  AppState.aiPauseRemaining = seconds;
+  updateAiStatusUI();
+
+  const banner = document.getElementById('aiPausedBanner');
+  const timerBadge = document.getElementById('aiCountdownTimer');
+  const btnSend = document.getElementById('btnSendAiChat');
+  const inputMsg = document.getElementById('aiChatInput');
+
+  if (banner) banner.classList.add('active');
+  if (timerBadge) timerBadge.innerText = `${AppState.aiPauseRemaining}s`;
+  if (btnSend) btnSend.disabled = true;
+  if (inputMsg) inputMsg.disabled = true;
+
+  if (AppState.aiPauseInterval) clearInterval(AppState.aiPauseInterval);
+
+  AppState.aiPauseInterval = setInterval(() => {
+    AppState.aiPauseRemaining--;
+    if (timerBadge) timerBadge.innerText = `${AppState.aiPauseRemaining}s`;
+
+    if (AppState.aiPauseRemaining <= 0) {
+      clearInterval(AppState.aiPauseInterval);
+      AppState.isAiPaused = false;
+      if (banner) banner.classList.remove('active');
+      if (btnSend) btnSend.disabled = false;
+      if (inputMsg) {
+        inputMsg.disabled = false;
+        inputMsg.focus();
+      }
+      updateAiStatusUI();
+      if (window.ClipboardUtil) ClipboardUtil.showToast('✅ Asistente reanudado. Ya puedes hacer consultas.', 'success');
+      appendSystemChatMessage('✅ <b>Pausa preventiva finalizada.</b> El asistente está listo nuevamente para responder.');
+    }
+  }, 1000);
+}
+
+function appendUserChatMessage(text) {
+  const container = document.getElementById('aiMessagesContainer');
+  if (!container) return;
+
+  const div = document.createElement('div');
+  div.className = 'ai-msg user';
+  div.innerHTML = `
+    <div class="ai-msg-avatar"><i class="fa-solid fa-user"></i></div>
+    <div class="ai-msg-bubble"><p>${escapeHtml(text)}</p></div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendAssistantChatMessage(markdownText) {
+  const container = document.getElementById('aiMessagesContainer');
+  if (!container) return;
+
+  const formattedHtml = formatMarkdownToHtml(markdownText);
+  const div = document.createElement('div');
+  div.className = 'ai-msg assistant';
+  div.innerHTML = `
+    <div class="ai-msg-avatar"><i class="fa-solid fa-robot"></i></div>
+    <div class="ai-msg-bubble">${formattedHtml}</div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendSystemChatMessage(htmlContent) {
+  const container = document.getElementById('aiMessagesContainer');
+  if (!container) return;
+
+  const div = document.createElement('div');
+  div.className = 'ai-msg system-notice';
+  div.innerHTML = `
+    <div class="ai-msg-bubble">${htmlContent}</div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function showTypingIndicator() {
+  const container = document.getElementById('aiMessagesContainer');
+  if (!container) return null;
+
+  const id = 'typing_' + Date.now();
+  const div = document.createElement('div');
+  div.id = id;
+  div.className = 'ai-msg assistant';
+  div.innerHTML = `
+    <div class="ai-msg-avatar"><i class="fa-solid fa-robot"></i></div>
+    <div class="ai-msg-bubble">
+      <div class="ai-typing-indicator">
+        <div class="ai-typing-dot"></div>
+        <div class="ai-typing-dot"></div>
+        <div class="ai-typing-dot"></div>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+
+function removeTypingIndicator(id) {
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatMarkdownToHtml(md) {
+  if (!md) return '';
+  let html = escapeHtml(md);
+
+  // Headers (###, ##, #)
+  html = html.replace(/^### (.*$)/gim, '<h4 style="color:#60a5fa; margin:10px 0 4px 0; font-size:0.95rem;">$1</h4>');
+  html = html.replace(/^## (.*$)/gim, '<h3 style="color:#38bdf8; margin:12px 0 6px 0; font-size:1.05rem;">$1</h3>');
+  html = html.replace(/^# (.*$)/gim, '<h2 style="color:#f8fafc; margin:14px 0 8px 0; font-size:1.15rem;">$1</h2>');
+
+  // Bold & Italic
+  html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+
+  // Code inline
+  html = html.replace(/`([^`]+)`/gim, '<code style="background:#0f172a; padding:2px 5px; border-radius:4px; color:#38bdf8; font-size:0.8rem;">$1</code>');
+
+  // Bullet Lists (* or -)
+  html = html.replace(/^\s*[\-\*]\s+(.*$)/gim, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/gims, '<ul style="margin:6px 0 8px 18px; padding:0;">$1</ul>');
+
+  // Tablas Markdown simples
+  const lines = html.split('\n');
+  let inTable = false;
+  let tableHtml = '';
+  let processedLines = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('|') && line.endsWith('|')) {
+      if (line.includes('---')) {
+        continue; // Separador de tabla
+      }
+      const cells = line.slice(1, -1).split('|').map(c => c.trim());
+      if (!inTable) {
+        inTable = true;
+        tableHtml = '<table style="width:100%; border-collapse:collapse; margin:8px 0; font-size:0.78rem;">';
+        tableHtml += '<thead><tr style="background:#0f172a; color:#94a3b8;">' + cells.map(c => `<th style="border:1px solid #334155; padding:5px 8px;">${c}</th>`).join('') + '</tr></thead><tbody>';
+      } else {
+        tableHtml += '<tr>' + cells.map(c => `<td style="border:1px solid #334155; padding:5px 8px;">${c}</td>`).join('') + '</tr>';
+      }
+    } else {
+      if (inTable) {
+        tableHtml += '</tbody></table>';
+        processedLines.push(tableHtml);
+        inTable = false;
+        tableHtml = '';
+      }
+      processedLines.push(line);
+    }
+  }
+  if (inTable) {
+    tableHtml += '</tbody></table>';
+    processedLines.push(tableHtml);
+  }
+
+  html = processedLines.join('\n');
+
+  // Párrafos y Saltos de Línea
+  html = html.replace(/\n\n+/g, '</p><p>');
+  html = html.replace(/\n/g, '<br>');
+  if (!html.startsWith('<h') && !html.startsWith('<table') && !html.startsWith('<ul')) {
+    html = `<p>${html}</p>`;
+  }
+
+  return html;
+}
+
+function exportToMicrosoftCopilot() {
+  const liveContext = getLogisticsLiveContext();
+  const copilotPrompt = `Eres el Asistente Experto en Optimización de Transporte y Logística del Centro de Distribución Tottus Huachipa (Falabella).
+A continuación te comparto los datos consolidados y auditados del dashboard operativo de transporte para que realices un análisis estratégico de eficiencia y costos:
+
+${liveContext}
+
+Por favor realiza:
+1. Un resumen ejecutivo del estado del transporte (desempeño frente a las metas de >70% de ocupación y < S/ 15 de costo por pasajero).
+2. Identificación de las rutas críticas con sobrecosto por subutilización (< 50% de ocupación) y cuantificación del ahorro proyectado si se migran a vans/sprinter (capacidad 15-20 pasajeros).
+3. Recomendaciones prioritarias de toma de decisiones para la jefatura y gerencia de logística.`;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(copilotPrompt).then(() => {
+      if (window.ClipboardUtil) {
+        ClipboardUtil.showToast('📋 ¡Reporte copiado! Pégalo en Microsoft Copilot (Teams o Edge) con tu usuario corporativo.', 'success');
+      } else {
+        alert('¡Reporte copiado al portapapeles! Pégalo en Microsoft Copilot.');
+      }
+      appendSystemChatMessage('📋 <b>Contexto copiado para Microsoft Copilot.</b><br>Puedes abrir Microsoft Teams o <a href="https://copilot.microsoft.com" target="_blank" style="color:#38bdf8;">copilot.microsoft.com</a> con tu usuario corporativo de Falabella/Tottus y pegar este reporte directamente.');
+    }).catch(err => {
+      prompt('Copia manualmente este texto para Microsoft Copilot:', copilotPrompt);
+    });
+  } else {
+    prompt('Copia manualmente este texto para Microsoft Copilot:', copilotPrompt);
+  }
+}
+

@@ -353,6 +353,12 @@
               <span>Ver Mapa de Rutas</span>
               <span id="badgeRutasMap" class="badge-rutas-pill">GPS</span>
             </button>
+
+            <button id="btnHeaderAiAssistant" class="btn-filter-action btn-filter-ai" type="button" title="Abrir Asistente Logístico IA (100% Gratuito)">
+              <i class="fa-solid fa-robot"></i>
+              <span>Asistente IA</span>
+              <span class="badge-rutas-pill badge-ai-pill">Gratis</span>
+            </button>
           </div>
         </div>
       </div>
@@ -809,6 +815,125 @@
   <!-- Toast / Notificaciones Flotantes -->
   <div id="toastContainer" class="toast-container"></div>
 
+  <!-- Botón Flotante Asistente IA -->
+  <button id="btnFloatingAi" class="floating-ai-trigger" type="button" title="Abrir Asistente IA Logístico">
+    <div class="ai-sparkle-icon">
+      <i class="fa-solid fa-robot"></i>
+    </div>
+    <div class="ai-trigger-text">
+      <span class="ai-title">Asistente IA</span>
+      <span class="ai-free-tag"><i class="fa-solid fa-shield-halved"></i> 100% Gratis</span>
+    </div>
+  </button>
+
+  <!-- Overlay y Drawer del Asistente IA -->
+  <div id="aiDrawerOverlay" class="ai-drawer-overlay"></div>
+  <aside id="aiChatDrawer" class="ai-chat-drawer" aria-label="Asistente Logístico IA">
+    <!-- Header -->
+    <div class="ai-drawer-header">
+      <div class="ai-header-info">
+        <div class="ai-avatar">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="ai-title-wrap">
+          <h3>Asistente Logístico IA</h3>
+          <div class="ai-status-indicator">
+            <span id="aiStatusDot" class="ai-status-dot"></span>
+            <span id="aiStatusText">Conectado (Gemini Free)</span>
+          </div>
+        </div>
+      </div>
+      <div class="ai-header-actions">
+        <button id="btnExportCopilotQuick" class="btn-ai-tool" title="Copiar reporte para Microsoft Copilot (Teams / M365)">
+          <i class="fa-solid fa-copy"></i>
+        </button>
+        <button id="btnToggleAiConfig" class="btn-ai-tool" title="Configurar Clave API (Google AI Studio)">
+          <i class="fa-solid fa-gear"></i>
+        </button>
+        <button id="btnClearAiChat" class="btn-ai-tool" title="Limpiar conversación">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+        <button id="btnCloseAiDrawer" class="btn-ai-tool" title="Cerrar asistente">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Panel Desplegable de Configuración de API Key -->
+    <div id="aiConfigPanel" class="ai-config-panel">
+      <div class="ai-config-title">
+        <span><i class="fa-solid fa-key" style="color: #6366f1;"></i> Configurar Clave de Gemini API</span>
+        <span class="badge badge-success" style="font-size: 0.7rem;">100% Gratuito</span>
+      </div>
+      <div class="ai-config-help">
+        Obtén tu clave gratis en 1 minuto sin tarjeta:
+        <ol style="margin: 4px 0 8px 18px; padding: 0;">
+          <li>Entra a <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio <i class="fa-solid fa-arrow-up-right-from-square"></i></a> con tu cuenta Google.</li>
+          <li>Haz clic en <b>"Create API key"</b>.</li>
+          <li>Pégala aquí abajo y haz clic en Guardar.</li>
+        </ol>
+        <div style="font-size: 0.72rem; color: #a7f3d0; margin-top: 4px;">
+          <i class="fa-solid fa-circle-check"></i> El nivel gratuito incluye 15 consultas/minuto y 1,500/día. Si se agota la cuota temporal, se pausa automáticamente. <b>Nunca te generará cobro.</b>
+        </div>
+      </div>
+      <div class="ai-input-group">
+        <input type="password" id="inputGeminiApiKey" placeholder="Pega tu clave AIzaSy... aquí">
+        <button id="btnSaveGeminiKey" class="btn btn-primary btn-sm">Guardar</button>
+      </div>
+    </div>
+
+    <!-- Barra de Contexto Operativo Activo -->
+    <div class="ai-context-banner">
+      <div class="ai-context-text" id="aiContextSummaryText">
+        <i class="fa-solid fa-database" style="color: #38bdf8;"></i>
+        <span>Contexto: <b>Cargando datos...</b></span>
+      </div>
+      <label class="ai-context-toggle" title="Incluye en tu pregunta los KPIs y rutas filtradas actualmente">
+        <input type="checkbox" id="checkIncludeContext" checked>
+        <span>Enviar datos activos</span>
+      </label>
+    </div>
+
+    <!-- Mensajes del Chat -->
+    <div class="ai-messages-container" id="aiMessagesContainer">
+      <!-- Mensaje Inicial de Bienvenida -->
+      <div class="ai-msg assistant">
+        <div class="ai-msg-avatar"><i class="fa-solid fa-robot"></i></div>
+        <div class="ai-msg-bubble">
+          <p>¡Hola! Soy tu <b>Asistente de Optimización de Transporte</b> para el CD Tottus Huachipa.</p>
+          <p>Tengo acceso en tiempo real a las semanas operativas, ocupación de buses, costos y personal de tu pantalla. ¿Qué deseas analizar hoy?</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Banner de Pausa Preventiva por Límite de Cuota (429) -->
+    <div id="aiPausedBanner" class="ai-paused-banner">
+      <i class="fa-solid fa-hourglass-half fa-spin"></i>
+      <div style="flex: 1;">
+        <b>Pausa Preventiva:</b> Límite gratuito temporal alcanzado.
+        <div>Reanudando en <span id="aiCountdownTimer" class="ai-countdown-badge">60s</span> (Sin costo alguno)</div>
+      </div>
+    </div>
+
+    <!-- Chips de Preguntas Frecuentes -->
+    <div class="ai-quick-chips">
+      <button class="ai-chip-btn" data-query="¿Cuáles son las rutas más críticas de esta semana y por qué?">🚨 Rutas críticas (&lt; 50%)</button>
+      <button class="ai-chip-btn" data-query="¿Qué rutas deberíamos cambiar a vans o sprinter para ahorrar costos?">💡 Ahorro con Vans</button>
+      <button class="ai-chip-btn" data-query="Haz un resumen ejecutivo de costos, ocupación y desvíos para mi gerencia.">📊 Informe Gerencial</button>
+      <button class="ai-chip-btn" data-query="¿Cuál es el costo por pasajero y qué rutas están fuera de la meta de S/ 15?">💵 Costo por Pasajero</button>
+    </div>
+
+    <!-- Footer con Input -->
+    <div class="ai-drawer-footer">
+      <div class="ai-input-container">
+        <textarea id="aiChatInput" class="ai-textarea" placeholder="Escribe tu consulta sobre rutas, costos, ocupación..." rows="1"></textarea>
+        <button id="btnSendAiChat" class="btn-ai-send" title="Enviar mensaje">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
   <!-- Scripts Globales (Módulos) -->
   <script src="../../js/config.js"></script>
   <script src="../../js/google-sheets.js"></script>
@@ -818,6 +943,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Script Específico de Movilidad -->
-  <script src="js/movilidad.js?v=2.2"></script>
+  <script src="js/movilidad.js?v=2.3"></script>
 </body>
 </html>
