@@ -3033,26 +3033,114 @@ AppState.isAiPaused = false;
 AppState.aiPauseRemaining = 0;
 AppState.aiPauseInterval = null;
 
+function getGeminiApiKey() {
+  // 1. Clave interna desde window.APP_CONFIG (en js/config.js)
+  if (window.APP_CONFIG && window.APP_CONFIG.GEMINI_API_KEY && window.APP_CONFIG.GEMINI_API_KEY.trim() !== '' && window.APP_CONFIG.GEMINI_API_KEY !== 'TU_CLIENT_ID_AQUI') {
+    return window.APP_CONFIG.GEMINI_API_KEY.trim();
+  }
+  // 2. Clave guardada en localStorage del navegador
+  const saved = localStorage.getItem('DATANEXUS_GEMINI_KEY');
+  if (saved && saved.trim()) {
+    return saved.trim();
+  }
+  return '';
+}
+
+const GEMINI_CANDIDATE_MODELS = [
+  { version: 'v1beta', model: 'gemini-2.5-flash' },
+  { version: 'v1beta', model: 'gemini-2.0-flash' },
+  { version: 'v1beta', model: 'gemini-1.5-flash-latest' },
+  { version: 'v1',     model: 'gemini-1.5-flash' },
+  { version: 'v1beta', model: 'gemini-1.5-flash' },
+  { version: 'v1beta', model: 'gemini-flash-latest' }
+];
+
+async function callGeminiApiMultiModel(apiKey, promptPayload, systemInstructionText) {
+  let modelsToTry = [...GEMINI_CANDIDATE_MODELS];
+  if (AppState.confirmedGeminiModel) {
+    modelsToTry = [
+      AppState.confirmedGeminiModel,
+      ...GEMINI_CANDIDATE_MODELS.filter(m => m.model !== AppState.confirmedGeminiModel.model || m.version !== AppState.confirmedGeminiModel.version)
+    ];
+  }
+
+  let lastErrorDetail = null;
+
+  for (const m of modelsToTry) {
+    const url = `https://generativelanguage.googleapis.com/${m.version}/models/${m.model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const bodyPayload = {
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: promptPayload }]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2048
+      }
+    };
+
+    if (systemInstructionText && m.version !== 'v1') {
+      bodyPayload.systemInstruction = {
+        parts: [{ text: systemInstructionText }]
+      };
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload)
+      });
+
+      if (response.ok) {
+        AppState.confirmedGeminiModel = m;
+        const data = await response.json();
+        return { ok: true, data };
+      }
+
+      if (response.status === 429) {
+        return { ok: false, status: 429 };
+      }
+
+      if (response.status === 400) {
+        const errJson = await response.json().catch(() => ({}));
+        const msg = errJson?.error?.message || '';
+        if (msg.includes('API key not valid') || msg.includes('API_KEY_INVALID')) {
+          return { ok: false, status: 400, message: msg };
+        }
+      }
+
+      if (response.status === 404) {
+        lastErrorDetail = await response.json().catch(() => ({}));
+        continue;
+      }
+
+      lastErrorDetail = await response.json().catch(() => ({}));
+    } catch (networkErr) {
+      lastErrorDetail = { error: { message: networkErr.message } };
+    }
+  }
+
+  return {
+    ok: false,
+    status: 404,
+    message: lastErrorDetail?.error?.message || 'No se pudo conectar con ningún modelo de Gemini disponible en tu proyecto.'
+  };
+}
+
 function initAiAssistant() {
   const btnFloating = document.getElementById('btnFloatingAi');
   const btnHeader = document.getElementById('btnHeaderAiAssistant');
   const drawer = document.getElementById('aiChatDrawer');
   const overlay = document.getElementById('aiDrawerOverlay');
   const btnClose = document.getElementById('btnCloseAiDrawer');
-  const btnToggleConfig = document.getElementById('btnToggleAiConfig');
-  const configPanel = document.getElementById('aiConfigPanel');
-  const btnSaveKey = document.getElementById('btnSaveGeminiKey');
-  const inputKey = document.getElementById('inputGeminiApiKey');
   const btnClearChat = document.getElementById('btnClearAiChat');
   const btnExportCopilot = document.getElementById('btnExportCopilotQuick');
   const btnSend = document.getElementById('btnSendAiChat');
   const inputMsg = document.getElementById('aiChatInput');
 
-  // Cargar clave guardada si existe
-  const savedKey = localStorage.getItem('DATANEXUS_GEMINI_KEY') || '';
-  if (savedKey && inputKey) {
-    inputKey.value = savedKey;
-  }
   updateAiStatusUI();
 
   // Abrir y Cerrar Drawer
@@ -3072,30 +3160,6 @@ function initAiAssistant() {
   if (btnHeader) btnHeader.addEventListener('click', openDrawer);
   if (btnClose) btnClose.addEventListener('click', closeDrawer);
   if (overlay) overlay.addEventListener('click', closeDrawer);
-
-  // Toggle Panel de Configuración
-  if (btnToggleConfig) {
-    btnToggleConfig.addEventListener('click', () => {
-      if (configPanel) configPanel.classList.toggle('open');
-    });
-  }
-
-  // Guardar clave API
-  if (btnSaveKey && inputKey) {
-    btnSaveKey.addEventListener('click', () => {
-      const keyVal = inputKey.value.trim();
-      if (!keyVal) {
-        if (window.ClipboardUtil) ClipboardUtil.showToast('Por favor ingresa una clave de API válida', 'warning');
-        else alert('Por favor ingresa una clave de API válida');
-        return;
-      }
-      localStorage.setItem('DATANEXUS_GEMINI_KEY', keyVal);
-      updateAiStatusUI();
-      if (configPanel) configPanel.classList.remove('open');
-      if (window.ClipboardUtil) ClipboardUtil.showToast('✅ Clave de Gemini guardada (Tier 100% Gratuito)', 'success');
-      appendSystemChatMessage('🔑 <b>Clave configurada con éxito.</b> Tu cuenta está en el nivel gratuito (0 costo). Ya puedes realizar consultas sobre transporte.');
-    });
-  }
 
   // Limpiar Chat
   if (btnClearChat) {
@@ -3160,7 +3224,7 @@ function initAiAssistant() {
 function updateAiStatusUI() {
   const dot = document.getElementById('aiStatusDot');
   const text = document.getElementById('aiStatusText');
-  const key = localStorage.getItem('DATANEXUS_GEMINI_KEY');
+  const key = getGeminiApiKey();
 
   if (AppState.isAiPaused) {
     if (dot) dot.className = 'ai-status-dot paused';
@@ -3173,7 +3237,7 @@ function updateAiStatusUI() {
     if (text) text.innerText = 'Conectado (Gemini Free)';
   } else {
     if (dot) dot.className = 'ai-status-dot error';
-    if (text) text.innerText = 'Requiere Clave (Clic en ⚙️)';
+    if (text) text.innerText = 'Sin Clave Interna';
   }
 }
 
@@ -3266,12 +3330,10 @@ async function sendUserAiMessage() {
     return;
   }
 
-  // Verificar clave API
-  const apiKey = localStorage.getItem('DATANEXUS_GEMINI_KEY');
+  // Obtener clave API (por interno desde config.js o guardada en localStorage)
+  const apiKey = getGeminiApiKey();
   if (!apiKey) {
-    const configPanel = document.getElementById('aiConfigPanel');
-    if (configPanel) configPanel.classList.add('open');
-    appendSystemChatMessage('⚠️ Para usar el asistente, ingresa primero tu clave gratuita de Google AI Studio en el panel superior (⚙️). <b>Es 100% gratuita y no pide tarjeta de crédito.</b>');
+    appendSystemChatMessage('⚠️ <b>Clave de API no configurada:</b><br>Para activar el asistente de forma interna, por favor agrega tu clave en el archivo <code>js/config.js</code> en la propiedad <code>GEMINI_API_KEY</code>.');
     return;
   }
 
@@ -3310,69 +3372,37 @@ PAUTAS DE RESPUESTA:
     ? `DATOS ACTUALES DEL DASHBOARD:\n${liveContext}\n\nCONSULTA DEL USUARIO:\n${userText}`
     : userText;
 
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: promptPayload }]
-          }
-        ],
-        systemInstruction: {
-          parts: [{ text: systemInstructionText }]
-        },
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 2048
-        }
-      })
-    });
+  const result = await callGeminiApiMultiModel(apiKey, promptPayload, systemInstructionText);
 
-    removeTypingIndicator(typingBubbleId);
+  removeTypingIndicator(typingBubbleId);
 
-    if (response.status === 429) {
-      // Manejo específico del Rate Limit / Exhausted Quota en tier gratuito
-      triggerAiQuotaPause(60);
-      appendSystemChatMessage(`⏳ <b>Límite Temporal Gratuito Alcanzado (HTTP 429)</b><br>
+  if (result.status === 429) {
+    triggerAiQuotaPause(60);
+    appendSystemChatMessage(`⏳ <b>Límite Temporal Gratuito Alcanzado (HTTP 429)</b><br>
 Has alcanzado el límite de peticiones por minuto del nivel gratuito de Google AI Studio. 
 <br><br>
 <b>No te preocupes: tu cuenta sigue siendo 100% gratuita y no genera ningún cobro.</b> 
 El bot se ha pausado preventivamente y se reanudará automáticamente en <b>60 segundos</b>.`);
-      return;
-    }
+    return;
+  }
 
-    if (response.status === 400) {
-      appendSystemChatMessage(`❌ <b>Clave API Inválida (HTTP 400)</b><br>
-Google AI Studio no reconoció la clave provista. Por favor abre la configuración (⚙️) y verifica que copiaste la clave completa (empieza con <code>AIzaSy...</code>).`);
-      return;
-    }
+  if (result.status === 400) {
+    appendSystemChatMessage(`❌ <b>Clave API Inválida (HTTP 400)</b><br>
+Google AI Studio no reconoció la clave configurada en <code>config.js</code>. Verifica que sea la clave correcta (empieza con <code>AIzaSy...</code>).`);
+    return;
+  }
 
-    if (!response.ok) {
-      const errJson = await response.json().catch(() => ({}));
-      const errMsg = errJson?.error?.message || `Error HTTP ${response.status}`;
-      appendSystemChatMessage(`⚠️ <b>Error en la consulta:</b> ${errMsg}`);
-      return;
-    }
+  if (!result.ok) {
+    appendSystemChatMessage(`⚠️ <b>Error en la consulta:</b> ${result.message || 'Error al conectar con Gemini'}`);
+    return;
+  }
 
-    const data = await response.json();
-    const botReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (botReply) {
-      appendAssistantChatMessage(botReply);
-      AppState.aiHistory.push({ role: 'user', content: userText }, { role: 'assistant', content: botReply });
-    } else {
-      appendSystemChatMessage('No se recibió respuesta válida del modelo.');
-    }
-
-  } catch (error) {
-    removeTypingIndicator(typingBubbleId);
-    console.error('Error al llamar a Gemini API:', error);
-    appendSystemChatMessage(`⚠️ <b>Error de conexión:</b> No se pudo comunicar con Google Gemini API. Verifica tu conexión a internet o la validez de tu clave API.`);
+  const botReply = result.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (botReply) {
+    appendAssistantChatMessage(botReply);
+    AppState.aiHistory.push({ role: 'user', content: userText }, { role: 'assistant', content: botReply });
+  } else {
+    appendSystemChatMessage('No se recibió respuesta válida del modelo.');
   }
 }
 
