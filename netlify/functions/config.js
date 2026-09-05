@@ -14,6 +14,7 @@ exports.handler = async function (event, context) {
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID || '';
+  const geminiApiKey = process.env.GEMINI_API_KEY || '';
 
   return {
     statusCode: 200,
@@ -22,7 +23,8 @@ exports.handler = async function (event, context) {
       'Access-Control-Allow-Origin': '*'
     },
     body: JSON.stringify({
-      clientId: clientId
+      clientId: clientId,
+      geminiApiKey: geminiApiKey
     })
   };
 };

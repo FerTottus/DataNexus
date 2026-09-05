@@ -3034,11 +3034,14 @@ AppState.aiPauseRemaining = 0;
 AppState.aiPauseInterval = null;
 
 function getGeminiApiKey() {
-  // 1. Clave interna desde window.APP_CONFIG (en js/config.js)
-  if (window.APP_CONFIG && window.APP_CONFIG.GEMINI_API_KEY && window.APP_CONFIG.GEMINI_API_KEY.trim() !== '' && window.APP_CONFIG.GEMINI_API_KEY !== 'TU_CLIENT_ID_AQUI') {
-    return window.APP_CONFIG.GEMINI_API_KEY.trim();
+  // 1. Clave inyectada en window.APP_CONFIG (por GitHub Actions en despliegue)
+  if (window.APP_CONFIG && window.APP_CONFIG.GEMINI_API_KEY) {
+    const key = window.APP_CONFIG.GEMINI_API_KEY.trim();
+    if (key !== '' && key !== 'TU_GEMINI_API_KEY_AQUI' && key !== 'TU_CLIENT_ID_AQUI') {
+      return key;
+    }
   }
-  // 2. Clave guardada en localStorage del navegador
+  // 2. Clave guardada en localStorage del navegador (útil para pruebas en localhost o fallback)
   const saved = localStorage.getItem('DATANEXUS_GEMINI_KEY');
   if (saved && saved.trim()) {
     return saved.trim();
@@ -3410,7 +3413,7 @@ async function sendUserAiMessage() {
   // Obtener clave API (por interno desde config.js o guardada en localStorage)
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
-    appendSystemChatMessage('⚠️ <b>Clave de API no configurada:</b><br>Para activar el asistente de forma interna, por favor agrega tu clave en el archivo <code>js/config.js</code> en la propiedad <code>GEMINI_API_KEY</code>.');
+    appendSystemChatMessage('⚠️ <b>Clave de API no configurada:</b><br>Configura el secreto <code>GEMINI_API_KEY</code> en tu repositorio de GitHub (<b>Settings &gt; Secrets and variables &gt; Actions</b>) y haz un push para que GitHub Actions lo inyecte automáticamente en el despliegue.<br><small style="color:#94a3b8;">Si estás en pruebas locales, puedes activarla temporalmente ejecutando en la consola: <code>localStorage.setItem("DATANEXUS_GEMINI_KEY", "tu_clave")</code>.</small>');
     return;
   }
 

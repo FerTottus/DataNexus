@@ -19,9 +19,13 @@ jobs:
       - name: Descargar código
         uses: actions/checkout@v4
         
-      - name: Inyectar Secreto de Google
+      - name: Inyectar Secretos de Configuración (Google & Gemini)
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          sed -i "s/TU_CLIENT_ID_AQUI/${{ secrets.GOOGLE_CLIENT_ID }}/g" js/config.js
+          sed -i "s|TU_CLIENT_ID_AQUI|${GOOGLE_CLIENT_ID}|g" js/config.js
+          sed -i "s|TU_GEMINI_API_KEY_AQUI|${GEMINI_API_KEY}|g" js/config.js
           
       - name: Configurar Pages
         uses: actions/configure-pages@v4
