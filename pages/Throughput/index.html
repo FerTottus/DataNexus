@@ -308,7 +308,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 2px;
       flex-wrap: wrap;
       gap: 8px;
     }
@@ -332,7 +332,7 @@
 
     .chart-container-medium {
       position: relative;
-      height: 400px;
+      height: 350px;
       width: 100%;
       max-width: 100%;
       min-width: 0;
@@ -525,116 +525,107 @@
     }
 
     /* ══════════════════════════════════════════════
-       PASTE BAR & BUTTONS
+       COPY ACTION BAR & BUTTONS (CLICK PARA COPIAR)
        ══════════════════════════════════════════════ */
-    .paste-quick-bar {
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid rgba(226, 232, 240, 0.8);
-      width: 100%;
-    }
-    .paste-bar-header {
+    .copy-toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(14px);
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 10px 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 3px 12px rgba(15, 23, 42, 0.04);
     }
-    .paste-bar-title {
+    .copy-toolbar-title {
       font-size: 0.88rem;
       font-weight: 700;
       color: #1e293b;
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 8px;
     }
-    .paste-bar-hint {
-      font-size: 0.76rem;
-      color: #64748b;
-    }
-    .paste-buttons-cluster {
+    .copy-buttons-group {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
-      width: 100%;
     }
-    .btn-paste {
+    .btn-copy {
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      padding: 9px 16px;
+      padding: 8px 16px;
       border-radius: 10px;
       font-weight: 700;
-      font-size: 0.86rem;
+      font-size: 0.85rem;
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-      border: 1px solid transparent;
+      border: 1.5px solid transparent;
       outline: none;
+      user-select: none;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
     }
-    .btn-paste:hover {
+    .btn-copy:hover {
       transform: translateY(-2px);
       box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
     }
-    .btn-paste-recibo {
+    .btn-copy:active {
+      transform: translateY(0);
+    }
+    .btn-copy-recibo {
       background: #eff6ff;
       color: #1d4ed8;
       border-color: #bfdbfe;
     }
-    .btn-paste-recibo:hover {
+    .btn-copy-recibo:hover {
       background: #2563eb;
       color: #ffffff;
       border-color: #1d4ed8;
     }
-    .btn-paste-despacho {
+    .btn-copy-despacho {
       background: #fff7ed;
       color: #c2410c;
       border-color: #fed7aa;
     }
-    .btn-paste-despacho:hover {
+    .btn-copy-despacho:hover {
       background: #ea580c;
       color: #ffffff;
       border-color: #c2410c;
     }
-    .btn-paste-inventario {
+    .btn-copy-inventario {
       background: #ecfdf5;
       color: #047857;
       border-color: #a7f3d0;
     }
-    .btn-paste-inventario:hover {
+    .btn-copy-inventario:hover {
       background: #059669;
       color: #ffffff;
       border-color: #047857;
     }
-    .paste-buttons-extra {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-left: auto;
-    }
-    .btn-paste-divisiones {
-      background: #f5f3ff;
-      color: #6d28d9;
-      border-color: #ddd6fe;
-      font-size: 0.8rem;
-    }
-    .btn-paste-divisiones:hover {
-      background: #7c3aed;
-      color: #ffffff;
-      border-color: #6d28d9;
-    }
-    .btn-paste-secos, .btn-paste-frescos {
-      background: #f8fafc;
+    .btn-chart-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 0.76rem;
+      font-weight: 700;
       color: #475569;
-      border-color: #cbd5e1;
-      font-size: 0.8rem;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      cursor: pointer;
+      transition: all 0.18s ease;
     }
-    .btn-paste-secos:hover, .btn-paste-frescos:hover {
-      background: #334155;
+    .btn-chart-copy:hover {
+      background: #2563eb;
       color: #ffffff;
-      border-color: #1e293b;
+      border-color: #2563eb;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
     }
 
     /* ══════════════════════════════════════════════
@@ -1272,46 +1263,6 @@
       <div id="loadingIndicator" class="hidden text-center" style="margin-top:14px; font-weight: 600; color: #2563eb;">
         <i class="fa-solid fa-spinner fa-spin text-primary"></i> Sincronizando y procesando Throughput...
       </div>
-
-      <!-- Barra Rápida: Pegar Información de Throughput (Portapapeles / Excel) -->
-      <div class="paste-quick-bar">
-        <div class="paste-bar-header">
-          <div class="paste-bar-title">
-            <i class="fa-solid fa-paste text-primary"></i>
-            <span>Pegar información de Throughput (Portapapeles / Excel)</span>
-          </div>
-          <span class="paste-bar-hint">
-            <i class="fa-solid fa-circle-info"></i> Copia cualquier tabla en Excel y haz clic en el botón correspondiente
-          </span>
-        </div>
-        <div class="paste-buttons-cluster">
-          <!-- 3 BOTONES PRINCIPALES DE PROCESOS -->
-          <button id="btnPasteRecibo" class="btn-paste btn-paste-recibo" title="Pegar datos de RECIBO (entradas) desde Excel">
-            <i class="fa-solid fa-boxes-packing"></i> Pegar Recibo
-          </button>
-          <button id="btnPasteDespacho" class="btn-paste btn-paste-despacho" title="Pegar datos de DESPACHO (salidas) desde Excel">
-            <i class="fa-solid fa-truck-fast"></i> Pegar Despacho
-          </button>
-          <button id="btnPasteInventario" class="btn-paste btn-paste-inventario" title="Pegar datos de INVENTARIO (stock) desde Excel">
-            <i class="fa-solid fa-warehouse"></i> Pegar Inventario
-          </button>
-          
-          <div class="paste-buttons-extra">
-            <button id="btnPasteDivisiones" class="btn-paste btn-paste-divisiones" title="Pegar las 3 tablas de divisiones juntas (Recibo, Despacho, Inventario)">
-              <i class="fa-solid fa-sitemap"></i> Pegar Divisiones (3 en 1)
-            </button>
-            <button id="btnPasteSheetSecos" class="btn-paste btn-paste-secos" title="Pegar hoja completa Throughput Secos">
-              <i class="fa-solid fa-box"></i> Pegar Secos
-            </button>
-            <button id="btnPasteSheetFrescos" class="btn-paste btn-paste-frescos" title="Pegar hoja completa Throughput Frescos">
-              <i class="fa-solid fa-snowflake"></i> Pegar Frescos
-            </button>
-            <button id="btnResetData" class="btn-paste" style="background:#f8fafc; color:#475569; border:1px solid #cbd5e1;" title="Restablecer datos originales del archivo Excel">
-              <i class="fa-solid fa-rotate-left"></i> Restablecer
-            </button>
-          </div>
-        </div>
-      </div>
     </section>
 
     <!-- Modal Drive -->
@@ -1326,60 +1277,6 @@
           <div id="drive-loading" class="hidden text-center" style="padding: 15px;"><i class="fa-solid fa-spinner fa-spin text-primary"></i> Cargando archivos...</div>
           <ul id="drive-file-list" class="file-list" style="max-height: 280px; overflow-y: auto;"></ul>
           <div id="drive-empty" class="hidden text-muted text-center mt-3">No se encontraron hojas.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Modal para Pegar Información de Throughput -->
-    <div id="paste-modal" class="modal-overlay hidden">
-      <div class="modal-content glass-card" style="max-width: 660px; width: 95%;">
-        <div class="modal-header" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; display:flex; justify-content:space-between; align-items:center;">
-          <h3 style="font-weight: 700; font-size: 1.15rem; margin:0; color:#1e293b;" id="pasteModalTitle">
-            <i class="fa-solid fa-paste text-primary"></i> Pegar Información de Throughput
-          </h3>
-          <button id="close-paste-modal-btn" class="btn-close" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:#64748b;">&times;</button>
-        </div>
-        <div class="modal-body" style="padding-top: 15px; display:flex; flex-direction:column; gap:12px;">
-          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #e2e8f0;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <label style="font-size:0.84rem; font-weight:700; color:#334155;">Destino:</label>
-              <select id="pasteTargetProcess" class="glass-select" style="padding:5px 10px; font-size:0.84rem;">
-                <option value="recibo">📦 Recibo (Entradas)</option>
-                <option value="despacho">🚛 Despacho (Salidas)</option>
-                <option value="inventario">📊 Inventario (Stock)</option>
-                <option value="divisiones_all">🏷️ Divisiones (3 en 1: Recibo, Despacho, Inv)</option>
-                <option value="secos_sheet">🏢 Hoja Throughput Secos</option>
-                <option value="frescos_sheet">❄️ Hoja Throughput Frescos</option>
-              </select>
-            </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <label style="font-size:0.84rem; font-weight:700; color:#334155;">CD:</label>
-              <select id="pasteTargetCd" class="glass-select" style="padding:5px 10px; font-size:0.84rem;">
-                <option value="Secos">CD SECOS</option>
-                <option value="Frescos">CD FRESCOS</option>
-              </select>
-            </div>
-          </div>
-
-          <p style="font-size:0.82rem; color:#64748b; margin:0;" id="pasteInstructions">
-            Copia las celdas desde Excel (puedes incluir encabezados de semanas <code>[29-2026]</code> o divisiones <code>J01..J12</code>) y pégalas aquí:
-          </p>
-
-          <textarea id="pasteTextInput" rows="8" class="form-control" style="width:100%; border-radius:10px; font-family:'JetBrains Mono', monospace; font-size:0.8rem; padding:10px; resize:vertical; background:rgba(255,255,255,0.9);" placeholder="Pega aquí los datos copiados desde Excel (Ctrl + V)..."></textarea>
-
-          <div id="pasteDetectInfo" style="font-size:0.8rem; color:#0369a1; font-weight:600; display:none; padding:8px 12px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px;"></div>
-
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; flex-wrap:wrap; gap:8px;">
-            <button id="btnReadClipboard" class="btn btn-sm btn-outline-secondary" style="border-radius:8px; font-weight:600;">
-              <i class="fa-solid fa-clipboard"></i> Leer del Portapapeles
-            </button>
-            <div style="display:flex; gap:8px;">
-              <button id="btnCancelPaste" class="btn btn-sm btn-secondary" style="border-radius:8px;">Cancelar</button>
-              <button id="btnApplyPaste" class="btn-glass-primary" style="padding:7px 18px; font-size:0.88rem;">
-                <i class="fa-solid fa-check"></i> Procesar y Aplicar
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -1610,6 +1507,25 @@
         </div>
       </div>
 
+      <!-- Barra de Copiado Rápido de Throughput (Click para Copiar) -->
+      <div class="copy-toolbar">
+        <div class="copy-toolbar-title">
+          <i class="fa-solid fa-copy text-primary"></i>
+          <span>Copiar Throughput al Portapapeles (para Excel / Correo / Teams):</span>
+        </div>
+        <div class="copy-buttons-group">
+          <button id="btnCopyRecibo" class="btn-copy btn-copy-recibo" onclick="window.copyThroughputProcess('recibo')" title="Copiar datos de Recibo (Entradas) para pegar en Excel">
+            <i class="fa-solid fa-boxes-packing"></i> Copiar Recibo
+          </button>
+          <button id="btnCopyDespacho" class="btn-copy btn-copy-despacho" onclick="window.copyThroughputProcess('despacho')" title="Copiar datos de Despacho (Salidas) para pegar en Excel">
+            <i class="fa-solid fa-truck-fast"></i> Copiar Despacho
+          </button>
+          <button id="btnCopyInventario" class="btn-copy btn-copy-inventario" onclick="window.copyThroughputProcess('inventario')" title="Copiar datos de Inventario (Stock) para pegar en Excel">
+            <i class="fa-solid fa-warehouse"></i> Copiar Inventario
+          </button>
+        </div>
+      </div>
+
       <!-- Tab Secos -->
       <div id="tab-secos" class="tab-content active">
         <div class="section-header">
@@ -1634,7 +1550,12 @@
             <div class="chart-block-title">
               <span style="color: #2563eb;"><i class="fa-solid fa-boxes-packing"></i></span> Entradas (Recibo)
             </div>
-            <span class="chart-badge-pill">Cajas / Semana</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="chart-badge-pill">Cajas / Semana</span>
+              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('recibo')" title="Copiar datos de Recibo al portapapeles para Excel">
+                <i class="fa-solid fa-copy"></i> Copiar Recibo
+              </button>
+            </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartSecosRecibo"></canvas></div>
         </div>
@@ -1644,7 +1565,12 @@
             <div class="chart-block-title">
               <span style="color: #f97316;"><i class="fa-solid fa-truck-fast"></i></span> Salidas (Despacho)
             </div>
-            <span class="chart-badge-pill">Cajas / Semana</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="chart-badge-pill">Cajas / Semana</span>
+              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('despacho')" title="Copiar datos de Despacho al portapapeles para Excel">
+                <i class="fa-solid fa-copy"></i> Copiar Despacho
+              </button>
+            </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartSecosDespacho"></canvas></div>
         </div>
@@ -1654,7 +1580,12 @@
             <div class="chart-block-title">
               <span style="color: #059669;"><i class="fa-solid fa-warehouse"></i></span> Inventario Activo
             </div>
-            <span class="chart-badge-pill">Stock en Cajas · Barras Comparativas</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="chart-badge-pill">Stock en Cajas · Barras Comparativas</span>
+              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('inventario')" title="Copiar datos de Inventario al portapapeles para Excel">
+                <i class="fa-solid fa-copy"></i> Copiar Inventario
+              </button>
+            </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartSecosInventario"></canvas></div>
         </div>
@@ -1690,7 +1621,12 @@
             <div class="chart-block-title">
               <span style="color: #2563eb;"><i class="fa-solid fa-boxes-packing"></i></span> Entradas (Recibo)
             </div>
-            <span class="chart-badge-pill">Cajas / Semana</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="chart-badge-pill">Cajas / Semana</span>
+              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('recibo')" title="Copiar datos de Recibo al portapapeles para Excel">
+                <i class="fa-solid fa-copy"></i> Copiar Recibo
+              </button>
+            </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartFrescosRecibo"></canvas></div>
         </div>
@@ -1700,7 +1636,12 @@
             <div class="chart-block-title">
               <span style="color: #f97316;"><i class="fa-solid fa-truck-fast"></i></span> Salidas (Despacho)
             </div>
-            <span class="chart-badge-pill">Cajas / Semana</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="chart-badge-pill">Cajas / Semana</span>
+              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('despacho')" title="Copiar datos de Despacho al portapapeles para Excel">
+                <i class="fa-solid fa-copy"></i> Copiar Despacho
+              </button>
+            </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartFrescosDespacho"></canvas></div>
         </div>
@@ -1710,7 +1651,12 @@
             <div class="chart-block-title">
               <span style="color: #059669;"><i class="fa-solid fa-warehouse"></i></span> Inventario Activo
             </div>
-            <span class="chart-badge-pill">Stock en Cajas · Barras Comparativas</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="chart-badge-pill">Stock en Cajas · Barras Comparativas</span>
+              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('inventario')" title="Copiar datos de Inventario al portapapeles para Excel">
+                <i class="fa-solid fa-copy"></i> Copiar Inventario
+              </button>
+            </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartFrescosInventario"></canvas></div>
         </div>

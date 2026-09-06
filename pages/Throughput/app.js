@@ -1028,7 +1028,7 @@ document.addEventListener('DOMContentLoaded', () => {
       responsive: true,
       maintainAspectRatio: false,
       layout: {
-        padding: { top: showLabels ? 42 : 14, bottom: 8, left: 12, right: 12 }
+        padding: { top: 4, bottom: 6, left: 8, right: 8 }
       },
       plugins: {
         legend: {
@@ -1037,7 +1037,7 @@ document.addEventListener('DOMContentLoaded', () => {
           labels: {
             usePointStyle: true,
             boxWidth: 9,
-            padding: 18,
+            padding: 10,
             font: { size: 11.5, weight: '600', family: "'Inter', sans-serif" },
             color: '#334155'
           }
@@ -1092,7 +1092,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         y: {
           beginAtZero: true,
-          grace: '14%', // Da margen de respiro superior para que no choque el Plan ni las etiquetas
+          grace: '10%',
           grid: { color: 'rgba(226, 232, 240, 0.6)' },
           ticks: {
             font: { size: 10.5, family: "'Inter', sans-serif" },
@@ -1746,283 +1746,223 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════
-  // BOTONES Y MODAL PARA PEGAR INFORMACIÓN
+  // BOTONES PARA COPIAR INFORMACIÓN DE THROUGHPUT (EXCEL / REPORTES)
   // ══════════════════════════════════════════════
-  function initPasteHandlers() {
-    const modal = document.getElementById('paste-modal');
-    const modalTitle = document.getElementById('pasteModalTitle');
-    const targetProcSelect = document.getElementById('pasteTargetProcess');
-    const targetCdSelect = document.getElementById('pasteTargetCd');
-    const textInput = document.getElementById('pasteTextInput');
-    const detectInfo = document.getElementById('pasteDetectInfo');
-
-    const openModal = (proc, title) => {
-      if (!modal) return;
-      if (targetProcSelect) targetProcSelect.value = proc;
-      const activeTab = document.querySelector('.glass-tab-btn.active');
-      const isFrescos = activeTab && activeTab.dataset.target === 'tab-frescos';
-      if (targetCdSelect) targetCdSelect.value = isFrescos ? 'Frescos' : 'Secos';
-      if (modalTitle) modalTitle.innerHTML = `<i class="fa-solid fa-paste text-primary"></i> ${title}`;
-      if (textInput) {
-        textInput.value = '';
-        textInput.focus();
+  function fallbackClipboardCopy(text, onSuccess, onError) {
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      textarea.style.width = '2em';
+      textarea.style.height = '2em';
+      textarea.style.padding = '0';
+      textarea.style.border = 'none';
+      textarea.style.outline = 'none';
+      textarea.style.boxShadow = 'none';
+      textarea.style.background = 'transparent';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      if (successful) {
+        if (onSuccess) onSuccess();
+      } else {
+        if (onError) onError();
       }
-      if (detectInfo) detectInfo.style.display = 'none';
-      modal.classList.remove('hidden');
-    };
-
-    const closeModal = () => {
-      if (modal) modal.classList.add('hidden');
-    };
-
-    // 3 Botones Principales de Proceso
-    document.getElementById('btnPasteRecibo')?.addEventListener('click', () => {
-      openModal('recibo', 'Pegar Datos de RECIBO (Entradas)');
-    });
-    document.getElementById('btnPasteDespacho')?.addEventListener('click', () => {
-      openModal('despacho', 'Pegar Datos de DESPACHO (Salidas)');
-    });
-    document.getElementById('btnPasteInventario')?.addEventListener('click', () => {
-      openModal('inventario', 'Pegar Datos de INVENTARIO (Stock)');
-    });
-
-    // Botones Extra
-    document.getElementById('btnPasteDivisiones')?.addEventListener('click', () => {
-      openModal('divisiones_all', 'Pegar Tabla de Divisiones (Recibo, Despacho, Inventario)');
-    });
-    document.getElementById('btnPasteSheetSecos')?.addEventListener('click', () => {
-      openModal('secos_sheet', 'Pegar Hoja Throughput CD SECOS');
-      if (targetCdSelect) targetCdSelect.value = 'Secos';
-    });
-    document.getElementById('btnPasteSheetFrescos')?.addEventListener('click', () => {
-      openModal('frescos_sheet', 'Pegar Hoja Throughput CD FRESCOS');
-      if (targetCdSelect) targetCdSelect.value = 'Frescos';
-    });
-
-    // Cerrar Modal
-    document.getElementById('close-paste-modal-btn')?.addEventListener('click', closeModal);
-    document.getElementById('btnCancelPaste')?.addEventListener('click', closeModal);
-
-    // Leer Portapapeles
-    document.getElementById('btnReadClipboard')?.addEventListener('click', async () => {
-      try {
-        if (navigator.clipboard && navigator.clipboard.readText) {
-          const text = await navigator.clipboard.readText();
-          if (textInput) {
-            textInput.value = text;
-            analyzePasteInput(text);
-            showToast('Texto pegado desde el portapapeles', 'info', 2500);
-          }
-        } else {
-          alert('Por favor presiona Ctrl + V dentro del cuadro de texto para pegar.');
-        }
-      } catch (err) {
-        alert('No se pudo acceder automáticamente al portapapeles. Usa Ctrl + V directamente en el cuadro de texto.');
-      }
-    });
-
-    // Análisis en tiempo real
-    textInput?.addEventListener('input', (e) => {
-      analyzePasteInput(e.target.value);
-    });
-
-    // Aplicar Datos
-    document.getElementById('btnApplyPaste')?.addEventListener('click', () => {
-      const raw = textInput?.value || '';
-      if (!raw.trim()) {
-        return alert('Por favor pega la información antes de procesar.');
-      }
-      const proc = targetProcSelect?.value || 'recibo';
-      const cd = targetCdSelect?.value || 'Secos';
-      applyPastedData(raw, proc, cd);
-      closeModal();
-    });
-
-    // Restablecer Datos Originales
-    document.getElementById('btnResetData')?.addEventListener('click', () => {
-      if (confirm('¿Deseas restablecer todos los datos a los valores originales predeterminados del archivo Excel?')) {
-        try {
-          localStorage.removeItem('DataNexus_Throughput_Secos');
-          localStorage.removeItem('DataNexus_Throughput_Frescos');
-          localStorage.removeItem('DataNexus_Throughput_Divisions');
-        } catch (e) {}
-        window.dataSecos = JSON.parse(JSON.stringify(DEFAULT_SECOS_DATA));
-        window.dataFrescos = JSON.parse(JSON.stringify(DEFAULT_FRESCOS_DATA));
-        window.parsedDivisionData = JSON.parse(JSON.stringify(DEFAULT_DIVISIONS_DATA));
-        renderAll();
-        showToast('Datos restablecidos al estado original del archivo Excel', 'success');
-      }
-    });
+    } catch (err) {
+      if (onError) onError(err);
+    }
   }
 
-  function analyzePasteInput(text) {
-    const detectEl = document.getElementById('pasteDetectInfo');
-    if (!detectEl) return;
-    if (!text || !text.trim()) {
-      detectEl.style.display = 'none';
+  window.copyThroughputProcess = function(processKey) {
+    const isFrescos = document.getElementById('tab-frescos')?.classList.contains('active');
+    const prefix = isFrescos ? 'Frescos' : 'Secos';
+    const cdData = isFrescos ? window.dataFrescos : window.dataSecos;
+
+    if (!cdData || !cdData.rows || cdData.rows.length === 0) {
+      showToast('No hay datos disponibles para copiar', 'danger');
       return;
     }
-    const lines = text.trim().split(/\r?\n/).filter(l => l.trim().length > 0);
-    const rowCount = lines.length;
-    const colCount = lines[0].split(/\t|,|;/).length;
 
-    const divMatches = text.match(/J\d{2}/gi) || [];
-    const uniqueDivs = Array.from(new Set(divMatches.map(d => d.toUpperCase()))).sort();
+    const cols = resolveColumns(cdData.headers, cdData.rows);
+    const procNames = {
+      recibo: { name: 'RECIBO (ENTRADAS)', col: cols.recibo, planCol: cols.planRecibo, icon: '📦' },
+      despacho: { name: 'DESPACHO (SALIDAS)', col: cols.despacho, planCol: cols.planDespacho, icon: '🚛' },
+      inventario: { name: 'INVENTARIO (STOCK)', col: cols.inventario, planCol: cols.planInv, icon: '📊' }
+    };
+    const procInfo = procNames[processKey] || procNames.recibo;
 
-    const weekMatches = text.match(/\[?\b\d{1,2}-202\d\b\]?|S\d{1,2}\b/gi) || [];
-    const uniqueWeeks = Array.from(new Set(weekMatches)).slice(0, 8);
-
-    detectEl.style.display = 'block';
-    let info = `Detectadas <strong>${rowCount} filas</strong> × <strong>${colCount} columnas</strong>.`;
-    if (uniqueDivs.length > 0) {
-      info += ` Encontradas ${uniqueDivs.length} divisiones: <code>${uniqueDivs.join(', ')}</code>.`;
-    }
-    if (uniqueWeeks.length > 0) {
-      info += ` Semanas identificadas: <code>${uniqueWeeks.join(', ')}</code>.`;
-    }
-    detectEl.innerHTML = info;
-  }
-
-  function applyPastedData(text, targetProcess, targetCd) {
-    if (!text || !text.trim()) return;
-
-    const lines = text.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    if (lines.length === 0) return;
-
-    if (!window.parsedDivisionData) {
-      window.parsedDivisionData = JSON.parse(JSON.stringify(DEFAULT_DIVISIONS_DATA));
-    }
-    if (!window.parsedDivisionData[targetCd]) {
-      window.parsedDivisionData[targetCd] = {};
-    }
-
-    const grid = lines.map(line => {
-      if (line.includes('\t')) return line.split('\t').map(c => c.trim());
-      if (line.includes(';')) return line.split(';').map(c => c.trim());
-      return line.split(',').map(c => c.trim());
+    // Obtener semanas cerradas
+    const allParsed = [];
+    cdData.rows.forEach(row => {
+      const label = row[cols.timeCol];
+      if (!label) return;
+      const parsed = parseWeekLabel(label);
+      if (!parsed || isNaN(parsed.week) || isNaN(parsed.year)) return;
+      allParsed.push({
+        label,
+        week: parsed.week,
+        year: parsed.year,
+        recibo: parseFloat(row[cols.recibo]) || 0,
+        despacho: parseFloat(row[cols.despacho]) || 0,
+        inventario: parseFloat(row[cols.inventario]) || 0,
+        planRecibo: parseFloat(row[cols.planRecibo]) || 0,
+        planDespacho: parseFloat(row[cols.planDespacho]) || 0,
+        planInv: parseFloat(row[cols.planInv]) || 0
+      });
     });
 
-    let updatedCount = 0;
-    const currentYear = 2026;
+    const currentYear = Math.max(...allParsed.map(r => r.year));
+    const prevYear = currentYear - 1;
+    const currentYearRows = allParsed.filter(r => r.year === currentYear).sort((a, b) => a.week - b.week);
 
-    // ─────────────────────────────────────────────
-    // CASO A: TABLA DE DIVISIONES (Filas = J01..J12, Columnas = Semanas)
-    // ─────────────────────────────────────────────
-    if (grid.some(row => row.some(cell => /^J\d{2}$/i.test(cell.trim())))) {
-      let headerRowIdx = 0;
-      for (let r = 0; r < Math.min(5, grid.length); r++) {
-        if (grid[r].some(c => /\[?\d{1,2}-202\d\]?|S\d{1,2}|\b\d{1,2}\b/.test(c))) {
-          headerRowIdx = r;
-          break;
-        }
+    let lastDataWeek = 0;
+    for (let i = currentYearRows.length - 1; i >= 0; i--) {
+      const r = currentYearRows[i];
+      if (r.recibo > 0 || r.despacho > 0 || r.inventario > 0) {
+        lastDataWeek = r.week;
+        break;
       }
-      const header = grid[headerRowIdx];
-      const weekCols = [];
+    }
+    if (lastDataWeek === 0 && currentYearRows.length > 0) {
+      lastDataWeek = currentYearRows[currentYearRows.length - 1].week;
+    }
 
-      header.forEach((c, idx) => {
-        if (idx === 0) return;
-        const mYear = c.match(/\[?(\d{1,2})-(202\d)\]?/);
-        const mS = c.match(/S(\d{1,2})/i);
-        const mNum = c.match(/^(\d{1,2})$/);
-        let w = null, y = currentYear;
-        if (mYear) { w = parseInt(mYear[1], 10); y = parseInt(mYear[2], 10); }
-        else if (mS) { w = parseInt(mS[1], 10); }
-        else if (mNum) { w = parseInt(mNum[1], 10); }
-        if (w !== null && w >= 1 && w <= 53) {
-          weekCols.push({ col: idx, week: w, year: y, key: `${y}-${w}` });
-        }
+    const closedWeeks = [];
+    const startWeek = Math.max(1, lastDataWeek - 7);
+    for (let w = startWeek; w <= lastDataWeek; w++) {
+      closedWeeks.push(w);
+    }
+    const tableWeeks = closedWeeks;
+    const W_last = tableWeeks.length > 0 ? tableWeeks[tableWeeks.length - 1] : lastDataWeek;
+    const W_prev = tableWeeks.length > 1 ? tableWeeks[tableWeeks.length - 2] : Math.max(1, W_last - 1);
+
+    const dataMap = {};
+    allParsed.forEach(r => {
+      dataMap[`${r.year}-${r.week}`] = r;
+    });
+
+    // Construir texto en formato TSV (Tab-Separated Values) compatible 100% con Excel
+    let tsv = `THROUGHPUT CD ${prefix.toUpperCase()} - ${procInfo.name}\tAño ${currentYear} vs ${prevYear}\n`;
+    tsv += `Filtro: Últimas ${tableWeeks.length} Semanas Cerradas (S${tableWeeks[0]} a S${tableWeeks[tableWeeks.length - 1]})\n\n`;
+
+    // ── SECCIÓN 1: DETALLE CORPORATIVO SEMANAL ──
+    tsv += `1. DETALLE CORPORATIVO SEMANAL\n`;
+    tsv += `Concepto\t` + tableWeeks.map(w => `S${w}`).join('\t') + `\tPromedio\n`;
+
+    // Real 2026
+    let sumReal = 0, countReal = 0;
+    const realVals = tableWeeks.map(w => {
+      const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][processKey] : 0;
+      sumReal += val;
+      if (val > 0) countReal++;
+      return Math.round(val);
+    });
+    const avgReal = countReal > 0 ? Math.round(sumReal / countReal) : 0;
+    tsv += `${procInfo.name} ${currentYear}\t` + realVals.join('\t') + `\t${avgReal}\n`;
+
+    // Plan Objetivo 2026
+    const planKey = processKey === 'recibo' ? 'planRecibo' : (processKey === 'despacho' ? 'planDespacho' : 'planInv');
+    let sumPlan = 0, countPlan = 0;
+    const planVals = tableWeeks.map(w => {
+      const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][planKey] : 0;
+      sumPlan += val;
+      if (val > 0) countPlan++;
+      return val > 0 ? Math.round(val) : '';
+    });
+    const avgPlan = countPlan > 0 ? Math.round(sumPlan / countPlan) : '';
+    tsv += `Plan Objetivo ${currentYear}\t` + planVals.join('\t') + `\t${avgPlan}\n`;
+
+    // Real 2025
+    let sumPrev = 0, countPrev = 0;
+    const prevVals = tableWeeks.map(w => {
+      const val = dataMap[`${prevYear}-${w}`] ? dataMap[`${prevYear}-${w}`][processKey] : 0;
+      sumPrev += val;
+      if (val > 0) countPrev++;
+      return val > 0 ? Math.round(val) : '';
+    });
+    const avgPrev = countPrev > 0 ? Math.round(sumPrev / countPrev) : '';
+    tsv += `Real ${prevYear}\t` + prevVals.join('\t') + `\t${avgPrev}\n\n`;
+
+    // ── SECCIÓN 2: MOVIMIENTOS POR DIVISIÓN (AÑO ACTUAL) ──
+    tsv += `2. MOVIMIENTOS POR DIVISIÓN - ${procInfo.name} ${currentYear}\n`;
+    tsv += `División\tNombre Completo\t` + tableWeeks.map(w => `S${w}`).join('\t') + `\tTendencia (S${W_last} vs S${W_prev})\tPromedio\n`;
+
+    const defaultDivs = prefix === 'Frescos'
+      ? ['J01', 'J03', 'J04', 'J05', 'J06', 'J07']
+      : ['J01', 'J02', 'J05', 'J06', 'J07', 'J08', 'J09', 'J10', 'J11', 'J12'];
+
+    const divWeekTotals = {};
+    tableWeeks.forEach(w => { divWeekTotals[w] = 0; });
+    let divGrandTotal = 0;
+
+    defaultDivs.forEach(code => {
+      const name = DIVISION_NAMES[code] || '';
+      let sumDiv = 0, countDiv = 0;
+      const vals = tableWeeks.map(w => {
+        const v = getDivVal(prefix, code, processKey, `${currentYear}-${w}`, dataMap);
+        sumDiv += v;
+        divWeekTotals[w] += v;
+        if (v > 0) countDiv++;
+        return v > 0 ? Math.round(v) : 0;
       });
 
-      const procKey = (targetProcess === 'divisiones_all' || targetProcess.includes('sheet')) ? 'recibo' : targetProcess;
-
-      for (let r = headerRowIdx + 1; r < grid.length; r++) {
-        const row = grid[r];
-        let code = null;
-        for (let c = 0; c < Math.min(3, row.length); c++) {
-          const test = row[c].trim().toUpperCase();
-          if (/^J\d{2}$/.test(test)) {
-            code = test;
-            break;
-          }
-        }
-        if (code) {
-          if (!window.parsedDivisionData[targetCd][code]) {
-            window.parsedDivisionData[targetCd][code] = { recibo: {}, despacho: {}, inventario: {} };
-          }
-          if (!window.parsedDivisionData[targetCd][code][procKey]) {
-            window.parsedDivisionData[targetCd][code][procKey] = {};
-          }
-
-          weekCols.forEach(wc => {
-            if (wc.col < row.length) {
-              const val = cleanNumber(row[wc.col]);
-              window.parsedDivisionData[targetCd][code][procKey][wc.key] = val;
-              updatedCount++;
-            }
-          });
-        }
+      const vLast = getDivVal(prefix, code, processKey, `${currentYear}-${W_last}`, dataMap);
+      const vPrev = getDivVal(prefix, code, processKey, `${currentYear}-${W_prev}`, dataMap);
+      let trendStr = '--';
+      if (vPrev > 0) {
+        const pct = ((vLast - vPrev) / vPrev) * 100;
+        trendStr = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
       }
+
+      const avgDiv = countDiv > 0 ? Math.round(sumDiv / countDiv) : 0;
+      divGrandTotal += sumDiv;
+
+      tsv += `${code}\t${name}\t` + vals.join('\t') + `\t${trendStr}\t${avgDiv}\n`;
+    });
+
+    // Fila Total Divisiones
+    const totLast = divWeekTotals[W_last] || 0;
+    const totPrev = divWeekTotals[W_prev] || 0;
+    let totTrendStr = '--';
+    if (totPrev > 0) {
+      const totPct = ((totLast - totPrev) / totPrev) * 100;
+      totTrendStr = `${totPct >= 0 ? '+' : ''}${totPct.toFixed(1)}%`;
     }
-    // ─────────────────────────────────────────────
-    // CASO B: TABLA CORPORATIVA SEMANAL (Columnas = MES, SemAño, RECIBO, DESPACHO, INV)
-    // ─────────────────────────────────────────────
-    else {
-      const headers = grid[0].map(h => h.toUpperCase());
-      const timeIdx = headers.findIndex(h => h.includes('SEM') || h.includes('SEMAÑO') || h.includes('FECHA'));
-      const recIdx = headers.findIndex(h => h.includes('RECIBO'));
-      const despIdx = headers.findIndex(h => h.includes('DESPACHO'));
-      const invIdx = headers.findIndex(h => h.includes('INV'));
+    const avgGrand = tableWeeks.length > 0 ? Math.round(divGrandTotal / tableWeeks.length) : 0;
+    tsv += `TOTAL\tTotal ${procInfo.name}\t` + tableWeeks.map(w => Math.round(divWeekTotals[w] || 0)).join('\t') + `\t${totTrendStr}\t${avgGrand}\n`;
 
-      const cdData = targetCd === 'Frescos' ? window.dataFrescos : window.dataSecos;
+    // Función de éxito para copiar
+    const onCopySuccess = () => {
+      showToast(`¡Datos de ${procInfo.name} (CD ${prefix.toUpperCase()}) copiados al portapapeles! Listo para pegar en Excel (Ctrl + V).`, 'success', 4000);
 
-      for (let r = 1; r < grid.length; r++) {
-        const row = grid[r];
-        const timeVal = timeIdx !== -1 ? row[timeIdx] : row[0];
-        const p = parseWeekLabel(timeVal);
-        if (p) {
-          const existingRow = cdData.rows.find(rowObj => {
-            const pl = parseWeekLabel(rowObj[cdData.headers[1]] || rowObj['SemAño'] || rowObj['SEMANA']);
-            return pl && pl.week === p.week && pl.year === p.year;
-          });
+      // Feedback visual en botones
+      document.querySelectorAll(`.btn-copy-${processKey}, .btn-chart-copy`).forEach(btn => {
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> ¡Copiado!`;
+        btn.style.filter = 'brightness(1.15)';
+        setTimeout(() => {
+          btn.innerHTML = origHtml;
+          btn.style.filter = '';
+        }, 1800);
+      });
+    };
 
-          const rVal = recIdx !== -1 ? cleanNumber(row[recIdx]) : (targetProcess === 'recibo' ? cleanNumber(row[1]) : 0);
-          const dVal = despIdx !== -1 ? cleanNumber(row[despIdx]) : (targetProcess === 'despacho' ? cleanNumber(row[1]) : 0);
-          const iVal = invIdx !== -1 ? cleanNumber(row[invIdx]) : (targetProcess === 'inventario' ? cleanNumber(row[1]) : 0);
-
-          if (existingRow) {
-            if (recIdx !== -1 || targetProcess === 'recibo') existingRow['RECIBO'] = rVal;
-            if (despIdx !== -1 || targetProcess === 'despacho') existingRow['DESPACHO'] = dVal;
-            if (invIdx !== -1 || targetProcess === 'inventario') existingRow['INVENTARIO ACT'] = iVal;
-            updatedCount++;
-          } else {
-            const newRow = {
-              'MES': MONTH_NAMES_FULL[getMonthForWeek(p.week, p.year)] || '',
-              'SemAño': `[${p.week}-${p.year}]`,
-              'RECIBO': rVal,
-              'DESPACHO': dVal,
-              'INVENTARIO ACT': iVal,
-              'PLAN RECIBO': 0,
-              'PLAN DESPACHO': 0,
-              'PLAN INV': 0
-            };
-            cdData.rows.push(newRow);
-            updatedCount++;
-          }
-        }
-      }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(tsv).then(onCopySuccess).catch(() => {
+        fallbackClipboardCopy(tsv, onCopySuccess, () => {
+          showToast('No se pudo copiar automáticamente. Por favor inténtalo de nuevo.', 'danger');
+        });
+      });
+    } else {
+      fallbackClipboardCopy(tsv, onCopySuccess, () => {
+        showToast('No se pudo copiar automáticamente. Por favor inténtalo de nuevo.', 'danger');
+      });
     }
-
-    try {
-      localStorage.setItem('DataNexus_Throughput_Secos', JSON.stringify(window.dataSecos));
-      localStorage.setItem('DataNexus_Throughput_Frescos', JSON.stringify(window.dataFrescos));
-      localStorage.setItem('DataNexus_Throughput_Divisions', JSON.stringify(window.parsedDivisionData));
-    } catch (err) {
-      console.warn('No se pudo guardar en localStorage:', err);
-    }
-
-    renderAll();
-    showToast(`¡Datos aplicados con éxito en CD ${targetCd.toUpperCase()}! (${updatedCount} celdas procesadas)`, 'success', 4500);
-  }
+  };
 
   // ══════════════════════════════════════════════
   // DATOS PREDETERMINADOS (DEL ARCHIVO EXCEL DE LA EMPRESA)
@@ -2208,7 +2148,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
   }
 
-  // Inicializar manejadores de pegado y cargar datos
-  initPasteHandlers();
+  // Cargar datos e inicializar throughput
   initThroughputData();
 });
