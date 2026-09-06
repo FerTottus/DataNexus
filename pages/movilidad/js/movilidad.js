@@ -1372,8 +1372,6 @@ function applyFilters() {
     }
 
     const trip = aggrMap[tripKey];
-    const rawPasajCol = getRowVal(row, ['PASAJEROS', 'TOTAL PASAJEROS', 'PASAJ', 'CANTIDAD PASAJEROS', 'CANT_PASAJEROS']);
-    const numPasajCol = parseFloat(String(rawPasajCol || '0').replace(/[^0-9.-]+/g, "")) || 0;
 
     if (isPassengerRow) {
       trip.totalPasajeros += 1;
