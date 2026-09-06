@@ -1227,13 +1227,26 @@ function applyFilters() {
     }
     if (valFecha !== 'TODAS' && fechaSoloDia !== valFecha) return;
 
-    const rutaVal = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
-    if (!rutaVal) return;
+    const rutaValRaw = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
+    if (!rutaValRaw) return;
+    const rutaVal = rutaValRaw.toUpperCase().startsWith('RUTA') ? rutaValRaw.toUpperCase() : `RUTA ${rutaValRaw.toUpperCase()}`;
 
     const tipoBusVal = String(getRowVal(row, ['TIPO_BUS', 'TIPO BUS', 'BUS_TIPO']) || '').trim();
+    const turnoVal = String(getRowVal(row, ['TURNO', 'HORA', 'HORARIO', 'SENTIDO']) || '').trim();
+    const placaVal = String(getRowVal(row, ['PLACA', 'UNIDAD', 'VEHICULO']) || '').trim();
+
     const rawRowDni = getRowVal(row, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
-    const isPassengerRow = Boolean(rawRowDni && String(rawRowDni).trim().length >= 4);
-    const tripKey = isPassengerRow ? `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}` : `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}|${aggrTripIdx++}`;
+    const dniClean = cleanDni(rawRowDni);
+    const rawNombre = String(getRowVal(row, ['APELLIDOS Y NOMBRES', 'NOMBRE Y APELLIDO', 'NOMBRE', 'COLABORADOR', 'EMPLEADO', 'NAME']) || '').trim();
+
+    const isPassengerRow = Boolean(
+      (dniClean && dniClean.length >= 4 && !['TOTAL', 'SUBTOTAL', 'NONE', 'N/D', '0'].includes(dniClean)) ||
+      (rawNombre && rawNombre.length >= 3 && !rawNombre.toUpperCase().includes('TOTAL'))
+    );
+
+    const tripKey = isPassengerRow
+      ? `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}${turnoVal ? '|' + turnoVal : ''}${placaVal ? '|' + placaVal : ''}`
+      : `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}|${aggrTripIdx++}`;
 
     if (!aggrMap[tripKey]) {
       const rawCosto = getRowVal(row, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL', 'COSTO IDA Y VUELTA']);
@@ -1248,7 +1261,7 @@ function applyFilters() {
         semana: semVal,
         ruta: rutaVal,
         tipoBus: tipoBusVal,
-        capacidad: capNum,
+        capacidad: capNum > 0 ? capNum : 50,
         costoBus: costoNum,
         totalPasajeros: 0,
         pasajerosFiltrados: 0
