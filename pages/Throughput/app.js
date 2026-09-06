@@ -1313,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     weekNumbers.forEach(w => {
       html += `<th>S${w} (${currentYear})</th>`;
     });
-    html += `<th style="min-width:140px; background:#f8fafc;">Total / Prom. (${weekNumbers.length} Sem.)</th></tr></thead><tbody>`;
+    html += `<th style="min-width:150px; background:#f8fafc;">Promedio Semanal (${weekNumbers.length} Sem.)</th></tr></thead><tbody>`;
 
     const metrics = [
       { key: 'recibo', planKey: 'planRecibo', label: '📦 RECIBO', color: '#2563eb' },
@@ -1322,44 +1322,44 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     metrics.forEach(m => {
-      // 1. Fila Actual (Real)
+      // 1. Fila Actual (Real) - Promedio Semanal
       html += `<tr><td style="color:${m.color}; font-weight:700;">${m.label} ${currentYear} (Real)</td>`;
       let sumCurr = 0;
       let countCurr = 0;
       weekNumbers.forEach(w => {
         const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][m.key] : 0;
         sumCurr += val;
-        countCurr++;
+        if (val > 0) countCurr++;
         html += `<td style="font-weight:600;">${Math.round(val).toLocaleString('es-PE')}</td>`;
       });
-      const avgOrSumCurr = m.key === 'inventario' ? (countCurr > 0 ? sumCurr / countCurr : 0) : sumCurr;
-      html += `<td style="font-weight:800; background:#f1f5f9;">${Math.round(avgOrSumCurr).toLocaleString('es-PE')}</td></tr>`;
+      const avgCurr = countCurr > 0 ? sumCurr / countCurr : (weekNumbers.length > 0 ? sumCurr / weekNumbers.length : 0);
+      html += `<td style="font-weight:800; background:#f1f5f9;">${Math.round(avgCurr).toLocaleString('es-PE')}</td></tr>`;
 
-      // 2. Fila Plan (Metas del período cerrado)
+      // 2. Fila Plan (Metas del período cerrado) - Promedio Semanal
       html += `<tr style="color:#0284c7; background:rgba(239, 246, 255, 0.35);"><td style="font-weight:600; padding-left: 20px;">└ Plan Objetivo</td>`;
       let sumPlan = 0;
       let countPlan = 0;
       weekNumbers.forEach(w => {
         const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][m.planKey] : 0;
         sumPlan += val;
-        countPlan++;
+        if (val > 0) countPlan++;
         html += `<td>${val > 0 ? Math.round(val).toLocaleString('es-PE') : '--'}</td>`;
       });
-      const avgOrSumPlan = m.key === 'inventario' ? (countPlan > 0 ? sumPlan / countPlan : 0) : sumPlan;
-      html += `<td style="font-weight:700; background:#eff6ff;">${Math.round(avgOrSumPlan).toLocaleString('es-PE')}</td></tr>`;
+      const avgPlan = countPlan > 0 ? sumPlan / countPlan : 0;
+      html += `<td style="font-weight:700; background:#eff6ff;">${avgPlan > 0 ? Math.round(avgPlan).toLocaleString('es-PE') : '--'}</td></tr>`;
 
-      // 3. Fila Año Anterior (Real)
+      // 3. Fila Año Anterior (Real) - Promedio Semanal
       html += `<tr style="color:#64748b;"><td style="font-weight:600; padding-left: 20px;">└ Real ${prevYear}</td>`;
       let sumPrev = 0;
       let countPrev = 0;
       weekNumbers.forEach(w => {
         const val = dataMap[`${prevYear}-${w}`] ? dataMap[`${prevYear}-${w}`][m.key] : 0;
         sumPrev += val;
-        countPrev++;
+        if (val > 0) countPrev++;
         html += `<td>${val > 0 ? Math.round(val).toLocaleString('es-PE') : '--'}</td>`;
       });
-      const avgOrSumPrev = m.key === 'inventario' ? (countPrev > 0 ? sumPrev / countPrev : 0) : sumPrev;
-      html += `<td style="font-weight:700; background:#f8fafc;">${Math.round(avgOrSumPrev).toLocaleString('es-PE')}</td></tr>`;
+      const avgPrev = countPrev > 0 ? sumPrev / countPrev : 0;
+      html += `<td style="font-weight:700; background:#f8fafc;">${avgPrev > 0 ? Math.round(avgPrev).toLocaleString('es-PE') : '--'}</td></tr>`;
     });
 
     html += '</tbody></table>';
