@@ -769,7 +769,11 @@ document.addEventListener('DOMContentLoaded', () => {
       dataMap[`${r.year}-${r.week}`] = r;
     });
 
-    const labels = weekNumbers.map(w => `S${w}`);
+    const labels = weekNumbers.map(w => {
+      const mIdx = getMonthForWeek(w, currentYear);
+      const mShort = MONTH_NAMES_SHORT[mIdx] || '';
+      return [`S${w}`, mShort];
+    });
     const get = (year, week, field) => {
       const key = `${year}-${week}`;
       return dataMap[key] ? dataMap[key][field] : 0;
@@ -797,19 +801,19 @@ document.addEventListener('DOMContentLoaded', () => {
     renderBarChart(`chart${prefix}Recibo`, labels, [
       { label: `Recibo ${prevYear}`, data: prevRecibo, bg: 'rgba(147, 197, 253, 0.75)', border: '#60a5fa' },
       { label: `Recibo ${currentYear}`, data: currRecibo, bg: '#2563eb', border: '#1d4ed8' },
-    ], planRecibo.some(v => v > 0) ? { label: 'PLAN RECIBO', data: planRecibo, color: '#0284c7' } : null, showLabels);
+    ], planRecibo.some(v => v > 0) ? { label: 'PLAN RECIBO', data: planRecibo, color: '#0284c7' } : null, showLabels, currentYear);
 
     // 🚛 DESPACHO: Coral / Flame Orange Palette + Ruby Plan
     renderBarChart(`chart${prefix}Despacho`, labels, [
       { label: `Despacho ${prevYear}`, data: prevDespacho, bg: 'rgba(253, 186, 116, 0.75)', border: '#fb923c' },
       { label: `Despacho ${currentYear}`, data: currDespacho, bg: '#ea580c', border: '#c2410c' },
-    ], planDespacho.some(v => v > 0) ? { label: 'PLAN DESPACHO', data: planDespacho, color: '#e11d48' } : null, showLabels);
+    ], planDespacho.some(v => v > 0) ? { label: 'PLAN DESPACHO', data: planDespacho, color: '#e11d48' } : null, showLabels, currentYear);
 
     // 📊 INVENTARIO: Grouped bars — barras agrupadas con espacio suficiente
     renderBarChart(`chart${prefix}Inventario`, labels, [
       { label: `Inventario ${prevYear}`, data: prevInventario, bg: 'rgba(148, 163, 184, 0.65)', border: '#94a3b8' },
       { label: `Inventario ${currentYear}`, data: currInventario, bg: '#059669', border: '#047857' },
-    ], planInv.some(v => v > 0) ? { label: 'PLAN INV', data: planInv, color: '#0d9488' } : null, showLabels);
+    ], planInv.some(v => v > 0) ? { label: 'PLAN INV', data: planInv, color: '#0d9488' } : null, showLabels, currentYear);
 
     // 8. Tabla Resumen: El usuario solicitó explícitamente NO incluir la proyección futura en la tabla,
     // sino mostrar únicamente las semanas cerradas reales (específicamente las 8 semanas cerradas).
@@ -942,6 +946,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════
+  // HELPER CALENDAR & MONTH MAPPING (ISO-8601)
+  // ══════════════════════════════════════════════
+  const MONTH_NAMES_SHORT = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
+  const MONTH_NAMES_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+  function getMonthForWeek(week, year = 2026) {
+    const y = parseInt(year, 10) || 2026;
+    const w = parseInt(week, 10) || 1;
+    // Anclaje en el jueves de la primera semana ISO del año (criterio ISO-8601 estándar)
+    const jan4 = new Date(y, 0, 4);
+    const dayOfWeek = jan4.getDay() || 7;
+    const thursdayOfW1 = new Date(y, 0, 4 + (4 - dayOfWeek));
+    const targetDate = new Date(thursdayOfW1.getTime() + (w - 1) * 7 * 86400000);
+    return targetDate.getMonth();
+  }
+
+  // ══════════════════════════════════════════════
   // CHART BUILDERS WITH DATALABELS & LIQUID THEME
   // ══════════════════════════════════════════════
   function formatNumberBadge(val) {
@@ -999,12 +1020,12 @@ document.addEventListener('DOMContentLoaded', () => {
     return pxPerWeek >= 28;
   }
 
-  function getBaseChartOptions(showLabels) {
+  function getBaseChartOptions(showLabels, currentYear = 2026) {
     return {
       responsive: true,
       maintainAspectRatio: false,
       layout: {
-        padding: { top: showLabels ? 42 : 14, bottom: 6, left: 12, right: 12 }
+        padding: { top: showLabels ? 42 : 14, bottom: 8, left: 12, right: 12 }
       },
       plugins: {
         legend: {
@@ -1027,6 +1048,19 @@ document.addEventListener('DOMContentLoaded', () => {
           padding: 10,
           cornerRadius: 8,
           callbacks: {
+            title: (items) => {
+              if (!items || !items.length) return '';
+              const rawLabel = items[0].label;
+              const weekLabel = Array.isArray(rawLabel) ? rawLabel[0] : rawLabel;
+              const wMatch = String(weekLabel).match(/S(\d+)/i);
+              if (wMatch) {
+                const w = parseInt(wMatch[1], 10);
+                const m = getMonthForWeek(w, currentYear);
+                const mName = MONTH_NAMES_FULL[m] || '';
+                return `Semana ${w} · ${mName} ${currentYear}`;
+              }
+              return String(weekLabel);
+            },
             label: (ctx) => {
               const label = ctx.dataset.label || '';
               if (ctx.parsed.y === null || ctx.parsed.y === undefined) {
@@ -1046,7 +1080,12 @@ document.addEventListener('DOMContentLoaded', () => {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { weight: '700', size: 11, family: "'Inter', sans-serif" }, color: '#475569' }
+          ticks: {
+            maxRotation: 0,
+            autoSkip: true,
+            font: { weight: '700', size: 10.5, family: "'Inter', sans-serif" },
+            color: '#475569'
+          }
         },
         y: {
           beginAtZero: true,
@@ -1063,7 +1102,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  function renderBarChart(canvasId, labels, barSeries, planLine, showLabels) {
+  function renderBarChart(canvasId, labels, barSeries, planLine, showLabels, currentYear = 2026) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
@@ -1194,11 +1233,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     charts[canvasId] = new Chart(ctx, {
       data: { labels, datasets },
-      options: getBaseChartOptions(showLabels)
+      options: getBaseChartOptions(showLabels, currentYear)
     });
   }
 
-  function renderAreaChart(canvasId, labels, areaSeries, planLine, showLabels) {
+  function renderAreaChart(canvasId, labels, areaSeries, planLine, showLabels, currentYear = 2026) {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
     if (charts[canvasId]) charts[canvasId].destroy();
@@ -1293,7 +1332,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     charts[canvasId] = new Chart(ctx, {
       data: { labels, datasets },
-      options: getBaseChartOptions(showLabels)
+      options: getBaseChartOptions(showLabels, currentYear)
     });
   }
 
@@ -1328,7 +1367,14 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     
     weekNumbers.forEach(w => {
-      html += `<th>S${w} (${currentYear})</th>`;
+      const mIdx = getMonthForWeek(w, currentYear);
+      const mShort = MONTH_NAMES_SHORT[mIdx] || '';
+      const mFull = MONTH_NAMES_FULL[mIdx] || '';
+      html += `
+        <th title="Semana ${w} · ${mFull} ${currentYear}">
+          <div class="th-week">S${w}</div>
+          <div class="th-month">${mShort}</div>
+        </th>`;
     });
     html += `<th class="col-promedio">Promedio</th></tr></thead><tbody>`;
 

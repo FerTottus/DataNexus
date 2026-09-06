@@ -473,16 +473,25 @@ const PivotEngine = {
   },
 
   /**
-   * Callback para copiar una columna completa de una tabla específica
+   * Callback para copiar una columna completa de una tabla específica (incluye todas las filas y totales)
    */
   handleCopyColumnClick(tableId, colIndex, colName) {
-    const tableEl = document.getElementById(`table_${tableId}`);
+    const tableEl = document.getElementById(tableId) || document.getElementById(`table_${tableId}`);
     if (!tableEl) return;
 
-    const cells = Array.from(tableEl.querySelectorAll(`tbody tr:not(.total-row) td:nth-child(${colIndex + 1})`));
-    const values = cells.map(td => {
-      const rawVal = td.getAttribute('data-value');
-      return rawVal !== null ? rawVal : td.innerText.trim();
+    const rows = Array.from(tableEl.querySelectorAll('tbody tr'));
+    const values = [];
+    rows.forEach(tr => {
+      // Omitir fila si contiene un colspan (ej: mensaje de tabla vacía)
+      const firstTd = tr.querySelector('td');
+      if (firstTd && firstTd.hasAttribute('colspan')) return;
+
+      const td = tr.children[colIndex];
+      if (td) {
+        let rawVal = td.getAttribute('data-value');
+        if (rawVal === null || rawVal === '') rawVal = td.innerText.trim();
+        values.push(rawVal);
+      }
     });
 
     if (window.ClipboardUtil) {

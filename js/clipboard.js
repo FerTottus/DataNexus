@@ -53,19 +53,58 @@ const ClipboardUtil = {
   },
 
   /**
-   * Copia una columna completa con su encabezado en formato TSV (separado por saltos de línea)
+   * Copia una columna completa con su encabezado en formato dual (TSV plano + HTML nativo)
+   * Compatible con Excel, Google Sheets y texto plano.
    * @param {string} columnName - Nombre del encabezado
    * @param {Array} values - Array de valores de las filas
    */
   async copyColumn(columnName, values) {
     try {
-      const lines = [columnName, ...values.map(v => (v !== null && v !== undefined ? String(v) : ''))];
+      const escapeTsv = (val) => {
+        const s = val !== null && val !== undefined ? String(val) : '';
+        if (s.includes('\t') || s.includes('\n') || s.includes('"')) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
+      const escapeHtmlText = (val) => {
+        return String(val !== null && val !== undefined ? val : '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      };
+
+      const lines = [escapeTsv(columnName), ...values.map(v => escapeTsv(v))];
       const tsvContent = lines.join('\n');
-      await navigator.clipboard.writeText(tsvContent);
+
+      const htmlContent = `<table><thead><tr><th>${escapeHtmlText(columnName)}</th></tr></thead><tbody>` +
+        values.map(v => `<tr><td>${escapeHtmlText(v)}</td></tr>`).join('') +
+        `</tbody></table>`;
+
+      if (navigator.clipboard && window.ClipboardItem) {
+        const textBlob = new Blob([tsvContent], { type: 'text/plain' });
+        const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+        const clipboardItem = new ClipboardItem({
+          'text/plain': textBlob,
+          'text/html': htmlBlob
+        });
+        await navigator.clipboard.write([clipboardItem]);
+      } else {
+        await navigator.clipboard.writeText(tsvContent);
+      }
+
       this.showToast(`Columna "${columnName}" copiada (${values.length} filas)`, 'success');
     } catch (err) {
       console.error('Error al copiar columna:', err);
-      this.showToast('Error al copiar la columna', 'danger');
+      try {
+        const lines = [columnName, ...values.map(v => (v !== null && v !== undefined ? String(v) : ''))];
+        await navigator.clipboard.writeText(lines.join('\n'));
+        this.showToast(`Columna "${columnName}" copiada (${values.length} filas)`, 'success');
+      } catch (fallbackErr) {
+        this.showToast('Error al copiar la columna', 'danger');
+      }
     }
   },
 
@@ -78,33 +117,53 @@ const ClipboardUtil = {
     if (!tableElement) return;
 
     try {
+      const escapeTsv = (val) => {
+        const s = val !== null && val !== undefined ? String(val) : '';
+        if (s.includes('\t') || s.includes('\n') || s.includes('"')) {
+          return `"${s.replace(/"/g, '""')}"`;
+        }
+        return s;
+      };
+
       // 1. Extraer representación TSV (para texto plano y editores)
       const rows = Array.from(tableElement.querySelectorAll('tr'));
       const tsvLines = rows.map(row => {
         const cells = Array.from(row.querySelectorAll('th, td'));
         return cells.map(cell => {
-          let text = cell.getAttribute('data-value');
-          if (text === null) {
-            const clone = cell.cloneNode(true);
-            const copyBtns = clone.querySelectorAll('.btn-col-copy');
-            copyBtns.forEach(b => b.remove());
-            text = clone.innerText.trim();
+          let text = '';
+          if (cell.tagName.toLowerCase() === 'th') {
+            const colName = cell.getAttribute('data-col-name');
+            if (colName !== null && colName !== '') {
+              text = colName;
+            } else {
+              const span = cell.querySelector('.th-content > span');
+              text = span ? span.innerText.trim() : cell.innerText.trim();
+            }
+          } else {
+            text = cell.getAttribute('data-value');
+            if (text === null || text === '') {
+              const clone = cell.cloneNode(true);
+              clone.querySelectorAll('.btn-col-copy, .th-actions').forEach(b => b.remove());
+              text = clone.innerText.trim();
+            }
           }
-          // Escapar comillas o tabulaciones
-          if (text.includes('\t') || text.includes('\n') || text.includes('"')) {
-            text = `"${text.replace(/"/g, '""')}"`;
-          }
-          return text;
+          return escapeTsv(text);
         }).join('\t');
       });
       const tsvText = tsvLines.join('\n');
 
       // 2. Extraer representación HTML limpia (para pegar con formato nativo de celdas)
       const tableClone = tableElement.cloneNode(true);
-      tableClone.querySelectorAll('.btn-col-copy').forEach(b => b.remove());
-      // Reemplazar texto visual por valor crudo en HTML para Excel
+      tableClone.querySelectorAll('.th-actions, .btn-col-copy').forEach(b => b.remove());
+      tableClone.querySelectorAll('th').forEach(th => {
+        const colName = th.getAttribute('data-col-name');
+        if (colName) th.innerText = colName;
+      });
       tableClone.querySelectorAll('td[data-value]').forEach(td => {
-        td.innerText = td.getAttribute('data-value');
+        const raw = td.getAttribute('data-value');
+        if (raw !== null && raw !== '') {
+          td.innerText = raw;
+        }
       });
       const htmlText = tableClone.outerHTML;
 

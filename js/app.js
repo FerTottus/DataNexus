@@ -924,7 +924,7 @@ window.toggleCollapseData = function(tableId) {
 };
 
 window.copyEntireTable = function(tableId) {
-  const tableEl = document.getElementById(`table_${tableId}`);
+  const tableEl = document.getElementById(tableId) || document.getElementById(`table_${tableId}`);
   if (tableEl && window.ClipboardUtil) {
     window.ClipboardUtil.copyTable(tableEl);
   }
