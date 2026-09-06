@@ -1358,15 +1358,20 @@ document.addEventListener('DOMContentLoaded', () => {
           <i class="fa-solid fa-table-list text-primary"></i>
           <span>Detalle Corporativo Semanal (${currentYear} vs ${prevYear}) · Últimas ${weekNumbers.length} Semanas Cerradas${divTableTag}</span>
         </div>
-        <span class="table-scroll-hint">
-          <i class="fa-solid fa-arrows-left-right text-primary"></i> Desliza para ver más semanas
-        </span>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <button class="btn-table-copy" onclick="window.copyElementAsImage('table${prefix}Container', 'Detalle Corporativo Semanal')" title="Copiar tabla como imagen para PowerPoint">
+            <i class="fa-solid fa-camera"></i> Copiar Imagen
+          </button>
+          <span class="table-scroll-hint">
+            <i class="fa-solid fa-arrows-left-right text-primary"></i> Desliza para ver más semanas
+          </span>
+        </div>
       </div>
       <div class="table-scroll-wrapper">
         <table class="data-table">
           <thead>
             <tr>
-              <th class="col-sticky">Proceso</th>
+              <th class="col-sticky">Área</th>
     `;
     
     weekNumbers.forEach(w => {
@@ -1389,7 +1394,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     metrics.forEach(m => {
       // 1. Fila Actual (Real) - Promedio Semanal
-      html += `<tr><td class="col-sticky" style="color:${m.color}; font-weight:700;" title="${m.label} ${currentYear} (Real)">${m.label} ${currentYear}</td>`;
+      html += `<tr><td class="col-sticky" style="color:${m.color}; font-weight:700;" title="${m.label} (Real)">${m.label}</td>`;
       let sumCurr = 0;
       let countCurr = 0;
       weekNumbers.forEach(w => {
@@ -1504,6 +1509,9 @@ document.addEventListener('DOMContentLoaded', () => {
           ${isFiltering ? `<span style="font-size:0.75rem; background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:12px; border:1px solid #bfdbfe; font-weight:700;">Filtrando ${divCodes.length} div.</span>` : ''}
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <button class="btn-table-copy" onclick="window.copyElementAsImage('tableDivisions${prefix}Container', 'Movimiento de Cajas por División')" title="Copiar tabla como imagen para PowerPoint">
+            <i class="fa-solid fa-camera"></i> Copiar Imagen
+          </button>
           <div class="division-view-pills">
             <button class="division-view-pill ${currentView === 'all' ? 'active' : ''}" onclick="window.setDivTableProcessView('${prefix}', 'all')">
               <i class="fa-solid fa-table-columns"></i> Todos (3 en 1)
@@ -1564,7 +1572,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div>Tendencia</div>
                     <div style="font-size:0.68rem; font-weight:700; color:#64748b;">S${W_last} vs S${W_prev}</div>
                   </th>
-                  <th class="col-promedio">Promedio</th>
                 </tr>
               </thead>
               <tbody>
@@ -1627,7 +1634,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         html += `
           <td style="text-align:center;">${trendHtml}</td>
-          <td class="col-promedio" style="font-weight:700;">${avgDiv > 0 ? Math.round(avgDiv).toLocaleString('es-PE') : '-'}</td>
         </tr>`;
       });
 
@@ -1654,14 +1660,6 @@ document.addEventListener('DOMContentLoaded', () => {
         totTrendHtml = `<span style="color:#94a3b8; font-size:0.75rem;">--</span>`;
       }
 
-      let sumTotals = 0;
-      let countTotals = 0;
-      weekNumbers.forEach(w => {
-        sumTotals += weekTotals[w];
-        if (weekTotals[w] > 0) countTotals++;
-      });
-      const avgTotal = countTotals > 0 ? sumTotals / countTotals : 0;
-
       html += `
         <tr class="row-total">
           <td class="col-sticky col-division-name" style="font-weight:800; color:#0f172a;">
@@ -1675,7 +1673,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       html += `
           <td style="text-align:center;">${totTrendHtml}</td>
-          <td class="col-promedio" style="font-weight:800; background:#f1f5f9;">${Math.round(avgTotal).toLocaleString('es-PE')}</td>
         </tr>
       `;
 
@@ -1962,6 +1959,174 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('No se pudo copiar automáticamente. Por favor inténtalo de nuevo.', 'danger');
       });
     }
+  };
+
+  // ══════════════════════════════════════════════
+  // COPIAR ELEMENTOS (TABLAS Y GRÁFICOS) COMO IMAGEN PARA POWERPOINT
+  // ══════════════════════════════════════════════
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2500);
+  }
+
+  function ensureHtml2Canvas() {
+    return new Promise((resolve, reject) => {
+      if (window.html2canvas) return resolve(window.html2canvas);
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+      s.onload = () => resolve(window.html2canvas);
+      s.onerror = (e) => reject(new Error('No se pudo cargar la librería html2canvas'));
+      document.head.appendChild(s);
+    });
+  }
+
+  function copyCanvasToClipboard(sourceCanvas, labelName) {
+    if (!sourceCanvas) return;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = sourceCanvas.width;
+    offscreen.height = sourceCanvas.height;
+    const ctx = offscreen.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+    ctx.drawImage(sourceCanvas, 0, 0);
+
+    offscreen.toBlob(async (blob) => {
+      if (!blob) return;
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          const item = new ClipboardItem({ 'image/png': blob });
+          await navigator.clipboard.write([item]);
+          showToast(`¡Imagen de ${labelName} copiada! Lista para pegar en PowerPoint (Ctrl + V)`, 'success', 4000);
+        } else {
+          downloadBlob(blob, `${labelName.replace(/\s+/g, '_')}.png`);
+          showToast(`Imagen descargada como PNG para PowerPoint`, 'info', 4000);
+        }
+      } catch (e) {
+        downloadBlob(blob, `${labelName.replace(/\s+/g, '_')}.png`);
+        showToast(`Imagen descargada como PNG para PowerPoint`, 'info', 4000);
+      }
+    }, 'image/png');
+  }
+
+  window.copyElementAsImage = async function(target, labelName) {
+    const el = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!el) {
+      showToast('Elemento no encontrado para copiar', 'danger');
+      return;
+    }
+
+    showToast(`Generando imagen de ${labelName || 'tabla'}...`, 'info', 1600);
+
+    // Ocultar temporalmente los botones de acción para que no aparezcan en la captura de PPT
+    const actionElements = el.querySelectorAll('.btn-table-copy, .btn-chart-copy, .table-scroll-hint');
+    actionElements.forEach(btn => btn.setAttribute('data-html2canvas-ignore', 'true'));
+
+    // Expandir scrolls para capturar todas las columnas completas
+    const scrollWrappers = el.querySelectorAll('.table-scroll-wrapper');
+    const originalStyles = [];
+    scrollWrappers.forEach(w => {
+      originalStyles.push({
+        el: w,
+        overflow: w.style.overflow,
+        maxWidth: w.style.maxWidth,
+        width: w.style.width
+      });
+      w.style.overflow = 'visible';
+      w.style.maxWidth = 'none';
+      w.style.width = 'fit-content';
+    });
+
+    const restoreStyles = () => {
+      originalStyles.forEach(item => {
+        item.el.style.overflow = item.overflow;
+        item.el.style.maxWidth = item.maxWidth;
+        item.el.style.width = item.width;
+      });
+      actionElements.forEach(btn => btn.removeAttribute('data-html2canvas-ignore'));
+    };
+
+    try {
+      await ensureHtml2Canvas();
+      const canvas = await window.html2canvas(el, {
+        scale: 2, // 2x alta resolución para diapositivas nítidas
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        windowWidth: Math.max(document.documentElement.clientWidth, el.scrollWidth + 120)
+      });
+
+      restoreStyles();
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          showToast('Error al generar la imagen', 'danger');
+          return;
+        }
+
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            const item = new ClipboardItem({ 'image/png': blob });
+            await navigator.clipboard.write([item]);
+            showToast(`¡Imagen de ${labelName} copiada al portapapeles! Lista para pegar en PowerPoint (Ctrl + V)`, 'success', 4500);
+
+            // Feedback visual en botón si existe
+            const btn = el.querySelector('.btn-table-copy');
+            if (btn) {
+              const origHtml = btn.innerHTML;
+              btn.innerHTML = `<i class="fa-solid fa-check"></i> ¡Copiado!`;
+              setTimeout(() => { btn.innerHTML = origHtml; }, 2000);
+            }
+          } else {
+            downloadBlob(blob, `${(labelName || 'tabla').replace(/\s+/g, '_')}.png`);
+            showToast(`Imagen descargada como PNG para tu PowerPoint`, 'info', 4000);
+          }
+        } catch (clipErr) {
+          console.warn('Clipboard image write failed, falling back to download:', clipErr);
+          downloadBlob(blob, `${(labelName || 'tabla').replace(/\s+/g, '_')}.png`);
+          showToast(`Imagen descargada como PNG para tu PowerPoint`, 'success', 4000);
+        }
+      }, 'image/png');
+
+    } catch (err) {
+      restoreStyles();
+      console.error('Error al capturar elemento:', err);
+
+      // Si es un gráfico, intentar copiar directamente el canvas
+      const chartCanvas = el.querySelector('canvas');
+      if (chartCanvas) {
+        copyCanvasToClipboard(chartCanvas, labelName);
+        return;
+      }
+
+      showToast('No se pudo generar la imagen. Inténtalo de nuevo.', 'danger');
+    }
+  };
+
+  window.copyThroughputChartImage = function(processKey) {
+    const isFrescos = document.getElementById('tab-frescos')?.classList.contains('active');
+    const prefix = isFrescos ? 'Frescos' : 'Secos';
+
+    const blockIdMap = {
+      recibo: `block${prefix}Recibo`,
+      despacho: `block${prefix}Despacho`,
+      inventario: `block${prefix}Inventario`
+    };
+    const titleMap = {
+      recibo: `Recibo (Entradas) - CD ${prefix.toUpperCase()}`,
+      despacho: `Despacho (Salidas) - CD ${prefix.toUpperCase()}`,
+      inventario: `Inventario - CD ${prefix.toUpperCase()}`
+    };
+
+    const targetId = blockIdMap[processKey] || blockIdMap.recibo;
+    const title = titleMap[processKey] || 'Gráfico Throughput';
+
+    window.copyElementAsImage(targetId, title);
   };
 
   // ══════════════════════════════════════════════

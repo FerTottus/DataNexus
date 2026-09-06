@@ -14,6 +14,7 @@
   <!-- Chart.js & Datalabels Plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   
   <style>
@@ -626,6 +627,31 @@
       color: #ffffff;
       border-color: #2563eb;
       box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+    }
+    .btn-table-copy {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 13px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #1e293b;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+    .btn-table-copy:hover {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+      transform: translateY(-1px);
+    }
+    .btn-table-copy:active {
+      transform: translateY(0);
     }
 
     /* ══════════════════════════════════════════════
@@ -1507,21 +1533,21 @@
         </div>
       </div>
 
-      <!-- Barra de Copiado Rápido de Throughput (Click para Copiar) -->
+      <!-- Barra de Copiado Rápido de Throughput (Click para Copiar Imagen) -->
       <div class="copy-toolbar">
         <div class="copy-toolbar-title">
-          <i class="fa-solid fa-copy text-primary"></i>
-          <span>Copiar Throughput al Portapapeles (para Excel / Correo / Teams):</span>
+          <i class="fa-solid fa-camera text-primary"></i>
+          <span>Copiar Gráfico como Imagen al Portapapeles (para PowerPoint / Diapositivas):</span>
         </div>
         <div class="copy-buttons-group">
-          <button id="btnCopyRecibo" class="btn-copy btn-copy-recibo" onclick="window.copyThroughputProcess('recibo')" title="Copiar datos de Recibo (Entradas) para pegar en Excel">
-            <i class="fa-solid fa-boxes-packing"></i> Copiar Recibo
+          <button id="btnCopyRecibo" class="btn-copy btn-copy-recibo" onclick="window.copyThroughputChartImage('recibo')" title="Copiar gráfico de Recibo como imagen para pegar en PowerPoint">
+            <i class="fa-solid fa-camera"></i> Copiar Gráfico Recibo
           </button>
-          <button id="btnCopyDespacho" class="btn-copy btn-copy-despacho" onclick="window.copyThroughputProcess('despacho')" title="Copiar datos de Despacho (Salidas) para pegar en Excel">
-            <i class="fa-solid fa-truck-fast"></i> Copiar Despacho
+          <button id="btnCopyDespacho" class="btn-copy btn-copy-despacho" onclick="window.copyThroughputChartImage('despacho')" title="Copiar gráfico de Despacho como imagen para pegar en PowerPoint">
+            <i class="fa-solid fa-camera"></i> Copiar Gráfico Despacho
           </button>
-          <button id="btnCopyInventario" class="btn-copy btn-copy-inventario" onclick="window.copyThroughputProcess('inventario')" title="Copiar datos de Inventario (Stock) para pegar en Excel">
-            <i class="fa-solid fa-warehouse"></i> Copiar Inventario
+          <button id="btnCopyInventario" class="btn-copy btn-copy-inventario" onclick="window.copyThroughputChartImage('inventario')" title="Copiar gráfico de Inventario como imagen para pegar en PowerPoint">
+            <i class="fa-solid fa-camera"></i> Copiar Gráfico Inventario
           </button>
         </div>
       </div>
@@ -1545,45 +1571,45 @@
         <div class="kpi-grid" id="kpiSecosContainer"></div>
 
         <!-- 3 Gráficos Secos -->
-        <div class="chart-block">
+        <div class="chart-block" id="blockSecosRecibo">
           <div class="chart-block-header">
             <div class="chart-block-title">
               <span style="color: #2563eb;"><i class="fa-solid fa-boxes-packing"></i></span> Entradas (Recibo)
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="chart-badge-pill">Cajas / Semana</span>
-              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('recibo')" title="Copiar datos de Recibo al portapapeles para Excel">
-                <i class="fa-solid fa-copy"></i> Copiar Recibo
+              <button class="btn-chart-copy" onclick="window.copyThroughputChartImage('recibo')" title="Copiar gráfico de Recibo como imagen para PowerPoint">
+                <i class="fa-solid fa-camera"></i> Copiar Imagen
               </button>
             </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartSecosRecibo"></canvas></div>
         </div>
 
-        <div class="chart-block">
+        <div class="chart-block" id="blockSecosDespacho">
           <div class="chart-block-header">
             <div class="chart-block-title">
               <span style="color: #f97316;"><i class="fa-solid fa-truck-fast"></i></span> Salidas (Despacho)
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="chart-badge-pill">Cajas / Semana</span>
-              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('despacho')" title="Copiar datos de Despacho al portapapeles para Excel">
-                <i class="fa-solid fa-copy"></i> Copiar Despacho
+              <button class="btn-chart-copy" onclick="window.copyThroughputChartImage('despacho')" title="Copiar gráfico de Despacho como imagen para PowerPoint">
+                <i class="fa-solid fa-camera"></i> Copiar Imagen
               </button>
             </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartSecosDespacho"></canvas></div>
         </div>
 
-        <div class="chart-block">
+        <div class="chart-block" id="blockSecosInventario">
           <div class="chart-block-header">
             <div class="chart-block-title">
               <span style="color: #059669;"><i class="fa-solid fa-warehouse"></i></span> Inventario Activo
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="chart-badge-pill">Stock en Cajas · Barras Comparativas</span>
-              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('inventario')" title="Copiar datos de Inventario al portapapeles para Excel">
-                <i class="fa-solid fa-copy"></i> Copiar Inventario
+              <button class="btn-chart-copy" onclick="window.copyThroughputChartImage('inventario')" title="Copiar gráfico de Inventario como imagen para PowerPoint">
+                <i class="fa-solid fa-camera"></i> Copiar Imagen
               </button>
             </div>
           </div>
@@ -1616,45 +1642,45 @@
         <div class="kpi-grid" id="kpiFrescosContainer"></div>
 
         <!-- 3 Gráficos Frescos -->
-        <div class="chart-block">
+        <div class="chart-block" id="blockFrescosRecibo">
           <div class="chart-block-header">
             <div class="chart-block-title">
               <span style="color: #2563eb;"><i class="fa-solid fa-boxes-packing"></i></span> Entradas (Recibo)
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="chart-badge-pill">Cajas / Semana</span>
-              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('recibo')" title="Copiar datos de Recibo al portapapeles para Excel">
-                <i class="fa-solid fa-copy"></i> Copiar Recibo
+              <button class="btn-chart-copy" onclick="window.copyThroughputChartImage('recibo')" title="Copiar gráfico de Recibo como imagen para PowerPoint">
+                <i class="fa-solid fa-camera"></i> Copiar Imagen
               </button>
             </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartFrescosRecibo"></canvas></div>
         </div>
 
-        <div class="chart-block">
+        <div class="chart-block" id="blockFrescosDespacho">
           <div class="chart-block-header">
             <div class="chart-block-title">
               <span style="color: #f97316;"><i class="fa-solid fa-truck-fast"></i></span> Salidas (Despacho)
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="chart-badge-pill">Cajas / Semana</span>
-              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('despacho')" title="Copiar datos de Despacho al portapapeles para Excel">
-                <i class="fa-solid fa-copy"></i> Copiar Despacho
+              <button class="btn-chart-copy" onclick="window.copyThroughputChartImage('despacho')" title="Copiar gráfico de Despacho como imagen para PowerPoint">
+                <i class="fa-solid fa-camera"></i> Copiar Imagen
               </button>
             </div>
           </div>
           <div class="chart-container-medium"><canvas id="chartFrescosDespacho"></canvas></div>
         </div>
 
-        <div class="chart-block">
+        <div class="chart-block" id="blockFrescosInventario">
           <div class="chart-block-header">
             <div class="chart-block-title">
               <span style="color: #059669;"><i class="fa-solid fa-warehouse"></i></span> Inventario Activo
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span class="chart-badge-pill">Stock en Cajas · Barras Comparativas</span>
-              <button class="btn-chart-copy" onclick="window.copyThroughputProcess('inventario')" title="Copiar datos de Inventario al portapapeles para Excel">
-                <i class="fa-solid fa-copy"></i> Copiar Inventario
+              <button class="btn-chart-copy" onclick="window.copyThroughputChartImage('inventario')" title="Copiar gráfico de Inventario como imagen para PowerPoint">
+                <i class="fa-solid fa-camera"></i> Copiar Imagen
               </button>
             </div>
           </div>
