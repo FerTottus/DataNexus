@@ -214,8 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
     J02: 'PGC NO COMESTIBLE',
     J03: 'CARNES Y PESCADOS',
     J04: 'FRUTAS Y VERDURAS',
-    J05: 'FLC (FIAMBRES, LÁCTEOS, CONG.)',
-    J06: 'PANADERÍA Y PASTELERÍA',
+    J05: 'FLC',
+    J06: 'PANADERIA Y PASTELERIA',
     J07: 'PLATOS PREPARADOS',
     J08: 'VESTUARIO',
     J09: 'HOGAR',
@@ -819,6 +819,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // sino mostrar únicamente las semanas cerradas reales (específicamente las 8 semanas cerradas).
     const tableWeeks = closedWeeks.length <= 8 ? closedWeeks : closedWeeks.slice(-8);
     renderTable(prefix, tableWeeks, currentYear, prevYear, dataMap, lastDataWeek);
+
+    // 9. Tabla de Movimientos por División (Año Actual) con Flechas de Tendencia
+    renderDivisionsTable(prefix, tableWeeks, currentYear, dataMap, lastDataWeek);
   }
 
   // ══════════════════════════════════════════════
