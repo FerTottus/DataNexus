@@ -1324,7 +1324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <table class="data-table">
           <thead>
             <tr>
-              <th class="col-sticky">Métrica / Proceso</th>
+              <th class="col-sticky">Proceso</th>
     `;
     
     weekNumbers.forEach(w => {
@@ -1340,7 +1340,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     metrics.forEach(m => {
       // 1. Fila Actual (Real) - Promedio Semanal
-      html += `<tr><td class="col-sticky" style="color:${m.color}; font-weight:700;">${m.label} ${currentYear} (Real)</td>`;
+      html += `<tr><td class="col-sticky" style="color:${m.color}; font-weight:700;" title="${m.label} ${currentYear} (Real)">${m.label} ${currentYear}</td>`;
       let sumCurr = 0;
       let countCurr = 0;
       weekNumbers.forEach(w => {
@@ -1353,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', () => {
       html += `<td class="col-promedio" style="font-weight:800; background:#f1f5f9;">${Math.round(avgCurr).toLocaleString('es-PE')}</td></tr>`;
 
       // 2. Fila Plan (Metas del período cerrado) - Promedio Semanal
-      html += `<tr style="color:#0284c7; background:rgba(239, 246, 255, 0.35);"><td class="col-sticky" style="font-weight:600; padding-left: 20px; color:#0284c7; background:#eff6ff;">└ Plan Objetivo</td>`;
+      html += `<tr style="color:#0284c7; background:rgba(239, 246, 255, 0.35);"><td class="col-sticky" style="font-weight:600; padding-left: 14px; color:#0284c7; background:#eff6ff;" title="Plan Objetivo ${currentYear}">└ Plan Objetivo</td>`;
       let sumPlan = 0;
       let countPlan = 0;
       weekNumbers.forEach(w => {
@@ -1366,7 +1366,7 @@ document.addEventListener('DOMContentLoaded', () => {
       html += `<td class="col-promedio" style="font-weight:700; background:#eff6ff;">${avgPlan > 0 ? Math.round(avgPlan).toLocaleString('es-PE') : '--'}</td></tr>`;
 
       // 3. Fila Año Anterior (Real) - Promedio Semanal
-      html += `<tr style="color:#64748b;"><td class="col-sticky" style="font-weight:600; padding-left: 20px; color:#64748b; background:#f8fafc;">└ Real ${prevYear}</td>`;
+      html += `<tr style="color:#64748b;"><td class="col-sticky" style="font-weight:600; padding-left: 14px; color:#64748b; background:#f8fafc;" title="Real ${prevYear}">└ Real ${prevYear}</td>`;
       let sumPrev = 0;
       let countPrev = 0;
       weekNumbers.forEach(w => {

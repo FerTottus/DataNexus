@@ -456,7 +456,9 @@
       padding: 10px 14px;
       text-align: right;
       border-bottom: 1px solid #f1f5f9;
+      border-right: 1px solid #f1f5f9;
       white-space: nowrap;
+      box-sizing: border-box;
     }
     .data-table th {
       background-color: #f8fafc;
@@ -464,21 +466,34 @@
       text-align: center;
       color: #475569;
       border-bottom: 2px solid #e2e8f0;
+      border-right: 1px solid #e2e8f0;
     }
-    .data-table .col-sticky {
+    .data-table .col-sticky,
+    .data-table th.col-sticky,
+    .data-table td.col-sticky {
       text-align: left;
       font-weight: 700;
       position: sticky;
       left: 0;
       background: #ffffff;
-      z-index: 5;
-      box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06);
-      min-width: 155px;
+      z-index: 10;
+      box-shadow: 3px 0 8px rgba(0, 0, 0, 0.08);
+      width: 160px;
+      min-width: 160px;
+      max-width: 160px;
+      box-sizing: border-box;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-right: 2px solid #e2e8f0;
     }
     .data-table thead .col-sticky {
       background: #f8fafc;
-      z-index: 6;
-      border-bottom: 2px solid #e2e8f0;
+      z-index: 12;
+      border-bottom: 2px solid #cbd5e1;
+      width: 160px;
+      min-width: 160px;
+      max-width: 160px;
     }
     .data-table tr:hover td {
       background-color: rgba(241, 245, 249, 0.6);
@@ -490,6 +505,7 @@
       min-width: 105px;
       background: #f8fafc;
       font-weight: 800;
+      border-right: none;
     }
 
     /* Buttons */
@@ -913,17 +929,21 @@
         font-size: 0.82rem;
       }
       .data-table {
-        min-width: 640px;
+        min-width: 660px;
         font-size: 0.78rem;
       }
-      .data-table .col-sticky {
-        min-width: 125px;
+      .data-table .col-sticky,
+      .data-table th.col-sticky,
+      .data-table td.col-sticky {
+        width: 140px;
+        min-width: 140px;
+        max-width: 140px;
         padding: 8px 10px;
-        font-size: 0.78rem;
+        font-size: 0.76rem;
       }
       .data-table th, .data-table td {
         padding: 8px 9px;
-        font-size: 0.78rem;
+        font-size: 0.76rem;
       }
       .col-promedio {
         min-width: 85px;
