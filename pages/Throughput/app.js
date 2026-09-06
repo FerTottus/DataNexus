@@ -7,6 +7,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════
+  // CHART REGISTRY & RESPONSIVE RESIZE HANDLER
+  // ══════════════════════════════════════════════
+  const charts = {};
+
+  function resizeAllCharts() {
+    Object.values(charts).forEach(chart => {
+      if (chart && typeof chart.resize === 'function') {
+        chart.resize();
+      }
+    });
+  }
+
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(resizeAllCharts, 120);
+  });
+
+  // ══════════════════════════════════════════════
   // AUTH INITIALIZATION
   // ══════════════════════════════════════════════
   if (window.GoogleSheetsService) {
@@ -87,6 +106,9 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById(btn.dataset.target).classList.add('active');
+      requestAnimationFrame(() => {
+        resizeAllCharts();
+      });
     });
   });
   document.getElementById('btnChangeSheet')?.addEventListener('click', () => {
@@ -537,8 +559,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
   // CORE PROCESSING & SECTION RENDERER
   // ══════════════════════════════════════════════
-  const charts = {};
-
   function parseWeekLabel(label) {
     const s = String(label).replace(/[\[\]]/g, '');
     const parts = s.split('-');
