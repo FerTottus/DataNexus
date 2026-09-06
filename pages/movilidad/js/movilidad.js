@@ -419,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAuthAndConfig();
   initCharts();
   initAiAssistant();
+  initTableScrollInteractions();
 });
 
 function initUIEvents() {
@@ -1437,19 +1438,19 @@ function renderTables() {
   let rutasSet = new Set();
 
   // Variables para tablas de clasificación
-  // Variables para tablas de clasificación con rangos de distancia explícitos
+  // Variables para tablas de clasificación (Leyenda limpia: solo color y nombre)
   const countCd = {
-    '🟢 Muy Cerca (≤ 5 km)': 0,
-    '🟡 Cerca (5 - 10 km)': 0,
-    '🟠 Moderada (10 - 20 km)': 0,
-    '🔴 Lejos (> 20 km)': 0
+    '🟢 Muy Cerca': 0,
+    '🟡 Cerca': 0,
+    '🟠 Moderada': 0,
+    '🔴 Lejos': 0
   };
 
   const countParadero = {
-    '🟢 Muy Cerca (≤ 1 km)': 0,
-    '🟡 Cerca (1 - 3 km)': 0,
-    '🟠 Moderada (3 - 5 km)': 0,
-    '🔴 Lejos (> 5 km)': 0
+    '🟢 Muy Cerca': 0,
+    '🟡 Cerca': 0,
+    '🟠 Moderada': 0,
+    '🔴 Lejos': 0
   };
 
   const distritosStats = {};
@@ -1464,16 +1465,16 @@ function renderTables() {
     if (emp.ruta) rutasSet.add(emp.ruta);
 
     // Clasificaciones CD (matching substring o valor numérico)
-    if (emp.clasifCd.includes('Muy Cerca') || (emp.distCd > 0 && emp.distCd <= 5)) countCd['🟢 Muy Cerca (≤ 5 km)']++;
-    else if (emp.clasifCd.includes('Cerca') || (emp.distCd > 5 && emp.distCd <= 10)) countCd['🟡 Cerca (5 - 10 km)']++;
-    else if (emp.clasifCd.includes('Moderada') || (emp.distCd > 10 && emp.distCd <= 20)) countCd['🟠 Moderada (10 - 20 km)']++;
-    else if (emp.clasifCd.includes('Lejos') || emp.distCd > 20) countCd['🔴 Lejos (> 20 km)']++;
+    if (emp.clasifCd.includes('Muy Cerca') || (emp.distCd > 0 && emp.distCd <= 5)) countCd['🟢 Muy Cerca']++;
+    else if (emp.clasifCd.includes('Cerca') || (emp.distCd > 5 && emp.distCd <= 10)) countCd['🟡 Cerca']++;
+    else if (emp.clasifCd.includes('Moderada') || (emp.distCd > 10 && emp.distCd <= 20)) countCd['🟠 Moderada']++;
+    else if (emp.clasifCd.includes('Lejos') || emp.distCd > 20) countCd['🔴 Lejos']++;
 
     // Clasificaciones Paradero (matching substring o valor numérico)
-    if (emp.clasifParadero.includes('Muy Cerca') || (emp.distParadero > 0 && emp.distParadero <= 1)) countParadero['🟢 Muy Cerca (≤ 1 km)']++;
-    else if (emp.clasifParadero.includes('Cerca') || (emp.distParadero > 1 && emp.distParadero <= 3)) countParadero['🟡 Cerca (1 - 3 km)']++;
-    else if (emp.clasifParadero.includes('Moderada') || (emp.distParadero > 3 && emp.distParadero <= 5)) countParadero['🟠 Moderada (3 - 5 km)']++;
-    else if (emp.clasifParadero.includes('Lejos') || emp.distParadero > 5) countParadero['🔴 Lejos (> 5 km)']++;
+    if (emp.clasifParadero.includes('Muy Cerca') || (emp.distParadero > 0 && emp.distParadero <= 1)) countParadero['🟢 Muy Cerca']++;
+    else if (emp.clasifParadero.includes('Cerca') || (emp.distParadero > 1 && emp.distParadero <= 3)) countParadero['🟡 Cerca']++;
+    else if (emp.clasifParadero.includes('Moderada') || (emp.distParadero > 3 && emp.distParadero <= 5)) countParadero['🟠 Moderada']++;
+    else if (emp.clasifParadero.includes('Lejos') || emp.distParadero > 5) countParadero['🔴 Lejos']++;
 
     // Stats por Distrito
     if (emp.distrito) {
@@ -1543,17 +1544,17 @@ function renderTables() {
 
   // 2 y 3. Gráficos de Clasificación
   const colorsCd = {
-    '🟢 Muy Cerca (≤ 5 km)': '#22c55e', 
-    '🟡 Cerca (5 - 10 km)': '#eab308',     
-    '🟠 Moderada (10 - 20 km)': '#f97316',  
-    '🔴 Lejos (> 20 km)': '#ef4444'      
+    '🟢 Muy Cerca': '#22c55e', 
+    '🟡 Cerca': '#eab308',     
+    '🟠 Moderada': '#f97316',  
+    '🔴 Lejos': '#ef4444'      
   };
 
   const colorsParadero = {
-    '🟢 Muy Cerca (≤ 1 km)': '#22c55e', 
-    '🟡 Cerca (1 - 3 km)': '#eab308',     
-    '🟠 Moderada (3 - 5 km)': '#f97316',  
-    '🔴 Lejos (> 5 km)': '#ef4444'      
+    '🟢 Muy Cerca': '#22c55e', 
+    '🟡 Cerca': '#eab308',     
+    '🟠 Moderada': '#f97316',  
+    '🔴 Lejos': '#ef4444'      
   };
 
   renderPieChart('chartDistCD', countCd, colorsCd);
@@ -1771,6 +1772,55 @@ function renderTables() {
   if (typeof updateAiContextBanner === 'function') {
     updateAiContextBanner();
   }
+
+  initTableScrollInteractions();
+}
+
+function initTableScrollInteractions() {
+  document.querySelectorAll('.table-responsive').forEach(container => {
+    if (container.dataset.scrollEnhanced === 'true') return;
+    container.dataset.scrollEnhanced = 'true';
+
+    // 1. Scroll horizontal fluido con la rueda del mouse en cualquier punto de la tabla (encabezado o filas)
+    container.addEventListener('wheel', (e) => {
+      if (container.scrollWidth > container.clientWidth) {
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+          e.preventDefault();
+          container.scrollLeft += e.deltaY * 1.3;
+        }
+      }
+    }, { passive: false });
+
+    // 2. Control de arrastre con la ruedita del mouse (Middle Click - Botón 1)
+    let isMiddleDragging = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    container.addEventListener('mousedown', (e) => {
+      if (e.button === 1) { // Ruedita presionada
+        e.preventDefault();
+        isMiddleDragging = true;
+        startX = e.clientX;
+        startScrollLeft = container.scrollLeft;
+        container.style.cursor = 'all-scroll';
+        document.body.style.userSelect = 'none';
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isMiddleDragging) return;
+      const walk = (e.clientX - startX) * 1.6;
+      container.scrollLeft = startScrollLeft - walk;
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (isMiddleDragging) {
+        isMiddleDragging = false;
+        container.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    });
+  });
 }
 
 function initCharts() {
@@ -1818,6 +1868,7 @@ function renderPieChart(canvasId, dataMap, colors) {
       plugins: {
         legend: {
           position: 'bottom',
+          onClick: null, // Desactiva el tachado para evitar que el gráfico se distorsione o confunda con porcentajes irreales
           labels: {
             color: '#cbd5e1',
             boxWidth: 14,
@@ -1835,7 +1886,7 @@ function renderPieChart(canvasId, dataMap, colors) {
               const dataset = context.dataset.data || [];
               const total = dataset.reduce((a, b) => a + b, 0);
               const pct = total > 0 ? ((val / total) * 100).toFixed(1) + '%' : '0%';
-              return ` ${context.label}: ${val} colaboradores (${pct})`;
+              return ` ${context.label}: ${val} colaboradores (${pct} del total)`;
             }
           }
         }

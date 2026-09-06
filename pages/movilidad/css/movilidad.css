@@ -353,7 +353,7 @@ body {
   width: 100%;
   max-width: 100%;
   overflow-x: auto !important;
-  overflow-y: visible;
+  overflow-y: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
   overscroll-behavior-x: contain !important;
@@ -418,6 +418,27 @@ body {
 }
 .data-table tbody tr:nth-child(odd) {
   background-color: transparent !important;
+}
+
+/* Columna izquierda fija para tabla de Registro Diario (Ruta siempre visible al scrollear) */
+#tableRegistroDiario th:first-child,
+#tableRegistroDiario td:first-child {
+  position: -webkit-sticky !important;
+  position: sticky !important;
+  left: 0;
+  z-index: 4;
+  background-color: #1e293b;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.4);
+}
+#tableRegistroDiario th:first-child {
+  background-color: #2563eb !important;
+  z-index: 6;
+}
+#tableRegistroDiario tbody tr:nth-child(even) td:first-child {
+  background-color: #141f30 !important;
+}
+#tableRegistroDiario tbody tr:nth-child(odd) td:first-child {
+  background-color: #1e293b !important;
 }
 
 /* Desactivar cualquier marcado o resaltado de color al pasar el mouse o dar clic */
