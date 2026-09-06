@@ -139,6 +139,78 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnApplyFilters')?.addEventListener('click', renderAll);
   document.getElementById('toggleDataLabels')?.addEventListener('change', renderAll);
 
+  // ══════════════════════════════════════════════
+  // PROYECCIÓN A FUTURO (+4 SEMANAS PLAN)
+  // ══════════════════════════════════════════════
+  const toggleFutureEl = document.getElementById('toggleFutureWeeks');
+  const weeksFilterEl  = document.getElementById('weeksFilter');
+
+  toggleFutureEl?.addEventListener('change', (e) => {
+    if (!weeksFilterEl) return;
+    if (!e.target.checked) {
+      // Si desmarca el toggle y estaba en una opción "_plus_4", pasamos a la versión cerrada
+      if (weeksFilterEl.value === 'current_plus_4') weeksFilterEl.value = 'current';
+      else if (weeksFilterEl.value === '4_plus_4') weeksFilterEl.value = '4';
+      else if (weeksFilterEl.value === '8_plus_4') weeksFilterEl.value = '8';
+    } else {
+      // Si activa el toggle y tenía una opción cerrada simple, pasamos a la opción proyectada
+      if (weeksFilterEl.value === 'current') weeksFilterEl.value = 'current_plus_4';
+      else if (weeksFilterEl.value === '4') weeksFilterEl.value = '4_plus_4';
+      else if (weeksFilterEl.value === '8') weeksFilterEl.value = '8_plus_4';
+    }
+    renderAll();
+  });
+
+  weeksFilterEl?.addEventListener('change', (e) => {
+    if (toggleFutureEl) {
+      if (e.target.value.includes('plus_4')) {
+        toggleFutureEl.checked = true;
+      }
+    }
+    renderAll();
+  });
+
+  // ══════════════════════════════════════════════
+  // APARTADO DE DIVISIONES: INTERACTIVIDAD
+  // ══════════════════════════════════════════════
+  // 1. Filtrar por CD (Todas, Secos, Frescos)
+  document.querySelectorAll('.div-filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.div-filter-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      const targetFilter = pill.dataset.divFilter;
+      document.querySelectorAll('.division-card').forEach(card => {
+        if (targetFilter === 'all' || card.dataset.cd === targetFilter) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  // 2. Clic en tarjeta de división: activa el tab respectivo y hace scroll suave
+  document.querySelectorAll('.division-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const cd = card.dataset.cd;
+      const targetTab = cd === 'frescos' ? 'tab-frescos' : 'tab-secos';
+      const targetBtn = document.querySelector(`.glass-tab-btn[data-target="${targetTab}"]`);
+      if (targetBtn) targetBtn.click();
+      const tabEl = document.getElementById(targetTab);
+      if (tabEl) tabEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // 3. Botón de colapso/expansión de la grilla de divisiones
+  document.getElementById('btnToggleDivisions')?.addEventListener('click', () => {
+    const grid = document.getElementById('divisionsGrid');
+    const icon = document.getElementById('iconToggleDivisions');
+    if (!grid || !icon) return;
+    const isClosed = grid.style.display === 'none';
+    grid.style.display = isClosed ? 'grid' : 'none';
+    icon.className = isClosed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+  });
+
   // Estado del modo KPI: 'periodo' = rango completo, 'semana' = última semana con data
   let kpiMode = 'periodo';
   document.getElementById('btnKpiPeriodo')?.addEventListener('click', () => {
@@ -156,14 +228,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderAll() {
     if (!window.dataFrescos || !window.dataSecos) return;
-    const numWeeks = document.getElementById('weeksFilter').value;
+    const numWeeks = document.getElementById('weeksFilter')?.value || 'current_plus_4';
     const showLabels = document.getElementById('toggleDataLabels')?.checked ?? true;
+    const includeFuture = document.getElementById('toggleFutureWeeks')?.checked ?? true;
 
     // CD Frescos
-    renderSection('Frescos', window.dataFrescos, resolveColumns(window.dataFrescos.headers, window.dataFrescos.rows), numWeeks, showLabels);
+    renderSection('Frescos', window.dataFrescos, resolveColumns(window.dataFrescos.headers, window.dataFrescos.rows), numWeeks, showLabels, includeFuture);
 
     // CD Secos
-    renderSection('Secos', window.dataSecos, resolveColumns(window.dataSecos.headers, window.dataSecos.rows), numWeeks, showLabels);
+    renderSection('Secos', window.dataSecos, resolveColumns(window.dataSecos.headers, window.dataSecos.rows), numWeeks, showLabels, includeFuture);
   }
 
   // ══════════════════════════════════════════════
@@ -226,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return { week: parseInt(parts[0], 10), year: parseInt(parts[1], 10) };
   }
 
-  function renderSection(prefix, data, cols, filterValue, showLabels) {
+  function renderSection(prefix, data, cols, filterValue, showLabels, includeFuture = true) {
     if (!data.rows || data.rows.length === 0) return;
 
     // 1. Extraer y estructurar datos
@@ -273,17 +346,45 @@ document.addEventListener('DOMContentLoaded', () => {
       lastDataWeek = currentYearRows[currentYearRows.length - 1].week;
     }
 
-    // 4. Semanas a graficar
-    let weekNumbers;
-    if (filterValue === 'all') {
-      weekNumbers = currentYearRows
+    // 4. Semanas a graficar (cerradas + proyección a 4 semanas futuras)
+    let isProjectionActive = includeFuture;
+    let baseFilter = filterValue;
+
+    if (filterValue === 'current_plus_4') {
+      baseFilter = 'current';
+      isProjectionActive = true;
+    } else if (filterValue === '4_plus_4') {
+      baseFilter = '4';
+      isProjectionActive = true;
+    } else if (filterValue === '8_plus_4') {
+      baseFilter = '8';
+      isProjectionActive = true;
+    }
+
+    let closedWeeks = [];
+    if (baseFilter === 'all') {
+      closedWeeks = currentYearRows
         .filter(r => r.recibo > 0 || r.despacho > 0 || r.inventario > 0)
         .map(r => r.week);
+    } else if (baseFilter === 'current') {
+      closedWeeks = [lastDataWeek];
     } else {
-      const n = parseInt(filterValue, 10);
+      const n = parseInt(baseFilter, 10) || 8;
       const startWeek = Math.max(1, lastDataWeek - n + 1);
-      weekNumbers = [];
-      for (let w = startWeek; w <= lastDataWeek; w++) weekNumbers.push(w);
+      for (let w = startWeek; w <= lastDataWeek; w++) {
+        closedWeeks.push(w);
+      }
+    }
+
+    const weekNumbers = [...closedWeeks];
+    if (isProjectionActive) {
+      // Agregar exactamente 4 semanas futuras a partir de la semana actual con data
+      for (let i = 1; i <= 4; i++) {
+        const nextW = lastDataWeek + i;
+        if (nextW <= 52 && !weekNumbers.includes(nextW)) {
+          weekNumbers.push(nextW);
+        }
+      }
     }
 
     if (weekNumbers.length === 0) return;
@@ -300,19 +401,21 @@ document.addEventListener('DOMContentLoaded', () => {
       return dataMap[key] ? dataMap[key][field] : 0;
     };
 
+    // Para semanas futuras (w > lastDataWeek), el valor real debe ser null
+    // para que Chart.js NO dibuje una barra vacía o en cero y solo se trace el PLAN y el año anterior
     const prevRecibo =       weekNumbers.map(w => get(prevYear, w, 'recibo'));
-    const currRecibo =       weekNumbers.map(w => get(currentYear, w, 'recibo'));
+    const currRecibo =       weekNumbers.map(w => w > lastDataWeek ? null : get(currentYear, w, 'recibo'));
     const planRecibo =       weekNumbers.map(w => get(currentYear, w, 'planRecibo'));
 
     const prevDespacho =     weekNumbers.map(w => get(prevYear, w, 'despacho'));
-    const currDespacho =     weekNumbers.map(w => get(currentYear, w, 'despacho'));
+    const currDespacho =     weekNumbers.map(w => w > lastDataWeek ? null : get(currentYear, w, 'despacho'));
     const planDespacho =     weekNumbers.map(w => get(currentYear, w, 'planDespacho'));
 
     const prevInventario =   weekNumbers.map(w => get(prevYear, w, 'inventario'));
-    const currInventario =   weekNumbers.map(w => get(currentYear, w, 'inventario'));
+    const currInventario =   weekNumbers.map(w => w > lastDataWeek ? null : get(currentYear, w, 'inventario'));
     const planInv =          weekNumbers.map(w => get(currentYear, w, 'planInv'));
 
-    // 6. Renderizar KPI Executive Strip
+    // 6. Renderizar KPI Executive Strip (respetando semanas cerradas para no distorsionar promedios)
     renderKPIs(prefix, weekNumbers, currentYear, prevYear, dataMap, lastDataWeek);
 
     // 7. Renderizar Gráficos con Paleta Vibrante Glass y DataLabels
@@ -334,8 +437,9 @@ document.addEventListener('DOMContentLoaded', () => {
       { label: `Inventario ${currentYear}`, data: currInventario, bg: '#059669', border: '#047857' },
     ], planInv.some(v => v > 0) ? { label: 'PLAN INV', data: planInv, color: '#0d9488' } : null, showLabels);
 
-    // 8. Tabla Resumen (Últimas semanas seleccionadas)
-    renderTable(prefix, weekNumbers.slice(-7), currentYear, prevYear, dataMap);
+    // 8. Tabla Resumen (Muestra hasta 10 semanas para máxima claridad, incluyendo las 4 proyectadas)
+    const tableWeeks = weekNumbers.length <= 10 ? weekNumbers : weekNumbers.slice(-10);
+    renderTable(prefix, tableWeeks, currentYear, prevYear, dataMap, lastDataWeek);
   }
 
   // ══════════════════════════════════════════════
@@ -355,8 +459,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let reciboCurr, reciboPrev, despachoCurr, despachoPrev, invCurr, invPrev;
     let kpiLabel, semanaRef;
 
+    const closedWeeks = weekNumbers.filter(w => w <= lastDataWeek);
+    const futureWeeksCount = weekNumbers.filter(w => w > lastDataWeek).length;
+
     if (kpiMode === 'semana') {
-      // ── MODO SEMANA ACTUAL: solo la última semana con datos ─────────
+      // ── MODO SEMANA ACTUAL: solo la última semana con datos reales ───
       const w = lastDataWeek;
       semanaRef = `S${w}`;
       const c = dataMap[`${currentYear}-${w}`] || {};
@@ -367,14 +474,14 @@ document.addEventListener('DOMContentLoaded', () => {
       despachoPrev = p.despacho || 0;
       invCurr      = c.inventario || 0;
       invPrev      = p.inventario || 0;
-      kpiLabel = `Semana ${w} (${currentYear} vs ${prevYear})`;
+      kpiLabel = `Semana ${w} con datos (${currentYear} vs ${prevYear})${futureWeeksCount > 0 ? ` · +${futureWeeksCount} sem. proyectadas en gráficos` : ''}`;
     } else {
-      // ── MODO PERÍODO COMPLETO: suma/promedio del rango ──────────────
+      // ── MODO PERÍODO COMPLETO: suma/promedio de semanas cerradas ─────
       let totReciboCurr = 0, totReciboPrev = 0;
       let totDespachoCurr = 0, totDespachoPrev = 0;
       let totInvCurr = 0, totInvPrev = 0, countInv = 0;
 
-      weekNumbers.forEach(w => {
+      closedWeeks.forEach(w => {
         const c = dataMap[`${currentYear}-${w}`];
         const p = dataMap[`${prevYear}-${w}`];
         if (c) {
@@ -394,8 +501,9 @@ document.addEventListener('DOMContentLoaded', () => {
       despachoCurr = totDespachoCurr;
       despachoPrev = totDespachoPrev;
       invCurr      = countInv > 0 ? totInvCurr / countInv : 0;
-      invPrev      = weekNumbers.length > 0 ? totInvPrev / weekNumbers.length : 0;
-      kpiLabel = `Últimas ${weekNumbers.length} semanas (${currentYear} vs ${prevYear})`;
+      invPrev      = closedWeeks.length > 0 ? totInvPrev / closedWeeks.length : 0;
+      const proyNote = futureWeeksCount > 0 ? ` + ${futureWeeksCount} proyectadas (Plan)` : '';
+      kpiLabel = `Últimas ${closedWeeks.length} semanas cerradas (${currentYear} vs ${prevYear})${proyNote}`;
       semanaRef = null;
     }
 
@@ -526,7 +634,10 @@ document.addEventListener('DOMContentLoaded', () => {
           callbacks: {
             label: (ctx) => {
               const label = ctx.dataset.label || '';
-              const val = ctx.parsed.y !== null ? Math.round(ctx.parsed.y).toLocaleString('es-PE') : '0';
+              if (ctx.parsed.y === null || ctx.parsed.y === undefined) {
+                return `  ${label}: -- (Pendiente / Proyectado)`;
+              }
+              const val = Math.round(ctx.parsed.y).toLocaleString('es-PE');
               return `  ${label}: ${val} cajas`;
             }
           }
@@ -582,10 +693,9 @@ document.addEventListener('DOMContentLoaded', () => {
           align: 'center',
           color: '#1e293b',
           font: dlFont.barPrev,
-          // Sin fondo ni borde: el valor se lee directamente sobre la barra
           backgroundColor: null,
           borderWidth: 0,
-          formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
+          formatter: (v) => (v !== null && v > 0) ? formatNumberBadge(v) : ''
         }
       },
       {
@@ -607,7 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
           font: dlFont.barCurr,
           backgroundColor: null,
           borderWidth: 0,
-          formatter: (v) => v > 0 ? formatNumberBadge(v) : ''
+          formatter: (v) => (v !== null && v > 0) ? formatNumberBadge(v) : ''
         }
       }
     ];
@@ -637,7 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
           font: dlFont.plan,
           borderRadius: 3,
           padding: { top: 2, bottom: 2, left: 5, right: 5 },
-          formatter: (v) => v > 0 ? `P: ${formatNumberBadge(v)}` : ''
+          formatter: (v) => (v !== null && v > 0) ? `P: ${formatNumberBadge(v)}` : ''
         }
       });
     }
@@ -748,55 +858,83 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════
-  // TABLE RENDERER WITH YOY BADGES
+  // TABLE RENDERER WITH YOY BADGES & PLAN PROJECTION
   // ══════════════════════════════════════════════
-  function renderTable(prefix, weekNumbers, currentYear, prevYear, dataMap) {
+  function renderTable(prefix, weekNumbers, currentYear, prevYear, dataMap, lastDataWeek) {
     const container = document.getElementById(`table${prefix}Container`);
     if (!container) return;
 
     let html = `
       <div class="table-wrapper-title">
         <i class="fa-solid fa-table-list text-primary"></i>
-        <span>Detalle Comparativo Semanal (${currentYear} vs ${prevYear})</span>
+        <span>Detalle Comparativo Semanal (${currentYear} vs ${prevYear}) + Proyección Plan</span>
       </div>
       <table class="data-table">
         <thead>
           <tr>
-            <th style="min-width: 140px;">Métrica / Proceso</th>
+            <th style="min-width: 150px;">Métrica / Proceso</th>
     `;
     
     weekNumbers.forEach(w => {
-      html += `<th>S${w} (${currentYear})</th>`;
+      const isFuture = w > lastDataWeek;
+      if (isFuture) {
+        html += `<th style="background:#eff6ff; color:#1d4ed8; border-bottom: 2px solid #3b82f6;">S${w} <span style="font-size:0.72rem; font-weight:700; color:#2563eb; display:block;">(Plan Proy)</span></th>`;
+      } else {
+        html += `<th>S${w} (${currentYear})</th>`;
+      }
     });
-    html += `<th>Total / Prom.</th></tr></thead><tbody>`;
+    html += `<th style="min-width:130px; background:#f8fafc;">Total / Prom. (Cerradas)</th></tr></thead><tbody>`;
 
     const metrics = [
-      { key: 'recibo', label: '📦 RECIBO', color: '#2563eb' },
-      { key: 'despacho', label: '🚛 DESPACHO', color: '#ea580c' },
-      { key: 'inventario', label: '📊 INVENTARIO', color: '#059669' }
+      { key: 'recibo', planKey: 'planRecibo', label: '📦 RECIBO', color: '#2563eb' },
+      { key: 'despacho', planKey: 'planDespacho', label: '🚛 DESPACHO', color: '#ea580c' },
+      { key: 'inventario', planKey: 'planInv', label: '📊 INVENTARIO', color: '#059669' }
     ];
 
     metrics.forEach(m => {
-      // Fila Actual
-      html += `<tr><td style="color:${m.color}; font-weight:700;">${m.label} ${currentYear}</td>`;
+      // 1. Fila Actual (Real)
+      html += `<tr><td style="color:${m.color}; font-weight:700;">${m.label} ${currentYear} (Real)</td>`;
       let sumCurr = 0;
+      let countCurr = 0;
       weekNumbers.forEach(w => {
-        const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][m.key] : 0;
-        sumCurr += val;
-        html += `<td style="font-weight:600;">${Math.round(val).toLocaleString('es-PE')}</td>`;
+        const isFuture = w > lastDataWeek;
+        if (isFuture) {
+          html += `<td style="color:#94a3b8; font-style:italic; background:#f8fafc;">--</td>`;
+        } else {
+          const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][m.key] : 0;
+          sumCurr += val;
+          countCurr++;
+          html += `<td style="font-weight:600;">${Math.round(val).toLocaleString('es-PE')}</td>`;
+        }
       });
-      const avgOrSumCurr = m.key === 'inventario' ? (sumCurr / weekNumbers.length) : sumCurr;
-      html += `<td style="font-weight:800; background:#f8fafc;">${Math.round(avgOrSumCurr).toLocaleString('es-PE')}</td></tr>`;
+      const avgOrSumCurr = m.key === 'inventario' ? (countCurr > 0 ? sumCurr / countCurr : 0) : sumCurr;
+      html += `<td style="font-weight:800; background:#f1f5f9;">${Math.round(avgOrSumCurr).toLocaleString('es-PE')}</td></tr>`;
 
-      // Fila Año Anterior
-      html += `<tr style="color:#64748b;"><td style="font-weight:600; padding-left: 20px;">└ Año ${prevYear}</td>`;
-      let sumPrev = 0;
+      // 2. Fila Plan (Metas / Proyección)
+      html += `<tr style="color:#0284c7; background:rgba(239, 246, 255, 0.35);"><td style="font-weight:600; padding-left: 20px;">└ Plan Proyectado</td>`;
+      let sumPlan = 0;
+      let countPlan = 0;
       weekNumbers.forEach(w => {
-        const val = dataMap[`${prevYear}-${w}`] ? dataMap[`${prevYear}-${w}`][m.key] : 0;
-        sumPrev += val;
-        html += `<td>${Math.round(val).toLocaleString('es-PE')}</td>`;
+        const isFuture = w > lastDataWeek;
+        const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][m.planKey] : 0;
+        if (!isFuture) { sumPlan += val; countPlan++; }
+        const highlightStyle = isFuture ? 'font-weight:700; color:#1d4ed8; background:rgba(219, 234, 254, 0.5);' : '';
+        html += `<td style="${highlightStyle}">${val > 0 ? Math.round(val).toLocaleString('es-PE') : '--'}</td>`;
       });
-      const avgOrSumPrev = m.key === 'inventario' ? (sumPrev / weekNumbers.length) : sumPrev;
+      const avgOrSumPlan = m.key === 'inventario' ? (countPlan > 0 ? sumPlan / countPlan : 0) : sumPlan;
+      html += `<td style="font-weight:700; background:#eff6ff;">${Math.round(avgOrSumPlan).toLocaleString('es-PE')}</td></tr>`;
+
+      // 3. Fila Año Anterior (Real)
+      html += `<tr style="color:#64748b;"><td style="font-weight:600; padding-left: 20px;">└ Real ${prevYear}</td>`;
+      let sumPrev = 0;
+      let countPrev = 0;
+      weekNumbers.forEach(w => {
+        const isFuture = w > lastDataWeek;
+        const val = dataMap[`${prevYear}-${w}`] ? dataMap[`${prevYear}-${w}`][m.key] : 0;
+        if (!isFuture) { sumPrev += val; countPrev++; }
+        html += `<td>${val > 0 ? Math.round(val).toLocaleString('es-PE') : '--'}</td>`;
+      });
+      const avgOrSumPrev = m.key === 'inventario' ? (countPrev > 0 ? sumPrev / countPrev : 0) : sumPrev;
       html += `<td style="font-weight:700; background:#f8fafc;">${Math.round(avgOrSumPrev).toLocaleString('es-PE')}</td></tr>`;
     });
 
