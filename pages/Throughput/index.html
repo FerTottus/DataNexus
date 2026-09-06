@@ -384,38 +384,45 @@
       align-items: center;
       gap: 10px;
     }
-    .divisions-pills {
+    .divisions-header-actions {
       display: flex;
-      gap: 8px;
       align-items: center;
+      gap: 10px;
       flex-wrap: wrap;
     }
-    .div-filter-pill {
-      border: 1px solid #cbd5e1;
-      background: rgba(255, 255, 255, 0.7);
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: #475569;
-      cursor: pointer;
-      transition: all 0.2s ease;
+    .active-div-pill {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 10px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: #eff6ff;
+      border: 1.5px solid #bfdbfe;
+      color: #1e40af;
+      font-size: 0.82rem;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
     }
-    .div-filter-pill:hover {
-      background: #ffffff;
-      border-color: #2563eb;
-      color: #2563eb;
-    }
-    .div-filter-pill.active {
-      background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+    .btn-clear-filter {
+      background: #2563eb;
       color: white;
-      border-color: transparent;
-      box-shadow: 0 3px 10px rgba(37, 99, 235, 0.25);
+      border: none;
+      border-radius: 12px;
+      padding: 3px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
     }
-    /* Grilla de 3 columnas obligatorias en desktop */
+    .btn-clear-filter:hover {
+      background: #1d4ed8;
+      transform: scale(1.03);
+    }
+
+    /* Grilla de 3 columnas fijas en desktop (4 filas x 3 columnas = 12 divisiones) */
     .divisions-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -432,16 +439,18 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* Tarjeta de división unificada (sin división entre Secos y Frescos) */
     .division-card {
-      background: rgba(255, 255, 255, 0.75);
-      border: 1px solid rgba(226, 232, 240, 0.85);
+      background: rgba(255, 255, 255, 0.84);
+      border: 1.5px solid rgba(226, 232, 240, 0.9);
       border-radius: 12px;
       padding: 12px 14px;
       display: flex;
       align-items: center;
       gap: 12px;
       box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04);
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
       cursor: pointer;
       position: relative;
       overflow: hidden;
@@ -449,42 +458,42 @@
     }
     .division-card:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px -3px rgba(15, 23, 42, 0.1);
-      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 8px 20px -3px rgba(37, 99, 235, 0.14);
+      background: rgba(255, 255, 255, 0.98);
       border-color: #93c5fd;
     }
-    .division-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 4px;
-      height: 100%;
+    .division-card.active-selected {
+      background: linear-gradient(135deg, rgba(239, 246, 255, 0.98) 0%, rgba(224, 231, 255, 0.92) 100%);
+      border: 2px solid #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2), 0 8px 22px -3px rgba(37, 99, 235, 0.25);
+      transform: translateY(-2px);
     }
-    .division-card.cd-secos::before {
-      background: linear-gradient(180deg, #f97316 0%, #ea580c 100%);
+    .division-card.dimmed {
+      opacity: 0.52;
     }
-    .division-card.cd-frescos::before {
-      background: linear-gradient(180deg, #2563eb 0%, #0284c7 100%);
+    .division-card.dimmed:hover {
+      opacity: 0.88;
     }
+
     .div-icon-box {
-      width: 38px;
-      height: 38px;
-      border-radius: 9px;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.1rem;
+      font-size: 1.15rem;
       flex-shrink: 0;
-    }
-    .cd-secos .div-icon-box {
-      background: rgba(249, 115, 22, 0.12);
-      color: #ea580c;
-    }
-    .cd-frescos .div-icon-box {
-      background: rgba(37, 99, 235, 0.12);
+      background: rgba(37, 99, 235, 0.08);
       color: #2563eb;
+      transition: all 0.2s ease;
     }
+    .division-card.active-selected .div-icon-box {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+    }
+
     .div-info {
       flex: 1;
       display: flex;
@@ -495,47 +504,90 @@
     .div-top-line {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 8px;
     }
     .div-code-badge {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.74rem;
+      font-size: 0.75rem;
       font-weight: 800;
-      padding: 1px 6px;
-      border-radius: 4px;
+      padding: 2px 7px;
+      border-radius: 5px;
       letter-spacing: 0.5px;
+      background: #f1f5f9;
+      color: #1e293b;
+      border: 1px solid #e2e8f0;
+      transition: all 0.2s ease;
     }
-    .cd-secos .div-code-badge {
-      background: #ffedd5;
-      color: #c2410c;
+    .division-card.active-selected .div-code-badge {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
     }
-    .cd-frescos .div-code-badge {
-      background: #dbeafe;
-      color: #1d4ed8;
-    }
-    .div-cd-badge {
-      font-size: 0.68rem;
+    .div-status-tag {
+      font-size: 0.72rem;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      padding: 1px 6px;
-      border-radius: 4px;
+      color: #2563eb;
+      display: none;
+      align-items: center;
+      gap: 4px;
     }
-    .cd-secos .div-cd-badge {
-      background: rgba(249, 115, 22, 0.08);
-      color: #c2410c;
-    }
-    .cd-frescos .div-cd-badge {
-      background: rgba(37, 99, 235, 0.08);
-      color: #1d4ed8;
+    .division-card.active-selected .div-status-tag {
+      display: inline-flex;
     }
     .div-name {
-      font-size: 0.84rem;
+      font-size: 0.85rem;
       font-weight: 700;
       color: #1e293b;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      letter-spacing: -0.2px;
+    }
+    .division-card.active-selected .div-name {
+      color: #1d4ed8;
+    }
+
+    /* Banner informativo cuando hay una división filtrada */
+    .division-filter-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, rgba(239, 246, 255, 0.96) 0%, rgba(219, 234, 254, 0.92) 100%);
+      border: 1.5px solid #93c5fd;
+      border-radius: 12px;
+      padding: 10px 18px;
+      margin-bottom: 18px;
+      font-size: 0.88rem;
+      color: #1e40af;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08);
+    }
+    .division-filter-banner .banner-text {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .division-filter-banner .banner-text strong {
+      font-weight: 800;
+      color: #1d4ed8;
+    }
+    .btn-clear-banner {
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .btn-clear-banner:hover {
+      background: #1d4ed8;
     }
   </style>
 </head>
@@ -636,24 +688,17 @@
           <div>
             <h2 class="divisions-title">
               <span style="background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); width: 12px; height: 26px; border-radius: 4px; display: inline-block;"></span>
-              <i class="fa-solid fa-sitemap text-primary"></i> 1. División - Estructura Corporativa por CD
+              <i class="fa-solid fa-sitemap text-primary"></i> 1. División - Estructura Corporativa
               <span id="divTotalBadge" style="font-size:0.75rem; background:#e0e7ff; color:#3730a3; padding:2px 9px; border-radius:20px; font-weight:700;">12 Divisiones (4 Filas × 3 Columnas)</span>
             </h2>
             <p style="font-size: 0.82rem; color: #64748b; margin: 4px 0 0 0;">
-              Clasificación de divisiones entre <strong>CD Secos (655)</strong> y <strong>CD Frescos (676)</strong>. Haz clic en cualquiera para navegar directamente al CD respectivo.
+              Haz clic en cualquiera de las 12 divisiones para <strong>filtrar el dashboard</strong> por esa división. Haz clic de nuevo para quitar el filtro.
             </p>
           </div>
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <div class="divisions-pills">
-              <button class="div-filter-pill active" data-div-filter="all">
-                <i class="fa-solid fa-layer-group"></i> Todas (12)
-              </button>
-              <button class="div-filter-pill" data-div-filter="secos">
-                <i class="fa-solid fa-box text-warning"></i> CD Secos (7)
-              </button>
-              <button class="div-filter-pill" data-div-filter="frescos">
-                <i class="fa-solid fa-snowflake text-primary"></i> CD Frescos (5)
-              </button>
+          <div class="divisions-header-actions">
+            <div id="activeDivisionIndicator" class="active-div-pill" style="display:none;">
+              <span><i class="fa-solid fa-filter text-primary"></i> Filtrando: <strong id="activeDivName">J01</strong></span>
+              <button id="btnClearDivisionFilter" class="btn-clear-filter" title="Restablecer total corporativo"><i class="fa-solid fa-xmark"></i> Quitar filtro</button>
             </div>
             <button id="btnToggleDivisions" class="btn btn-sm btn-outline-secondary" style="border-radius:8px; font-weight:600; padding:5px 10px;" title="Minimizar / Expandir panel de divisiones">
               <i class="fa-solid fa-chevron-up" id="iconToggleDivisions"></i>
@@ -661,139 +706,139 @@
           </div>
         </div>
 
-        <!-- Grilla de 3 Columnas fijas (12 divisiones = 4 filas completas) -->
+        <!-- Grilla de 3 Columnas fijas (12 divisiones corporativas = 4 filas completas) -->
         <div class="divisions-grid" id="divisionsGrid">
           <!-- ── FILA 1 ── -->
-          <div class="division-card cd-secos" data-cd="secos" data-code="J01" title="Ver Throughput CD Secos">
+          <div class="division-card" data-code="J01" title="Filtrar por J01 - PGC COMESTIBLE">
             <div class="div-icon-box"><i class="fa-solid fa-basket-shopping"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J01</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-box"></i> CD SECOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">PGC COMESTIBLE</div>
             </div>
           </div>
 
-          <div class="division-card cd-secos" data-cd="secos" data-code="J02" title="Ver Throughput CD Secos">
+          <div class="division-card" data-code="J02" title="Filtrar por J02 - PGC NO COMESTIBLE">
             <div class="div-icon-box"><i class="fa-solid fa-pump-soap"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J02</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-box"></i> CD SECOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">PGC NO COMESTIBLE</div>
             </div>
           </div>
 
-          <div class="division-card cd-frescos" data-cd="frescos" data-code="J03" title="Ver Throughput CD Frescos">
+          <div class="division-card" data-code="J03" title="Filtrar por J03 - CARNES Y PESCADOS">
             <div class="div-icon-box"><i class="fa-solid fa-drumstick-bite"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J03</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-snowflake"></i> CD FRESCOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">CARNES Y PESCADOS</div>
             </div>
           </div>
 
           <!-- ── FILA 2 ── -->
-          <div class="division-card cd-frescos" data-cd="frescos" data-code="J04" title="Ver Throughput CD Frescos">
+          <div class="division-card" data-code="J04" title="Filtrar por J04 - FRUTAS Y VERDURAS">
             <div class="div-icon-box"><i class="fa-solid fa-apple-whole"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J04</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-snowflake"></i> CD FRESCOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">FRUTAS Y VERDURAS</div>
             </div>
           </div>
 
-          <div class="division-card cd-frescos" data-cd="frescos" data-code="J05" title="Ver Throughput CD Frescos">
+          <div class="division-card" data-code="J05" title="Filtrar por J05 - FLC (FIAMBRES, LÁCTEOS, CONG.)">
             <div class="div-icon-box"><i class="fa-solid fa-cheese"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J05</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-snowflake"></i> CD FRESCOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">FLC (FIAMBRES, LÁCTEOS, CONG.)</div>
             </div>
           </div>
 
-          <div class="division-card cd-frescos" data-cd="frescos" data-code="J06" title="Ver Throughput CD Frescos">
+          <div class="division-card" data-code="J06" title="Filtrar por J06 - PANADERIA Y PASTELERIA">
             <div class="div-icon-box"><i class="fa-solid fa-bread-slice"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J06</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-snowflake"></i> CD FRESCOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">PANADERIA Y PASTELERIA</div>
             </div>
           </div>
 
           <!-- ── FILA 3 ── -->
-          <div class="division-card cd-frescos" data-cd="frescos" data-code="J07" title="Ver Throughput CD Frescos">
+          <div class="division-card" data-code="J07" title="Filtrar por J07 - PLATOS PREPARADOS">
             <div class="div-icon-box"><i class="fa-solid fa-utensils"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J07</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-snowflake"></i> CD FRESCOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">PLATOS PREPARADOS</div>
             </div>
           </div>
 
-          <div class="division-card cd-secos" data-cd="secos" data-code="J08" title="Ver Throughput CD Secos">
+          <div class="division-card" data-code="J08" title="Filtrar por J08 - VESTUARIO">
             <div class="div-icon-box"><i class="fa-solid fa-shirt"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J08</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-box"></i> CD SECOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">VESTUARIO</div>
             </div>
           </div>
 
-          <div class="division-card cd-secos" data-cd="secos" data-code="J09" title="Ver Throughput CD Secos">
+          <div class="division-card" data-code="J09" title="Filtrar por J09 - HOGAR">
             <div class="div-icon-box"><i class="fa-solid fa-couch"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J09</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-box"></i> CD SECOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">HOGAR</div>
             </div>
           </div>
 
           <!-- ── FILA 4 ── -->
-          <div class="division-card cd-secos" data-cd="secos" data-code="J10" title="Ver Throughput CD Secos">
+          <div class="division-card" data-code="J10" title="Filtrar por J10 - BAZAR">
             <div class="div-icon-box"><i class="fa-solid fa-shapes"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J10</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-box"></i> CD SECOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">BAZAR</div>
             </div>
           </div>
 
-          <div class="division-card cd-secos" data-cd="secos" data-code="J11" title="Ver Throughput CD Secos">
+          <div class="division-card" data-code="J11" title="Filtrar por J11 - ELECTROHOGAR">
             <div class="div-icon-box"><i class="fa-solid fa-tv"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J11</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-box"></i> CD SECOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">ELECTROHOGAR</div>
             </div>
           </div>
 
-          <div class="division-card cd-secos" data-cd="secos" data-code="J12" title="Ver Throughput CD Secos">
+          <div class="division-card" data-code="J12" title="Filtrar por J12 - INSTITUCIONALES">
             <div class="div-icon-box"><i class="fa-solid fa-building"></i></div>
             <div class="div-info">
               <div class="div-top-line">
                 <span class="div-code-badge">J12</span>
-                <span class="div-cd-badge"><i class="fa-solid fa-box"></i> CD SECOS</span>
+                <span class="div-status-tag"><i class="fa-solid fa-circle-check"></i> Activo</span>
               </div>
               <div class="div-name">INSTITUCIONALES</div>
             </div>
@@ -867,6 +912,9 @@
           </span>
         </div>
 
+        <!-- Banner de División Filtrada en Secos -->
+        <div id="divFilterBannerSecos" class="division-filter-banner" style="display: none;"></div>
+
         <!-- KPI Strip Secos -->
         <div class="kpi-grid" id="kpiSecosContainer"></div>
 
@@ -916,6 +964,9 @@
             Comparativa Evolutiva Semanal (2025 vs 2026) + Planes
           </span>
         </div>
+
+        <!-- Banner de División Filtrada en Frescos -->
+        <div id="divFilterBannerFrescos" class="division-filter-banner" style="display: none;"></div>
 
         <!-- KPI Strip Frescos (usa el mismo toggle btnKpiPeriodo/btnKpiSemana definido en el tab Secos) -->
         <div class="kpi-grid" id="kpiFrescosContainer"></div>

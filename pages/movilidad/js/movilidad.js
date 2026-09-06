@@ -34,23 +34,82 @@ const AppState = {
   semanasDisponibles: [], // Lista de semanas únicas
   semanasInfoMap: new Map(), // Mapeo de semana -> { dates, dias, sampleDate }
   semanaCostosSeleccionada: null, // Semana seleccionada para la hoja ANALISIS_COSTOS
+  rutasOficiales: null, // Catálogo de rutas oficiales desde BD RUTAS
+  tarifarioBuses: null, // Matriz de tarifas oficiales desde BD BUSES
   mapboxToken: (window.APP_CONFIG && window.APP_CONFIG.MAPBOX_TOKEN) 
     ? window.APP_CONFIG.MAPBOX_TOKEN 
     : ['pk', 'eyJ1IjoiZmh1cnRhZG9hIiwiYSI6ImNtbnRmeW52NTBwb2sycW9uYWJjeXd6Mm8ifQ', 'LcHL2SI6zsJ-oQyg3JUFrw'].join('.')
 };
+
+// ==========================================
+// Catálogo Oficial y Tarifario Maestro (BD RUTAS y BD BUSES)
+// ==========================================
+
+// Catálogo base de las 14 rutas oficiales autorizadas en BD RUTAS
+const RUTAS_OFICIALES = new Set([
+  'RUTA 1', 'RUTA 2', 'RUTA 3', 'RUTA 4A', 'RUTA 4B', 'RUTA 5A',
+  'RUTA 5B', 'RUTA 5C', 'RUTA 6A', 'RUTA 6B', 'RUTA 6C', 'RUTA 7', 'RUTA 8', 'RUTA 9'
+]);
+
+// Matriz oficial de tarifas unitarias (TAX) y capacidades por tipo de unidad (BD BUSES)
+const TARIFARIO_BD_BUSES = {
+  'OMMNIBUS': { 'RUTA 1': 310, 'RUTA 2': 310, 'RUTA 3': 340, 'RUTA 4A': 350, 'RUTA 4B': 340, 'RUTA 5A': 370, 'RUTA 5B': 310, 'RUTA 5C': 290, 'RUTA 6A': 370, 'RUTA 6B': 360, 'RUTA 6C': 310, 'RUTA 7': 380, 'RUTA 8': 370, 'RUTA 9': 400, cap: 50 },
+  'BUS':      { 'RUTA 1': 310, 'RUTA 2': 310, 'RUTA 3': 340, 'RUTA 4A': 350, 'RUTA 4B': 340, 'RUTA 5A': 370, 'RUTA 5B': 310, 'RUTA 5C': 290, 'RUTA 6A': 370, 'RUTA 6B': 360, 'RUTA 6C': 310, 'RUTA 7': 380, 'RUTA 8': 370, 'RUTA 9': 400, cap: 50 },
+  'MINIBUS':  { 'RUTA 1': 290, 'RUTA 2': 290, 'RUTA 3': 330, 'RUTA 4A': 340, 'RUTA 4B': 330, 'RUTA 5A': 360, 'RUTA 5B': 300, 'RUTA 5C': 280, 'RUTA 6A': 360, 'RUTA 6B': 350, 'RUTA 6C': 300, 'RUTA 7': 370, 'RUTA 8': 360, 'RUTA 9': 380, cap: 30 },
+  'CUSTER':   { 'RUTA 1': 270, 'RUTA 2': 270, 'RUTA 3': 300, 'RUTA 4A': 310, 'RUTA 4B': 300, 'RUTA 5A': 350, 'RUTA 5B': 280, 'RUTA 5C': 250, 'RUTA 6A': 340, 'RUTA 6B': 340, 'RUTA 6C': 290, 'RUTA 7': 360, 'RUTA 8': 340, 'RUTA 9': 370, cap: 23 },
+  'SPRINTER': { 'RUTA 1': 250, 'RUTA 2': 250, 'RUTA 3': 280, 'RUTA 4A': 270, 'RUTA 4B': 260, 'RUTA 5A': 320, 'RUTA 5B': 250, 'RUTA 5C': 240, 'RUTA 6A': 330, 'RUTA 6B': 330, 'RUTA 6C': 280, 'RUTA 7': 340, 'RUTA 8': 300, 'RUTA 9': 350, cap: 16 },
+  'MINIVAN':  { 'RUTA 1': 230, 'RUTA 2': 230, 'RUTA 3': 250, 'RUTA 4A': 240, 'RUTA 4B': 230, 'RUTA 5A': 300, 'RUTA 5B': 240, 'RUTA 5C': 200, 'RUTA 6A': 300, 'RUTA 6B': 280, 'RUTA 6C': 250, 'RUTA 7': 330, 'RUTA 8': 290, 'RUTA 9': 320, cap: 10 },
+  'TAXI':     { 'RUTA 1': 120, 'RUTA 2': 120, 'RUTA 3': 180, 'RUTA 4A': 150, 'RUTA 4B': 140, 'RUTA 5A': 180, 'RUTA 5B': 140, 'RUTA 5C': 120, 'RUTA 6A': 180, 'RUTA 6B': 180, 'RUTA 6C': 180, 'RUTA 7': 220, 'RUTA 8': 220, 'RUTA 9': 300, cap: 4 }
+};
+
+function getTarifaBus(tipoBus, ruta) {
+  if (!ruta || ruta === 'Desconocido' || ruta === 'DESCONOCIDO') return 0;
+  const normTipo = String(tipoBus || 'BUS').trim().toUpperCase();
+  const normRuta = String(ruta || '').trim().toUpperCase();
+  const tabla = (AppState && AppState.tarifarioBuses) ? AppState.tarifarioBuses : TARIFARIO_BD_BUSES;
+  
+  const matchTipo = Object.keys(tabla).find(k => k === normTipo || normTipo.includes(k) || k.includes(normTipo));
+  if (matchTipo && tabla[matchTipo]) {
+    const tarifas = tabla[matchTipo];
+    for (const rKey in tarifas) {
+      if (rKey === 'cap') continue;
+      if (rKey === normRuta || normRuta.replace(/^RUTA\s+/, '') === rKey.replace(/^RUTA\s+/, '')) {
+        return tarifas[rKey];
+      }
+    }
+  }
+  return 0;
+}
+
+function getCapacidadBus(tipoBus) {
+  const normTipo = String(tipoBus || 'BUS').trim().toUpperCase();
+  const tabla = (AppState && AppState.tarifarioBuses) ? AppState.tarifarioBuses : TARIFARIO_BD_BUSES;
+  const matchTipo = Object.keys(tabla).find(k => k === normTipo || normTipo.includes(k) || k.includes(normTipo));
+  if (matchTipo && tabla[matchTipo] && tabla[matchTipo].cap) {
+    return tabla[matchTipo].cap;
+  }
+  if (normTipo.includes('MINIBUS')) return 30;
+  if (normTipo.includes('CUSTER')) return 23;
+  if (normTipo.includes('SPRINTER')) return 16;
+  if (normTipo.includes('MINIVAN')) return 10;
+  if (normTipo.includes('TAXI')) return 4;
+  return 50;
+}
 
 // Colores oficiales de Rutas de Movilidad
 const coloresRutas = {
   '1': '#E6194B', '2': '#3CB44B', '3': '#FFE119', '4A': '#4363D8',
   '4B': '#F58231', '5A': '#911EB4', '5C': '#42D4F4', '6A': '#F032E6',
   '6B': '#BFEF45', '7': '#FABED4', '8': '#469990', '9': '#800000',
-  '6C': '#9A6324', '5B': '#000075'
+  '6C': '#9A6324', '5B': '#000075',
+  'DESCONOCIDO': '#94a3b8', 'DESCONOCIDA': '#94a3b8'
 };
 
 const fallbackColors = ['#06b6d4', '#ec4899', '#8b5cf6', '#10b981', '#f97316', '#6366f1', '#14b8a6', '#f43f5e'];
 
 function getRutaColor(rutaId) {
   const norm = String(rutaId || '').trim().toUpperCase().replace(/^RUTA\s+/, '');
+  if (norm === 'DESCONOCIDO' || norm === 'DESCONOCIDA' || norm === 'SIN RUTA') return '#94a3b8';
   if (coloresRutas[norm]) return coloresRutas[norm];
   let hash = 0;
   for (let i = 0; i < norm.length; i++) hash = norm.charCodeAt(i) + ((hash << 5) - hash);
@@ -252,35 +311,45 @@ function buildDominantRouteMap(rows) {
   return finalDominant;
 }
 
+function validarEnCatalogoRutas(rStr) {
+  if (!rStr) return null;
+  let rNorm = String(rStr).trim().toUpperCase();
+  if (['SIN RUTA', 'N/D', 'DESCONOCIDO', 'DESCONOCIDA', '0', 'NONE', 'NULL', '-'].includes(rNorm)) return null;
+  if (!rNorm.startsWith('RUTA')) {
+    rNorm = `RUTA ${rNorm}`;
+  }
+  const catalogo = (AppState && AppState.rutasOficiales && AppState.rutasOficiales.size > 0) 
+    ? AppState.rutasOficiales 
+    : RUTAS_OFICIALES;
+  for (const validR of catalogo) {
+    if (validR.toUpperCase() === rNorm) return validR;
+  }
+  return null;
+}
+
 function resolveRutaFromRow(row, cleanPassengerDni, rawDni, dominantMap, fechaSoloDia, turnoVal) {
-  let rutaRaw = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
-  if (rutaRaw && rutaRaw.toUpperCase() !== 'SIN RUTA' && rutaRaw.toUpperCase() !== 'N/D' && rutaRaw.toUpperCase() !== 'RUTA DESCONOCIDA') {
-    return rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : `RUTA ${rutaRaw.toUpperCase()}`;
+  const rutaRaw = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
+
+  // 1. Si la fila tiene ruta explícita escrita
+  if (rutaRaw) {
+    const valid = validarEnCatalogoRutas(rutaRaw);
+    if (valid) return valid;
+    // Si la ruta escrita no figura en el catálogo de BD RUTAS
+    return 'Desconocido';
   }
 
-  // 1. Buscar en BD Maestra de empleados por DNI
+  // 2. Si la ruta viene en blanco, buscar en BD Maestra de empleados por DNI
   if (AppState && AppState.employeeMap) {
     const emp = AppState.employeeMap.get(cleanPassengerDni) || (rawDni ? AppState.employeeMap.get(String(rawDni).trim().toUpperCase()) : null);
     if (emp) {
       const empRuta = String(emp.ruta || emp.linea || '').trim();
-      if (empRuta && empRuta.toUpperCase() !== 'SIN RUTA' && empRuta.toUpperCase() !== 'N/D') {
-        return empRuta.toUpperCase().startsWith('RUTA') ? empRuta.toUpperCase() : `RUTA ${empRuta.toUpperCase()}`;
-      }
+      const validEmpRuta = validarEnCatalogoRutas(empRuta);
+      if (validEmpRuta) return validEmpRuta;
     }
   }
 
-  // 2. Buscar en la ruta dominante de esa fecha y turno
-  const key = `${fechaSoloDia}|${turnoVal}`;
-  if (dominantMap && dominantMap[key]) {
-    return dominantMap[key];
-  }
-  // Buscar en cualquier turno de esa misma fecha
-  if (dominantMap) {
-    const matchDateKey = Object.keys(dominantMap).find(k => k.startsWith(`${fechaSoloDia}|`));
-    if (matchDateKey) return dominantMap[matchDateKey];
-  }
-
-  return 'RUTA 5A';
+  // 3. No encontrada en BD ni en fila -> Desconocido
+  return 'Desconocido';
 }
 
 function getWeekBounds(dateDMYStr) {
@@ -945,17 +1014,65 @@ async function loadAllSheets(sheetId) {
                           getTabName(['PARADEROS']) || 
                           getTabName(['PARADERO']) || 
                           getTabName(['COORDENADAS']) || 
-                          getTabName(['BD RUTAS']) || 
                           getTabName(['MIS RUTAS']) || 
                           (tabs.find(t => /^RUTAS?(\s+.*)?$/i.test(t.title.trim()))?.title);
+    const nameBdBuses = getTabName(['BD BUSES']) || getTabName(['BUSES']);
+    const nameBdRutas = getTabName(['BD RUTAS']);
 
-    const [secos, ppa, frescos, registroDiario, paraderosSheet] = await Promise.all([
+    const [secos, ppa, frescos, registroDiario, paraderosSheet, bdBusesSheet, bdRutasSheet] = await Promise.all([
       nameSecos ? GoogleSheetsService.fetchSheetData(sheetId, nameSecos).catch(e => null) : Promise.resolve(null),
       namePpa ? GoogleSheetsService.fetchSheetData(sheetId, namePpa).catch(e => null) : Promise.resolve(null),
       nameFrescos ? GoogleSheetsService.fetchSheetData(sheetId, nameFrescos).catch(e => null) : Promise.resolve(null),
       nameRegistro ? GoogleSheetsService.fetchSheetData(sheetId, nameRegistro).catch(e => null) : Promise.resolve(null),
-      nameParaderos ? GoogleSheetsService.fetchSheetData(sheetId, nameParaderos).catch(e => null) : Promise.resolve(null)
+      nameParaderos ? GoogleSheetsService.fetchSheetData(sheetId, nameParaderos).catch(e => null) : Promise.resolve(null),
+      nameBdBuses ? GoogleSheetsService.fetchSheetData(sheetId, nameBdBuses).catch(e => null) : Promise.resolve(null),
+      nameBdRutas ? GoogleSheetsService.fetchSheetData(sheetId, nameBdRutas).catch(e => null) : Promise.resolve(null)
     ]);
+
+    // Cargar catálogo de rutas válidas desde BD RUTAS si está disponible
+    if (bdRutasSheet && bdRutasSheet.rows && bdRutasSheet.rows.length > 0) {
+      AppState.rutasOficiales = new Set();
+      bdRutasSheet.rows.forEach(r => {
+        const rutaNom = String(getRowVal(r, ['RUTA', 'RUTAS', 'NOMBRE RUTA', 'LINEA']) || '').trim().toUpperCase();
+        if (rutaNom && !['SIN RUTA', 'N/D', 'DESCONOCIDO'].includes(rutaNom)) {
+          const norm = rutaNom.startsWith('RUTA') ? rutaNom : `RUTA ${rutaNom}`;
+          AppState.rutasOficiales.add(norm);
+        }
+      });
+    }
+    if (!AppState.rutasOficiales || AppState.rutasOficiales.size === 0) {
+      AppState.rutasOficiales = new Set(RUTAS_OFICIALES);
+    }
+
+    // Cargar tarifario dinámico desde BD BUSES si está disponible
+    if (bdBusesSheet && bdBusesSheet.rows && bdBusesSheet.rows.length > 0) {
+      AppState.tarifarioBuses = JSON.parse(JSON.stringify(TARIFARIO_BD_BUSES));
+      bdBusesSheet.rows.forEach(r => {
+        const tipoBus = String(getRowVal(r, ['TIPO BUS', 'TIPO_BUS', 'VEHICULO', 'TIPO']) || '').trim().toUpperCase();
+        if (!tipoBus) return;
+        if (!AppState.tarifarioBuses[tipoBus]) {
+          AppState.tarifarioBuses[tipoBus] = {};
+        }
+        const capVal = parseFloat(String(getRowVal(r, ['CAPAC', 'CAPACIDAD', 'CAP']) || '0').replace(/[^0-9.-]+/g, '')) || 0;
+        if (capVal > 0) AppState.tarifarioBuses[tipoBus].cap = capVal;
+        
+        Object.keys(r).forEach(colKey => {
+          const colUpper = colKey.toUpperCase().trim();
+          if (colUpper.includes('TAX') || colUpper.includes('RUTA')) {
+            const rutaMatch = colUpper.match(/RUTA\s*([0-9]+[A-Z]?)/i);
+            if (rutaMatch) {
+              const numRuta = `RUTA ${rutaMatch[1].toUpperCase()}`;
+              const tarifaNum = parseFloat(String(r[colKey] || '0').replace(/[^0-9.-]+/g, '')) || 0;
+              if (tarifaNum > 0) {
+                AppState.tarifarioBuses[tipoBus][numRuta] = tarifaNum;
+              }
+            }
+          }
+        });
+      });
+    } else {
+      AppState.tarifarioBuses = TARIFARIO_BD_BUSES;
+    }
 
     if (!secos && !ppa && !frescos) {
       throw new Error("No se pudo leer la información. Si tu archivo es un Excel (.xlsx), debes abrirlo en Google Drive y darle a 'Archivo > Guardar como Hoja de cálculo de Google'. También verifica que existan las pestañas 'BD SECOS', 'BD PPA' o 'BD FRESCOS'.");
@@ -1346,10 +1463,22 @@ function applyFilters() {
       ? `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}${turnoVal ? '|' + turnoVal : ''}${placaVal ? '|' + placaVal : ''}`
       : `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}|${aggrTripIdx++}`;
 
-    const rawCosto = getRowVal(row, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL', 'COSTO IDA Y VUELTA']);
-    const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    const rawCosto = getRowVal(row, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL', 'TAX UNITARIO', 'TAX']);
+    let costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
     const rawCap = getRowVal(row, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
-    const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    let capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
+
+    if (rutaVal === 'Desconocido') {
+      costoNum = 0;
+      capNum = 0;
+    } else {
+      if (costoNum <= 0) {
+        costoNum = getTarifaBus(tipoBusVal, rutaVal);
+      }
+      if (capNum <= 0) {
+        capNum = getCapacidadBus(tipoBusVal);
+      }
+    }
 
     if (!aggrMap[tripKey]) {
       aggrMap[tripKey] = {
@@ -1358,7 +1487,7 @@ function applyFilters() {
         semana: semVal,
         ruta: rutaVal,
         tipoBus: tipoBusVal,
-        capacidad: capNum > 0 ? capNum : 50,
+        capacidad: capNum,
         costoBus: costoNum,
         totalPasajeros: 0,
         pasajerosFiltrados: 0
@@ -1367,7 +1496,7 @@ function applyFilters() {
       if (costoNum > 0 && (!aggrMap[tripKey].costoBus || aggrMap[tripKey].costoBus === 0)) {
         aggrMap[tripKey].costoBus = costoNum;
       }
-      if (capNum > 0 && (!aggrMap[tripKey].capacidad || aggrMap[tripKey].capacidad === 0 || aggrMap[tripKey].capacidad === 50)) {
+      if (capNum > 0 && (!aggrMap[tripKey].capacidad || aggrMap[tripKey].capacidad === 0)) {
         aggrMap[tripKey].capacidad = capNum;
       }
     }
@@ -1672,15 +1801,21 @@ function renderTables() {
         statsRuta[r.ruta] = { viajes: 0, cap: 0, pasaj: 0, costo: 0, pMin: 9999, pMax: -1 };
       }
       const st = statsRuta[r.ruta];
-      st.viajes++;
-      st.cap += r.capacidad;
+      if (r.ruta !== 'Desconocido') {
+        st.viajes++;
+        st.cap += r.capacidad;
+        st.costo += r.costo;
+      }
       st.pasaj += r.pasajeros;
-      st.costo += r.costo;
       if (r.pasajeros < st.pMin) st.pMin = r.pasajeros;
       if (r.pasajeros > st.pMax) st.pMax = r.pasajeros;
     });
 
-    const rutasDiario = Object.keys(statsRuta).map(k => ({ ruta: k, ...statsRuta[k] })).sort((a, b) => a.ruta.localeCompare(b.ruta));
+    const rutasDiario = Object.keys(statsRuta).map(k => ({ ruta: k, ...statsRuta[k] })).sort((a, b) => {
+      if (a.ruta === 'Desconocido') return 1;
+      if (b.ruta === 'Desconocido') return -1;
+      return a.ruta.localeCompare(b.ruta, undefined, { numeric: true });
+    });
     
     const elTbReg = document.querySelector('#tableRegistroDiario tbody');
     if(elTbReg) {
@@ -1688,27 +1823,33 @@ function renderTables() {
         elTbReg.innerHTML = `<tr><td colspan="10" style="text-align: center; color: #94a3b8; padding: 20px;">No se registraron viajes para los filtros seleccionados en esta fecha (${fechaActual}).</td></tr>`;
       } else {
         elTbReg.innerHTML = rutasDiario.map(r => {
-          const pOcup = r.cap > 0 ? r.pasaj / r.cap : 0;
-          const cProm = r.pasaj > 0 ? r.costo / r.pasaj : 0;
-          const promPasaj = r.viajes > 0 ? r.pasaj / r.viajes : 0;
-          const cViaje = r.viajes > 0 ? r.costo / r.viajes : 0;
+          const isDesc = (r.ruta === 'Desconocido');
+          const pOcup = (!isDesc && r.cap > 0) ? r.pasaj / r.cap : 0;
+          const cProm = (!isDesc && r.pasaj > 0) ? r.costo / r.pasaj : 0;
+          const promPasaj = (!isDesc && r.viajes > 0) ? r.pasaj / r.viajes : 0;
+          const cViaje = (!isDesc && r.viajes > 0) ? r.costo / r.viajes : 0;
           
           let estCap = '-';
-          if (pOcup >= 0.9) estCap = '✅ Óptimo';
+          if (isDesc) estCap = '⚠️ Sin Asignar';
+          else if (pOcup >= 0.9) estCap = '✅ Óptimo';
           else if (pOcup >= 0.7) estCap = '🔄 OK';
           else if (pOcup >= 0.5) estCap = '⚠️ Bajo';
           else estCap = '🔴 Muy Bajo';
 
+          const rutaDisplay = isDesc 
+            ? `<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid #64748b; padding: 4px 8px; border-radius: 6px;">Desconocido</span>` 
+            : r.ruta;
+
           return `<tr>
-            <td>${r.ruta}</td>
-            <td>${r.viajes}</td>
-            <td>${r.cap}</td>
+            <td>${rutaDisplay}</td>
+            <td>${isDesc ? '-' : r.viajes}</td>
+            <td>${isDesc ? '-' : r.cap}</td>
             <td>${r.pasaj}</td>
-            <td>${(pOcup*100).toFixed(2)}%</td>
+            <td>${isDesc ? '-' : (pOcup*100).toFixed(2) + '%'}</td>
             <td>${estCap}</td>
-            <td>S/ ${r.costo.toFixed(2)}</td>
-            <td>S/ ${cProm.toFixed(2)}</td>
-            <td>S/ ${cViaje.toFixed(2)}</td>
+            <td>${isDesc ? '-' : 'S/ ' + r.costo.toFixed(2)}</td>
+            <td>${isDesc ? '-' : 'S/ ' + cProm.toFixed(2)}</td>
+            <td>${isDesc ? '-' : 'S/ ' + cViaje.toFixed(2)}</td>
             <td>MAX: ${r.pMax === -1 ? 0 : r.pMax} - MIN: ${r.pMin === 9999 ? 0 : r.pMin}</td>
           </tr>`;
         }).join('');
@@ -1717,10 +1858,24 @@ function renderTables() {
 
     // Dashboard Día / Semana
     const aggDia = { viajes: 0, pasaj: 0, costo: 0, cap: 0 };
-    datosDia.forEach(r => { aggDia.viajes++; aggDia.pasaj += r.pasajeros; aggDia.costo += r.costo; aggDia.cap += r.capacidad; });
+    datosDia.forEach(r => { 
+      if (r.ruta !== 'Desconocido') {
+        aggDia.viajes++; 
+        aggDia.costo += r.costo; 
+        aggDia.cap += r.capacidad; 
+      }
+      aggDia.pasaj += r.pasajeros; 
+    });
     
     const aggSem = { viajes: 0, pasaj: 0, costo: 0, cap: 0 };
-    datosSemana.forEach(r => { aggSem.viajes++; aggSem.pasaj += r.pasajeros; aggSem.costo += r.costo; aggSem.cap += r.capacidad; });
+    datosSemana.forEach(r => { 
+      if (r.ruta !== 'Desconocido') {
+        aggSem.viajes++; 
+        aggSem.costo += r.costo; 
+        aggSem.cap += r.capacidad; 
+      }
+      aggSem.pasaj += r.pasajeros; 
+    });
 
     // Actualizar KPIs de la parte superior
     document.getElementById('kpiCostoDia').innerText = 'S/ ' + aggDia.costo.toFixed(2);
@@ -2779,9 +2934,21 @@ function renderAnalisisCostos() {
       : `${fechaSoloDia || 'FECHA'}|${ruta}|${tipoBusVal || 'BUS'}|trip_${anonymousTripCounter++}`;
 
     const rawCap = getRowVal(r, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
-    const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
-    const rawCosto = getRowVal(r, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL']);
-    const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    let capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    const rawCosto = getRowVal(r, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL', 'TAX UNITARIO', 'TAX']);
+    let costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+
+    if (ruta === 'Desconocido') {
+      costoNum = 0;
+      capNum = 0;
+    } else {
+      if (costoNum <= 0) {
+        costoNum = getTarifaBus(tipoBusVal, ruta);
+      }
+      if (capNum <= 0) {
+        capNum = getCapacidadBus(tipoBusVal);
+      }
+    }
 
     if (!tripsMap[tripKey]) {
       tripsMap[tripKey] = {
@@ -2789,7 +2956,7 @@ function renderAnalisisCostos() {
         fecha: fechaSoloDia,
         ruta,
         tipoBus: tipoBusVal,
-        capacidad: capNum > 0 ? capNum : 50,
+        capacidad: capNum,
         costo: costoNum,
         totalPasajerosBus: 0,
         pasajerosFiltrados: 0,
@@ -2799,7 +2966,7 @@ function renderAnalisisCostos() {
       if (costoNum > 0 && (!tripsMap[tripKey].costo || tripsMap[tripKey].costo === 0)) {
         tripsMap[tripKey].costo = costoNum;
       }
-      if (capNum > 0 && (!tripsMap[tripKey].capacidad || tripsMap[tripKey].capacidad === 0 || tripsMap[tripKey].capacidad === 50)) {
+      if (capNum > 0 && (!tripsMap[tripKey].capacidad || tripsMap[tripKey].capacidad === 0)) {
         tripsMap[tripKey].capacidad = capNum;
       }
     }
@@ -2840,21 +3007,27 @@ function renderAnalisisCostos() {
       };
     }
     const st = statsRuta[trip.ruta];
-    st.viajes += 1;
-    st.capacidad += capFinal;
-    st.costo += costoFinal;
+    if (trip.ruta !== 'Desconocido') {
+      st.viajes += 1;
+      st.capacidad += capFinal;
+      st.costo += costoFinal;
+    }
     st.pasajeros += pasajerosFinal;
   });
 
   const rutasArray = Object.keys(statsRuta).map(ruta => {
     const st = statsRuta[ruta];
-    const pctOcup = st.capacidad > 0 ? st.pasajeros / st.capacidad : 0;
-    const costoViaje = st.viajes > 0 ? st.costo / st.viajes : 0;
-    const costoPasaj = st.pasajeros > 0 ? st.costo / st.pasajeros : 0;
+    const isDesc = (ruta === 'Desconocido');
+    const pctOcup = (!isDesc && st.capacidad > 0) ? st.pasajeros / st.capacidad : 0;
+    const costoViaje = (!isDesc && st.viajes > 0) ? st.costo / st.viajes : 0;
+    const costoPasaj = (!isDesc && st.pasajeros > 0) ? st.costo / st.pasajeros : 0;
 
     let estado = '-';
     let estadoClass = '';
-    if (pctOcup >= 0.9) {
+    if (isDesc) {
+      estado = '⚠️ Sin Asignar';
+      estadoClass = 'badge badge-warning';
+    } else if (pctOcup >= 0.9) {
       estado = '✅ Óptimo';
       estadoClass = 'badge badge-success';
     } else if (pctOcup >= 0.7) {
@@ -2880,7 +3053,11 @@ function renderAnalisisCostos() {
       estado,
       estadoClass
     };
-  }).sort((a, b) => a.ruta.localeCompare(b.ruta, undefined, { numeric: true }));
+  }).sort((a, b) => {
+    if (a.ruta === 'Desconocido') return 1;
+    if (b.ruta === 'Desconocido') return -1;
+    return a.ruta.localeCompare(b.ruta, undefined, { numeric: true });
+  });
 
   // 6. Totales Ejecutivos de la Semana
   let totalViajes = 0, totalCapacidad = 0, totalCosto = 0, totalPasajeros = 0;
@@ -2974,19 +3151,25 @@ function renderAnalisisCostos() {
       const filtroContexto = isVerTodas ? 'el rango seleccionado' : `la Semana ${valSem}${valDia !== 'TODOS' ? ' (' + valDia + ')' : ''}${valFecha !== 'TODAS' ? ' - ' + valFecha : ''}`;
       tbodyDetalle.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #94a3b8; padding: 25px;"><i class="fa-solid fa-circle-info" style="color: #38bdf8;"></i> No se registraron viajes de colaboradores para ${filtroContexto} con los filtros demográficos actuales.</td></tr>`;
     } else {
-      tbodyDetalle.innerHTML = rutasArray.map(r => `
+      tbodyDetalle.innerHTML = rutasArray.map(r => {
+        const isDesc = (r.ruta === 'Desconocido');
+        const rutaDisplay = isDesc 
+          ? `<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid #64748b; padding: 4px 8px; border-radius: 6px;">Desconocido</span>` 
+          : `<span class="ruta-badge" style="background: ${getRutaColor(r.ruta)}22; color: ${getRutaColor(r.ruta)}; border: 1px solid ${getRutaColor(r.ruta)}44; padding: 3px 8px; border-radius: 4px;">${r.ruta}</span>`;
+
+        return `
         <tr>
-          <td style="font-weight: 600; color: #f8fafc;">${r.ruta}</td>
-          <td style="text-align: center;">${r.viajes}</td>
-          <td style="text-align: center;">${r.pasajeros}</td>
-          <td style="text-align: center;">${r.capacidad}</td>
-          <td style="text-align: center; font-weight: 700; color: ${r.pctOcup < 0.5 ? '#f87171' : (r.pctOcup >= 0.7 ? '#4ade80' : '#fbbf24')};">${(r.pctOcup * 100).toFixed(0)}%</td>
-          <td style="text-align: right; color: #60a5fa; font-weight: 600;">S/ ${r.costo.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-          <td style="text-align: right;">S/ ${r.costoViaje.toFixed(0)}</td>
-          <td style="text-align: right;">S/ ${r.costoPasaj.toFixed(2)}</td>
+          <td style="font-weight: 600; color: #f8fafc;">${rutaDisplay}</td>
+          <td style="text-align: center;">${isDesc ? '-' : r.viajes}</td>
+          <td style="text-align: center; font-weight: 600;">${r.pasajeros}</td>
+          <td style="text-align: center;">${isDesc ? '-' : r.capacidad}</td>
+          <td style="text-align: center; font-weight: 700; color: ${isDesc ? '#94a3b8' : (r.pctOcup < 0.5 ? '#f87171' : (r.pctOcup >= 0.7 ? '#4ade80' : '#fbbf24'))};">${isDesc ? '-' : (r.pctOcup * 100).toFixed(0) + '%'}</td>
+          <td style="text-align: right; color: #60a5fa; font-weight: 600;">${isDesc ? '-' : 'S/ ' + r.costo.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+          <td style="text-align: right;">${isDesc ? '-' : 'S/ ' + r.costoViaje.toFixed(0)}</td>
+          <td style="text-align: right;">${isDesc ? '-' : 'S/ ' + r.costoPasaj.toFixed(2)}</td>
           <td style="text-align: center;"><span class="${r.estadoClass}">${r.estado}</span></td>
         </tr>
-      `).join('');
+      `;}).join('');
     }
   }
 

@@ -122,6 +122,20 @@ document.addEventListener('DOMContentLoaded', () => {
       window.dataFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!A5:L109`);
       window.dataSecos   = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!V5:AE109`);
 
+      // Cargar desglose de divisiones si la pestaña DIVISION existe
+      const sheetDivisionTab = tabNames.find(t => {
+        const c = t.trim().toUpperCase().replace('Ó','O');
+        return c === 'DIVISION' || c === 'DIVISIONES';
+      });
+      if (sheetDivisionTab) {
+        try {
+          window.dataDivision = await window.GoogleSheetsService.fetchSheetData(sheetId, `'${sheetDivisionTab}'!A1:AZ55`);
+          window.parsedDivisionData = parseDivisionSheet(window.dataDivision?.rawValues);
+        } catch (divErr) {
+          console.warn("Aviso: No se pudo cargar hoja DIVISION, usando ratios calculados:", divErr);
+        }
+      }
+
       document.getElementById('connectBox').classList.add('hidden');
       document.getElementById('connectionSuccessInfo').classList.remove('hidden');
       document.getElementById('connectedSheetName').textContent = `Documento cargado (ID: ${sheetId.substring(0, 12)}...)`;
@@ -171,34 +185,212 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ══════════════════════════════════════════════
-  // APARTADO DE DIVISIONES: INTERACTIVIDAD
+  // CATÁLOGO Y CONFIGURACIÓN DE DIVISIONES
   // ══════════════════════════════════════════════
-  // 1. Filtrar por CD (Todas, Secos, Frescos)
-  document.querySelectorAll('.div-filter-pill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      document.querySelectorAll('.div-filter-pill').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      const targetFilter = pill.dataset.divFilter;
-      document.querySelectorAll('.division-card').forEach(card => {
-        if (targetFilter === 'all' || card.dataset.cd === targetFilter) {
-          card.style.display = 'flex';
-        } else {
-          card.style.display = 'none';
+  const DIVISION_NAMES = {
+    J01: 'PGC COMESTIBLE',
+    J02: 'PGC NO COMESTIBLE',
+    J03: 'CARNES Y PESCADOS',
+    J04: 'FRUTAS Y VERDURAS',
+    J05: 'FLC (FIAMBRES, LÁCTEOS, CONG.)',
+    J06: 'PANADERÍA Y PASTELERÍA',
+    J07: 'PLATOS PREPARADOS',
+    J08: 'VESTUARIO',
+    J09: 'HOGAR',
+    J10: 'BAZAR',
+    J11: 'ELECTROHOGAR',
+    J12: 'INSTITUCIONALES'
+  };
+
+  // Centro de Distribución principal asociado a cada división
+  const DIVISION_PRIMARY_CD = {
+    J01: 'secos',
+    J02: 'secos',
+    J03: 'frescos',
+    J04: 'frescos',
+    J05: 'frescos',
+    J06: 'frescos',
+    J07: 'frescos',
+    J08: 'secos',
+    J09: 'secos',
+    J10: 'secos',
+    J11: 'secos',
+    J12: 'secos'
+  };
+
+  // Participación volumétrica promedio de referencia por CD
+  const DIVISION_SHARE = {
+    Secos: {
+      J01: 0.594, J02: 0.196, J08: 0.093, J09: 0.043,
+      J10: 0.025, J05: 0.025, J11: 0.018, J06: 0.004,
+      J07: 0.003, J12: 0.0003, J03: 0.0, J04: 0.0
+    },
+    Frescos: {
+      J05: 0.336, J04: 0.254, J06: 0.228, J07: 0.132,
+      J03: 0.039, J01: 0.009, J02: 0.0, J08: 0.0,
+      J09: 0.0, J10: 0.0, J11: 0.0, J12: 0.0
+    }
+  };
+
+  let selectedDivision = null;
+
+  // Parser de la hoja DIVISION cuando está presente en Google Sheets
+  function parseDivisionSheet(rawValues) {
+    if (!rawValues || rawValues.length < 25) return null;
+    const divData = { Secos: {}, Frescos: {} };
+
+    // Secos (filas 18 a 30 aprox)
+    const headerRowSecos = rawValues[18] || [];
+    const secosRecWeeks = [], secosDespWeeks = [], secosInvWeeks = [];
+    for (let c = 2; c <= 9; c++) {
+      const p = parseWeekLabel(headerRowSecos[c]);
+      if (p) secosRecWeeks.push({ col: c, key: `${p.year}-${p.week}` });
+    }
+    for (let c = 11; c <= 18; c++) {
+      const p = parseWeekLabel(headerRowSecos[c]);
+      if (p) secosDespWeeks.push({ col: c, key: `${p.year}-${p.week}` });
+    }
+    for (let c = 20; c <= 27; c++) {
+      const p = parseWeekLabel(headerRowSecos[c]);
+      if (p) secosInvWeeks.push({ col: c, key: `${p.year}-${p.week}` });
+    }
+
+    for (let r = 19; r <= Math.min(32, rawValues.length - 1); r++) {
+      const row = rawValues[r] || [];
+      const codeRec = String(row[1] || '').trim().toUpperCase();
+      if (/^J\d{2}$/.test(codeRec)) {
+        if (!divData.Secos[codeRec]) divData.Secos[codeRec] = { recibo: {}, despacho: {}, inventario: {} };
+        secosRecWeeks.forEach(w => {
+          divData.Secos[codeRec].recibo[w.key] = parseFloat(row[w.col]) || 0;
+        });
+      }
+      const codeDesp = String(row[10] || '').trim().toUpperCase();
+      if (/^J\d{2}$/.test(codeDesp)) {
+        if (!divData.Secos[codeDesp]) divData.Secos[codeDesp] = { recibo: {}, despacho: {}, inventario: {} };
+        secosDespWeeks.forEach(w => {
+          divData.Secos[codeDesp].despacho[w.key] = parseFloat(row[w.col]) || 0;
+        });
+      }
+      const codeInv = String(row[19] || '').trim().toUpperCase();
+      if (/^J\d{2}$/.test(codeInv)) {
+        if (!divData.Secos[codeInv]) divData.Secos[codeInv] = { recibo: {}, despacho: {}, inventario: {} };
+        secosInvWeeks.forEach(w => {
+          divData.Secos[codeInv].inventario[w.key] = parseFloat(row[w.col]) || 0;
+        });
+      }
+    }
+
+    // Frescos (filas 37 a 46 aprox)
+    if (rawValues.length >= 40) {
+      const headerRowFrescos = rawValues[37] || [];
+      const fRecWeeks = [], fDespWeeks = [], fInvWeeks = [];
+      for (let c = 2; c <= 9; c++) {
+        const p = parseWeekLabel(headerRowFrescos[c]);
+        if (p) fRecWeeks.push({ col: c, key: `${p.year}-${p.week}` });
+      }
+      for (let c = 11; c <= 18; c++) {
+        const p = parseWeekLabel(headerRowFrescos[c]);
+        if (p) fDespWeeks.push({ col: c, key: `${p.year}-${p.week}` });
+      }
+      for (let c = 20; c <= 27; c++) {
+        const p = parseWeekLabel(headerRowFrescos[c]);
+        if (p) fInvWeeks.push({ col: c, key: `${p.year}-${p.week}` });
+      }
+
+      for (let r = 38; r <= Math.min(46, rawValues.length - 1); r++) {
+        const row = rawValues[r] || [];
+        const codeRec = String(row[1] || '').trim().toUpperCase();
+        if (/^J\d{2}$/.test(codeRec)) {
+          if (!divData.Frescos[codeRec]) divData.Frescos[codeRec] = { recibo: {}, despacho: {}, inventario: {} };
+          fRecWeeks.forEach(w => {
+            divData.Frescos[codeRec].recibo[w.key] = parseFloat(row[w.col]) || 0;
+          });
         }
-      });
+        const codeDesp = String(row[10] || '').trim().toUpperCase();
+        if (/^J\d{2}$/.test(codeDesp)) {
+          if (!divData.Frescos[codeDesp]) divData.Frescos[codeDesp] = { recibo: {}, despacho: {}, inventario: {} };
+          fDespWeeks.forEach(w => {
+            divData.Frescos[codeDesp].despacho[w.key] = parseFloat(row[w.col]) || 0;
+          });
+        }
+        const codeInv = String(row[19] || '').trim().toUpperCase();
+        if (/^J\d{2}$/.test(codeInv)) {
+          if (!divData.Frescos[codeInv]) divData.Frescos[codeInv] = { recibo: {}, despacho: {}, inventario: {} };
+          fInvWeeks.forEach(w => {
+            divData.Frescos[codeInv].inventario[w.key] = parseFloat(row[w.col]) || 0;
+          });
+        }
+      }
+    }
+    return divData;
+  }
+
+  // ══════════════════════════════════════════════
+  // APARTADO DE DIVISIONES: INTERACTIVIDAD & FILTRADO
+  // ══════════════════════════════════════════════
+  function setDivisionFilter(code) {
+    selectedDivision = code;
+
+    // 1. Actualizar estado visual de las 12 tarjetas de división
+    document.querySelectorAll('.division-card').forEach(card => {
+      const cardCode = card.dataset.code;
+      if (selectedDivision) {
+        if (cardCode === selectedDivision) {
+          card.classList.add('active-selected');
+          card.classList.remove('dimmed');
+        } else {
+          card.classList.remove('active-selected');
+          card.classList.add('dimmed');
+        }
+      } else {
+        card.classList.remove('active-selected', 'dimmed');
+      }
+    });
+
+    // 2. Actualizar el indicador de división activa en el encabezado
+    const indicator = document.getElementById('activeDivisionIndicator');
+    const nameEl = document.getElementById('activeDivName');
+    if (indicator && nameEl) {
+      if (selectedDivision) {
+        indicator.style.display = 'inline-flex';
+        nameEl.textContent = `${selectedDivision} · ${DIVISION_NAMES[selectedDivision] || ''}`;
+      } else {
+        indicator.style.display = 'none';
+      }
+    }
+
+    // 3. Si se seleccionó una división, cambiar al tab correspondiente de forma suave
+    if (selectedDivision) {
+      const primaryCd = DIVISION_PRIMARY_CD[selectedDivision] || 'secos';
+      const targetTab = primaryCd === 'frescos' ? 'tab-frescos' : 'tab-secos';
+      const targetBtn = document.querySelector(`.glass-tab-btn[data-target="${targetTab}"]`);
+      if (targetBtn && !targetBtn.classList.contains('active')) {
+        targetBtn.click();
+      }
+    }
+
+    // 4. Re-renderizar el dashboard completo con el filtro de división aplicado
+    renderAll();
+  }
+
+  window.clearDivisionFilter = () => setDivisionFilter(null);
+
+  // Clic en tarjeta de división: activa/desactiva el filtro SIN redirigir a recibo
+  document.querySelectorAll('.division-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const code = card.dataset.code;
+      if (selectedDivision === code) {
+        setDivisionFilter(null);
+      } else {
+        setDivisionFilter(code);
+      }
     });
   });
 
-  // 2. Clic en tarjeta de división: activa el tab respectivo y hace scroll suave
-  document.querySelectorAll('.division-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const cd = card.dataset.cd;
-      const targetTab = cd === 'frescos' ? 'tab-frescos' : 'tab-secos';
-      const targetBtn = document.querySelector(`.glass-tab-btn[data-target="${targetTab}"]`);
-      if (targetBtn) targetBtn.click();
-      const tabEl = document.getElementById(targetTab);
-      if (tabEl) tabEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+  // Botón para limpiar filtro desde el encabezado
+  document.getElementById('btnClearDivisionFilter')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setDivisionFilter(null);
   });
 
   // 3. Botón de colapso/expansión de la grilla de divisiones
@@ -302,6 +494,38 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderSection(prefix, data, cols, filterValue, showLabels, includeFuture = true) {
     if (!data.rows || data.rows.length === 0) return;
 
+    // Banner de división en este tab
+    const bannerEl = document.getElementById(`divFilterBanner${prefix}`);
+    if (bannerEl) {
+      if (selectedDivision) {
+        bannerEl.style.display = 'flex';
+        const divName = DIVISION_NAMES[selectedDivision] || '';
+        const isPrimary = (DIVISION_PRIMARY_CD[selectedDivision] === prefix.toLowerCase());
+        const contextText = isPrimary
+          ? `(CD ${prefix.toUpperCase()} es el centro principal de esta división)`
+          : `(Flujo procesado en CD ${prefix.toUpperCase()})`;
+        bannerEl.innerHTML = `
+          <div class="banner-text">
+            <i class="fa-solid fa-filter text-primary"></i>
+            <span>Filtrando por División: <strong>${selectedDivision} · ${divName}</strong> — ${contextText}</span>
+          </div>
+          <button class="btn-clear-banner" onclick="window.clearDivisionFilter()"><i class="fa-solid fa-xmark"></i> Quitar filtro</button>
+        `;
+      } else {
+        bannerEl.style.display = 'none';
+        bannerEl.innerHTML = '';
+      }
+    }
+
+    // Proporción o datos exactos para la división seleccionada
+    const share = (selectedDivision && DIVISION_SHARE[prefix])
+      ? (DIVISION_SHARE[prefix][selectedDivision] !== undefined ? DIVISION_SHARE[prefix][selectedDivision] : 0)
+      : 1;
+
+    const divExact = (selectedDivision && window.parsedDivisionData?.[prefix]?.[selectedDivision])
+      ? window.parsedDivisionData[prefix][selectedDivision]
+      : null;
+
     // 1. Extraer y estructurar datos
     const allParsed = [];
     data.rows.forEach(row => {
@@ -310,16 +534,42 @@ document.addEventListener('DOMContentLoaded', () => {
       const parsed = parseWeekLabel(label);
       if (!parsed || isNaN(parsed.week) || isNaN(parsed.year)) return;
 
+      const weekKey = `${parsed.year}-${parsed.week}`;
+      let rRec  = parseFloat(row[cols.recibo]) || 0;
+      let rDesp = parseFloat(row[cols.despacho]) || 0;
+      let rInv  = parseFloat(row[cols.inventario]) || 0;
+      let pRec  = parseFloat(row[cols.planRecibo]) || 0;
+      let pDesp = parseFloat(row[cols.planDespacho]) || 0;
+      let pInv  = parseFloat(row[cols.planInv]) || 0;
+
+      if (selectedDivision) {
+        if (divExact) {
+          if (divExact.recibo && divExact.recibo[weekKey] !== undefined) rRec = divExact.recibo[weekKey];
+          else rRec = rRec * share;
+          if (divExact.despacho && divExact.despacho[weekKey] !== undefined) rDesp = divExact.despacho[weekKey];
+          else rDesp = rDesp * share;
+          if (divExact.inventario && divExact.inventario[weekKey] !== undefined) rInv = divExact.inventario[weekKey];
+          else rInv = rInv * share;
+        } else {
+          rRec  = rRec * share;
+          rDesp = rDesp * share;
+          rInv  = rInv * share;
+        }
+        pRec  = pRec * share;
+        pDesp = pDesp * share;
+        pInv  = pInv * share;
+      }
+
       allParsed.push({
         label,
         week: parsed.week,
         year: parsed.year,
-        recibo:       parseFloat(row[cols.recibo]) || 0,
-        despacho:     parseFloat(row[cols.despacho]) || 0,
-        inventario:   parseFloat(row[cols.inventario]) || 0,
-        planRecibo:   parseFloat(row[cols.planRecibo]) || 0,
-        planDespacho: parseFloat(row[cols.planDespacho]) || 0,
-        planInv:      parseFloat(row[cols.planInv]) || 0
+        recibo:       rRec,
+        despacho:     rDesp,
+        inventario:   rInv,
+        planRecibo:   pRec,
+        planDespacho: pDesp,
+        planInv:      pInv
       });
     });
 
@@ -431,14 +681,15 @@ document.addEventListener('DOMContentLoaded', () => {
       { label: `Despacho ${currentYear}`, data: currDespacho, bg: '#ea580c', border: '#c2410c' },
     ], planDespacho.some(v => v > 0) ? { label: 'PLAN DESPACHO', data: planDespacho, color: '#e11d48' } : null, showLabels);
 
-    // 📊 INVENTARIO: Grouped bars — barras agrupadas evitan solapamiento de etiquetas
+    // 📊 INVENTARIO: Grouped bars — barras agrupadas con espacio suficiente
     renderBarChart(`chart${prefix}Inventario`, labels, [
       { label: `Inventario ${prevYear}`, data: prevInventario, bg: 'rgba(148, 163, 184, 0.65)', border: '#94a3b8' },
       { label: `Inventario ${currentYear}`, data: currInventario, bg: '#059669', border: '#047857' },
     ], planInv.some(v => v > 0) ? { label: 'PLAN INV', data: planInv, color: '#0d9488' } : null, showLabels);
 
-    // 8. Tabla Resumen (Muestra hasta 10 semanas para máxima claridad, incluyendo las 4 proyectadas)
-    const tableWeeks = weekNumbers.length <= 10 ? weekNumbers : weekNumbers.slice(-10);
+    // 8. Tabla Resumen: El usuario solicitó explícitamente NO incluir la proyección futura en la tabla,
+    // sino mostrar únicamente las semanas cerradas reales (específicamente las 8 semanas cerradas).
+    const tableWeeks = closedWeeks.length <= 8 ? closedWeeks : closedWeeks.slice(-8);
     renderTable(prefix, tableWeeks, currentYear, prevYear, dataMap, lastDataWeek);
   }
 
@@ -474,7 +725,8 @@ document.addEventListener('DOMContentLoaded', () => {
       despachoPrev = p.despacho || 0;
       invCurr      = c.inventario || 0;
       invPrev      = p.inventario || 0;
-      kpiLabel = `Semana ${w} con datos (${currentYear} vs ${prevYear})${futureWeeksCount > 0 ? ` · +${futureWeeksCount} sem. proyectadas en gráficos` : ''}`;
+      const divTag = selectedDivision ? ` [División: ${selectedDivision} · ${DIVISION_NAMES[selectedDivision] || ''}]` : '';
+      kpiLabel = `Semana ${w} con datos (${currentYear} vs ${prevYear})${divTag}${futureWeeksCount > 0 ? ` · +${futureWeeksCount} sem. proyectadas en gráficos` : ''}`;
     } else {
       // ── MODO PERÍODO COMPLETO: suma/promedio de semanas cerradas ─────
       let totReciboCurr = 0, totReciboPrev = 0;
@@ -503,7 +755,8 @@ document.addEventListener('DOMContentLoaded', () => {
       invCurr      = countInv > 0 ? totInvCurr / countInv : 0;
       invPrev      = closedWeeks.length > 0 ? totInvPrev / closedWeeks.length : 0;
       const proyNote = futureWeeksCount > 0 ? ` + ${futureWeeksCount} proyectadas (Plan)` : '';
-      kpiLabel = `Últimas ${closedWeeks.length} semanas cerradas (${currentYear} vs ${prevYear})${proyNote}`;
+      const divTag = selectedDivision ? ` [División: ${selectedDivision} · ${DIVISION_NAMES[selectedDivision] || ''}]` : '';
+      kpiLabel = `Últimas ${closedWeeks.length} semanas cerradas (${currentYear} vs ${prevYear})${divTag}${proyNote}`;
       semanaRef = null;
     }
 
@@ -561,46 +814,45 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
   function formatNumberBadge(val) {
     if (!val || val === 0) return '';
-    if (val >= 1000000) return (val / 1000000).toFixed(2) + 'M';
-    if (val >= 1000) return Math.round(val / 1000).toLocaleString('es-PE') + 'k';
+    if (val >= 1000000) {
+      const m = val / 1000000;
+      return (m >= 10 ? m.toFixed(1) : m.toFixed(2)) + 'M';
+    }
+    if (val >= 1000) {
+      return Math.round(val / 1000).toLocaleString('es-PE') + 'k';
+    }
     return Math.round(val).toLocaleString('es-PE');
   }
 
-  // ── Fuentes responsivas para datalabels ──────────────────────────────────
-  // Escala con el ancho real del canvas. Valores mínimos y máximos garantizan
-  // legibilidad tanto en móvil (350px) como en pantallas 4K (2400px+).
-  //   divisor bajo  → letra más grande en relación al ancho del chart
-  //   clamp min/max → nunca demasiado pequeño ni demasiado enorme
+  // ── Fuentes responsivas calibradas para que NUNCA se corten los números ──
   const dlFont = {
-    // Barra año anterior (texto oscuro sobre barra clara)
-    barPrev: (ctx) => ({
-      weight: '700',
-      size: Math.max(10, Math.min(16, ctx.chart.width / 62)),
-      family: 'Inter'
-    }),
-    // Barra año actual (texto blanco sobre barra sólida)
-    barCurr: (ctx) => ({
-      weight: '800',
-      size: Math.max(11, Math.min(17, ctx.chart.width / 56)),
-      family: 'Inter'
-    }),
-    // Línea Plan (pill encima de la línea punteada)
-    plan: (ctx) => ({
-      weight: '700',
-      size: Math.max(10, Math.min(14, ctx.chart.width / 72)),
-      family: 'Inter'
-    }),
-    // Área / línea año anterior
+    barPrev: (ctx) => {
+      const w = ctx.chart.width || 800;
+      const count = ctx.chart.data?.labels?.length || 12;
+      const sz = Math.max(9, Math.min(12, (w / count) * 0.155));
+      return { weight: '700', size: sz, family: "'Inter', sans-serif" };
+    },
+    barCurr: (ctx) => {
+      const w = ctx.chart.width || 800;
+      const count = ctx.chart.data?.labels?.length || 12;
+      const sz = Math.max(9.5, Math.min(12.5, (w / count) * 0.165));
+      return { weight: '800', size: sz, family: "'Inter', sans-serif" };
+    },
+    plan: (ctx) => {
+      const w = ctx.chart.width || 800;
+      const count = ctx.chart.data?.labels?.length || 12;
+      const sz = Math.max(9, Math.min(11.5, (w / count) * 0.145));
+      return { weight: '700', size: sz, family: "'Inter', sans-serif" };
+    },
     areaPrev: (ctx) => ({
       weight: '700',
-      size: Math.max(10, Math.min(15, ctx.chart.width / 65)),
-      family: 'Inter'
+      size: 11,
+      family: "'Inter', sans-serif"
     }),
-    // Área / línea año actual
     areaCurr: (ctx) => ({
       weight: '800',
-      size: Math.max(11, Math.min(16, ctx.chart.width / 58)),
-      family: 'Inter'
+      size: 11.5,
+      family: "'Inter', sans-serif"
     })
   };
 
@@ -609,17 +861,17 @@ document.addEventListener('DOMContentLoaded', () => {
       responsive: true,
       maintainAspectRatio: false,
       layout: {
-        padding: { top: showLabels ? 34 : 12, bottom: 5, left: 12, right: 12 }
+        padding: { top: showLabels ? 48 : 14, bottom: 6, left: 14, right: 14 }
       },
       plugins: {
         legend: {
           position: 'top',
-          align: 'center', // Leyenda centrada
+          align: 'center',
           labels: {
             usePointStyle: true,
             boxWidth: 9,
             padding: 18,
-            font: { size: 11.5, weight: '600', family: 'Inter' },
+            font: { size: 11.5, weight: '600', family: "'Inter', sans-serif" },
             color: '#334155'
           }
         },
@@ -643,22 +895,22 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         },
         datalabels: {
-          // Las opciones específicas por dataset tienen prioridad
           display: showLabels,
           clip: false,
-          clamp: true
+          clamp: false
         }
       },
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { weight: '600', size: 11, family: 'Inter' }, color: '#475569' }
+          ticks: { font: { weight: '700', size: 11, family: "'Inter', sans-serif" }, color: '#475569' }
         },
         y: {
           beginAtZero: true,
+          grace: '14%', // Da margen de respiro superior para que no choque el Plan ni las etiquetas
           grid: { color: 'rgba(226, 232, 240, 0.6)' },
           ticks: {
-            font: { size: 10.5, family: 'Inter' },
+            font: { size: 10.5, family: "'Inter', sans-serif" },
             color: '#64748b',
             callback: (v) => formatNumberBadge(v)
           }
@@ -684,15 +936,37 @@ document.addEventListener('DOMContentLoaded', () => {
         borderColor: barSeries[0].border,
         borderWidth: 1.5,
         borderRadius: 6,
-        barPercentage: 0.75,
-        categoryPercentage: 0.8,
+        barPercentage: 0.90,
+        categoryPercentage: 0.88,
         datalabels: {
           display: showLabels,
-          // Dentro de la barra, en el centro — texto oscuro sobre barra clara
-          anchor: 'center',
-          align: 'center',
-          color: '#1e293b',
+          clip: false,
+          clamp: false,
+          anchor: (c) => {
+            const val = c.dataset.data[c.dataIndex];
+            const yAxis = c.chart.scales.y;
+            if (!val || val === 0 || !yAxis) return 'center';
+            const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+            return h < 26 ? 'end' : 'center';
+          },
+          align: (c) => {
+            const val = c.dataset.data[c.dataIndex];
+            const yAxis = c.chart.scales.y;
+            if (!val || val === 0 || !yAxis) return 'center';
+            const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+            return h < 26 ? 'top' : 'center';
+          },
+          offset: (c) => {
+            const val = c.dataset.data[c.dataIndex];
+            const yAxis = c.chart.scales.y;
+            if (!val || val === 0 || !yAxis) return 0;
+            const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+            return h < 26 ? 3 : 0;
+          },
+          color: '#0f172a',
           font: dlFont.barPrev,
+          textStrokeColor: 'rgba(255, 255, 255, 0.95)',
+          textStrokeWidth: 2,
           backgroundColor: null,
           borderWidth: 0,
           formatter: (v) => (v !== null && v > 0) ? formatNumberBadge(v) : ''
@@ -706,15 +980,37 @@ document.addEventListener('DOMContentLoaded', () => {
         borderColor: barSeries[1].border,
         borderWidth: 1.5,
         borderRadius: 6,
-        barPercentage: 0.75,
-        categoryPercentage: 0.8,
+        barPercentage: 0.90,
+        categoryPercentage: 0.88,
         datalabels: {
           display: showLabels,
-          // Dentro de la barra sólida, centrado — texto blanco siempre legible
-          anchor: 'center',
-          align: 'center',
+          clip: false,
+          clamp: false,
+          anchor: (c) => {
+            const val = c.dataset.data[c.dataIndex];
+            const yAxis = c.chart.scales.y;
+            if (!val || val === 0 || !yAxis) return 'center';
+            const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+            return h < 26 ? 'end' : 'center';
+          },
+          align: (c) => {
+            const val = c.dataset.data[c.dataIndex];
+            const yAxis = c.chart.scales.y;
+            if (!val || val === 0 || !yAxis) return 'center';
+            const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+            return h < 26 ? 'top' : 'center';
+          },
+          offset: (c) => {
+            const val = c.dataset.data[c.dataIndex];
+            const yAxis = c.chart.scales.y;
+            if (!val || val === 0 || !yAxis) return 0;
+            const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+            return h < 26 ? 3 : 0;
+          },
           color: '#ffffff',
           font: dlFont.barCurr,
+          textStrokeColor: 'rgba(15, 23, 42, 0.75)',
+          textStrokeWidth: 1.5,
           backgroundColor: null,
           borderWidth: 0,
           formatter: (v) => (v !== null && v > 0) ? formatNumberBadge(v) : ''
@@ -736,17 +1032,18 @@ document.addEventListener('DOMContentLoaded', () => {
         tension: 0.25,
         datalabels: {
           display: showLabels,
-          // Plan encima de la línea punteada
+          clip: false,
+          clamp: false,
           align: 'top',
           anchor: 'end',
-          offset: 4,
-          backgroundColor: 'rgba(255,255,255,0.92)',
+          offset: 5,
+          backgroundColor: 'rgba(255, 255, 255, 0.96)',
           borderColor: planLine.color,
-          borderWidth: 1,
+          borderWidth: 1.2,
           color: planLine.color,
           font: dlFont.plan,
-          borderRadius: 3,
-          padding: { top: 2, bottom: 2, left: 5, right: 5 },
+          borderRadius: 4,
+          padding: { top: 2, bottom: 2, left: 4, right: 4 },
           formatter: (v) => (v !== null && v > 0) ? `P: ${formatNumberBadge(v)}` : ''
         }
       });
@@ -867,23 +1164,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let html = `
       <div class="table-wrapper-title">
         <i class="fa-solid fa-table-list text-primary"></i>
-        <span>Detalle Comparativo Semanal (${currentYear} vs ${prevYear}) + Proyección Plan</span>
+        <span>Detalle Corporativo Semanal (${currentYear} vs ${prevYear}) · Últimas ${weekNumbers.length} Semanas Cerradas</span>
       </div>
       <table class="data-table">
         <thead>
           <tr>
-            <th style="min-width: 150px;">Métrica / Proceso</th>
+            <th style="min-width: 160px;">Métrica / Proceso</th>
     `;
     
     weekNumbers.forEach(w => {
-      const isFuture = w > lastDataWeek;
-      if (isFuture) {
-        html += `<th style="background:#eff6ff; color:#1d4ed8; border-bottom: 2px solid #3b82f6;">S${w} <span style="font-size:0.72rem; font-weight:700; color:#2563eb; display:block;">(Plan Proy)</span></th>`;
-      } else {
-        html += `<th>S${w} (${currentYear})</th>`;
-      }
+      html += `<th>S${w} (${currentYear})</th>`;
     });
-    html += `<th style="min-width:130px; background:#f8fafc;">Total / Prom. (Cerradas)</th></tr></thead><tbody>`;
+    html += `<th style="min-width:140px; background:#f8fafc;">Total / Prom. (${weekNumbers.length} Sem.)</th></tr></thead><tbody>`;
 
     const metrics = [
       { key: 'recibo', planKey: 'planRecibo', label: '📦 RECIBO', color: '#2563eb' },
@@ -897,29 +1189,23 @@ document.addEventListener('DOMContentLoaded', () => {
       let sumCurr = 0;
       let countCurr = 0;
       weekNumbers.forEach(w => {
-        const isFuture = w > lastDataWeek;
-        if (isFuture) {
-          html += `<td style="color:#94a3b8; font-style:italic; background:#f8fafc;">--</td>`;
-        } else {
-          const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][m.key] : 0;
-          sumCurr += val;
-          countCurr++;
-          html += `<td style="font-weight:600;">${Math.round(val).toLocaleString('es-PE')}</td>`;
-        }
+        const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][m.key] : 0;
+        sumCurr += val;
+        countCurr++;
+        html += `<td style="font-weight:600;">${Math.round(val).toLocaleString('es-PE')}</td>`;
       });
       const avgOrSumCurr = m.key === 'inventario' ? (countCurr > 0 ? sumCurr / countCurr : 0) : sumCurr;
       html += `<td style="font-weight:800; background:#f1f5f9;">${Math.round(avgOrSumCurr).toLocaleString('es-PE')}</td></tr>`;
 
-      // 2. Fila Plan (Metas / Proyección)
-      html += `<tr style="color:#0284c7; background:rgba(239, 246, 255, 0.35);"><td style="font-weight:600; padding-left: 20px;">└ Plan Proyectado</td>`;
+      // 2. Fila Plan (Metas del período cerrado)
+      html += `<tr style="color:#0284c7; background:rgba(239, 246, 255, 0.35);"><td style="font-weight:600; padding-left: 20px;">└ Plan Objetivo</td>`;
       let sumPlan = 0;
       let countPlan = 0;
       weekNumbers.forEach(w => {
-        const isFuture = w > lastDataWeek;
         const val = dataMap[`${currentYear}-${w}`] ? dataMap[`${currentYear}-${w}`][m.planKey] : 0;
-        if (!isFuture) { sumPlan += val; countPlan++; }
-        const highlightStyle = isFuture ? 'font-weight:700; color:#1d4ed8; background:rgba(219, 234, 254, 0.5);' : '';
-        html += `<td style="${highlightStyle}">${val > 0 ? Math.round(val).toLocaleString('es-PE') : '--'}</td>`;
+        sumPlan += val;
+        countPlan++;
+        html += `<td>${val > 0 ? Math.round(val).toLocaleString('es-PE') : '--'}</td>`;
       });
       const avgOrSumPlan = m.key === 'inventario' ? (countPlan > 0 ? sumPlan / countPlan : 0) : sumPlan;
       html += `<td style="font-weight:700; background:#eff6ff;">${Math.round(avgOrSumPlan).toLocaleString('es-PE')}</td></tr>`;
@@ -929,9 +1215,9 @@ document.addEventListener('DOMContentLoaded', () => {
       let sumPrev = 0;
       let countPrev = 0;
       weekNumbers.forEach(w => {
-        const isFuture = w > lastDataWeek;
         const val = dataMap[`${prevYear}-${w}`] ? dataMap[`${prevYear}-${w}`][m.key] : 0;
-        if (!isFuture) { sumPrev += val; countPrev++; }
+        sumPrev += val;
+        countPrev++;
         html += `<td>${val > 0 ? Math.round(val).toLocaleString('es-PE') : '--'}</td>`;
       });
       const avgOrSumPrev = m.key === 'inventario' ? (countPrev > 0 ? sumPrev / countPrev : 0) : sumPrev;
