@@ -189,6 +189,100 @@ function normalizeDiaStr(dVal, fVal) {
   return '';
 }
 
+function extractTurnoFromRow(row, rawFecha) {
+  const explicitTurno = String(getRowVal(row, ['TURNO', 'HORARIO', 'SENTIDO', 'GUARDIA']) || '').trim();
+  if (explicitTurno) return explicitTurno.toUpperCase();
+
+  // Revisar si hay hora en objeto Date
+  if (rawFecha instanceof Date && !isNaN(rawFecha.getTime())) {
+    const h = rawFecha.getHours();
+    return h < 12 ? 'MAÑANA' : (h < 19 ? 'TARDE' : 'NOCHE');
+  }
+
+  // Revisar si es número de serie de Excel con fracción horaria
+  if (typeof rawFecha === 'number' || /^\d+(\.\d+)?$/.test(String(rawFecha).trim())) {
+    const num = parseFloat(rawFecha);
+    if (num > 25569) {
+      const frac = num - Math.floor(num);
+      const h = Math.floor(frac * 24);
+      return h < 12 ? 'MAÑANA' : (h < 19 ? 'TARDE' : 'NOCHE');
+    }
+  }
+
+  // Buscar formato HH:mm o H:mm en columna HORA o en FECHA
+  const rawHora = getRowVal(row, ['HORA', 'HORA_VIAJE', 'TIME']);
+  const textToParse = String(rawHora || rawFecha || '').trim();
+  const timeMatch = textToParse.match(/(?:^|\s|[A-Za-z])(\d{1,2}):(\d{2})/);
+  if (timeMatch) {
+    const h = parseInt(timeMatch[1], 10);
+    return h < 12 ? 'MAÑANA' : (h < 19 ? 'TARDE' : 'NOCHE');
+  }
+  return '';
+}
+
+function buildDominantRouteMap(rows) {
+  const map = {};
+  if (!rows || !Array.isArray(rows)) return map;
+  rows.forEach(r => {
+    const rawF = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
+    const f = normalizeDateStr(rawF);
+    const t = extractTurnoFromRow(r, rawF);
+    const rt = String(getRowVal(r, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
+    if (f && rt && rt.toUpperCase() !== 'SIN RUTA' && rt.toUpperCase() !== 'N/D') {
+      const normRt = rt.toUpperCase().startsWith('RUTA') ? rt.toUpperCase() : `RUTA ${rt.toUpperCase()}`;
+      const key = `${f}|${t}`;
+      if (!map[key]) map[key] = {};
+      map[key][normRt] = (map[key][normRt] || 0) + 1;
+    }
+  });
+
+  const finalDominant = {};
+  Object.keys(map).forEach(k => {
+    const routesObj = map[k];
+    let topRuta = '';
+    let maxC = -1;
+    Object.keys(routesObj).forEach(rt => {
+      if (routesObj[rt] > maxC) {
+        maxC = routesObj[rt];
+        topRuta = rt;
+      }
+    });
+    if (topRuta) finalDominant[k] = topRuta;
+  });
+  return finalDominant;
+}
+
+function resolveRutaFromRow(row, cleanPassengerDni, rawDni, dominantMap, fechaSoloDia, turnoVal) {
+  let rutaRaw = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
+  if (rutaRaw && rutaRaw.toUpperCase() !== 'SIN RUTA' && rutaRaw.toUpperCase() !== 'N/D' && rutaRaw.toUpperCase() !== 'RUTA DESCONOCIDA') {
+    return rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : `RUTA ${rutaRaw.toUpperCase()}`;
+  }
+
+  // 1. Buscar en BD Maestra de empleados por DNI
+  if (AppState && AppState.employeeMap) {
+    const emp = AppState.employeeMap.get(cleanPassengerDni) || (rawDni ? AppState.employeeMap.get(String(rawDni).trim().toUpperCase()) : null);
+    if (emp) {
+      const empRuta = String(emp.ruta || emp.linea || '').trim();
+      if (empRuta && empRuta.toUpperCase() !== 'SIN RUTA' && empRuta.toUpperCase() !== 'N/D') {
+        return empRuta.toUpperCase().startsWith('RUTA') ? empRuta.toUpperCase() : `RUTA ${empRuta.toUpperCase()}`;
+      }
+    }
+  }
+
+  // 2. Buscar en la ruta dominante de esa fecha y turno
+  const key = `${fechaSoloDia}|${turnoVal}`;
+  if (dominantMap && dominantMap[key]) {
+    return dominantMap[key];
+  }
+  // Buscar en cualquier turno de esa misma fecha
+  if (dominantMap) {
+    const matchDateKey = Object.keys(dominantMap).find(k => k.startsWith(`${fechaSoloDia}|`));
+    if (matchDateKey) return dominantMap[matchDateKey];
+  }
+
+  return 'RUTA 5A';
+}
+
 function getWeekBounds(dateDMYStr) {
   const ts = parseDateDMY(dateDMYStr);
   if (!ts) return null;
@@ -1207,7 +1301,8 @@ function applyFilters() {
   AppState.fechaSeleccionada = valFecha;
 
   // Agrupación de viajes de buses
-  // Cada viaje de bus se identifica por fecha + ruta (+ tipoBus si aplica)
+  // Cada viaje de bus se identifica por fecha + turno + ruta (+ tipoBus si aplica)
+  const dominantMap = buildDominantRouteMap(AppState.rawRegistroDiario);
   const aggrMap = {};
   let aggrTripIdx = 0;
   AppState.rawRegistroDiario.forEach(row => {
@@ -1227,12 +1322,8 @@ function applyFilters() {
     }
     if (valFecha !== 'TODAS' && fechaSoloDia !== valFecha) return;
 
-    const rutaValRaw = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
-    if (!rutaValRaw) return;
-    const rutaVal = rutaValRaw.toUpperCase().startsWith('RUTA') ? rutaValRaw.toUpperCase() : `RUTA ${rutaValRaw.toUpperCase()}`;
-
     const tipoBusVal = String(getRowVal(row, ['TIPO_BUS', 'TIPO BUS', 'BUS_TIPO']) || '').trim();
-    const turnoVal = String(getRowVal(row, ['TURNO', 'HORA', 'HORARIO', 'SENTIDO']) || '').trim();
+    const turnoVal = extractTurnoFromRow(row, rawFecha);
     const placaVal = String(getRowVal(row, ['PLACA', 'UNIDAD', 'VEHICULO']) || '').trim();
 
     const rawRowDni = getRowVal(row, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
@@ -1244,17 +1335,22 @@ function applyFilters() {
       (rawNombre && rawNombre.length >= 3 && !rawNombre.toUpperCase().includes('TOTAL'))
     );
 
+    const rawPasajCol = getRowVal(row, ['PASAJEROS', 'TOTAL PASAJEROS', 'PASAJ', 'CANTIDAD PASAJEROS', 'CANT_PASAJEROS']);
+    const numPasajCol = parseFloat(String(rawPasajCol || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    if (!isPassengerRow && numPasajCol <= 0) return;
+
+    const rutaVal = resolveRutaFromRow(row, dniClean, rawRowDni, dominantMap, fechaSoloDia, turnoVal);
+
     const tripKey = isPassengerRow
       ? `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}${turnoVal ? '|' + turnoVal : ''}${placaVal ? '|' + placaVal : ''}`
       : `${fechaSoloDia}|${rutaVal}|${tipoBusVal || 'BUS'}|${aggrTripIdx++}`;
 
-    if (!aggrMap[tripKey]) {
-      const rawCosto = getRowVal(row, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL', 'COSTO IDA Y VUELTA']);
-      const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
-      const rawCap = getRowVal(row, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
-      const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
-      const semVal = parseInt(getRowVal(row, ['SEMANA', 'SEM'])) || 0;
+    const rawCosto = getRowVal(row, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL', 'COSTO IDA Y VUELTA']);
+    const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    const rawCap = getRowVal(row, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
+    const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
 
+    if (!aggrMap[tripKey]) {
       aggrMap[tripKey] = {
         dia: diaValNorm || rawDia || '',
         fecha: fechaSoloDia,
@@ -1266,6 +1362,13 @@ function applyFilters() {
         totalPasajeros: 0,
         pasajerosFiltrados: 0
       };
+    } else {
+      if (costoNum > 0 && (!aggrMap[tripKey].costoBus || aggrMap[tripKey].costoBus === 0)) {
+        aggrMap[tripKey].costoBus = costoNum;
+      }
+      if (capNum > 0 && (!aggrMap[tripKey].capacidad || aggrMap[tripKey].capacidad === 0 || aggrMap[tripKey].capacidad === 50)) {
+        aggrMap[tripKey].capacidad = capNum;
+      }
     }
 
     const trip = aggrMap[tripKey];
@@ -2491,18 +2594,15 @@ function renderAnalisisCostos() {
   }
 
   // 3. Agrupar registros por Despacho de Bus (Trip) y contabilizar pasajeros reales
+  const dominantMap = buildDominantRouteMap(rawRows);
   const tripsMap = {};
   let anonymousTripCounter = 0;
   let totalPasajerosSemana = 0;
   const uniqueColaboradoresSet = new Set();
 
   rawRows.forEach(r => {
-    const rutaRaw = String(getRowVal(r, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
     const rawFecha = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
     const fechaSoloDia = normalizeDateStr(rawFecha);
-
-    // Omitir filas sin ruta ni fecha (filas residuales o vacías de fórmulas)
-    if (!rutaRaw && !fechaSoloDia) return;
 
     const s = parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10);
     const rawDia = getRowVal(r, ['DÍA', 'DIA', 'DAY']);
@@ -2522,9 +2622,8 @@ function renderAnalisisCostos() {
       if (fechaSoloDia !== valFecha) return;
     }
 
-    const ruta = rutaRaw.toUpperCase().startsWith('RUTA') ? rutaRaw.toUpperCase() : (rutaRaw ? `RUTA ${rutaRaw.toUpperCase()}` : 'RUTA DESCONOCIDA');
     const tipoBusVal = String(getRowVal(r, ['TIPO_BUS', 'TIPO BUS', 'BUS_TIPO']) || '').trim();
-    const turnoVal = String(getRowVal(r, ['TURNO', 'HORA', 'HORARIO', 'SENTIDO']) || '').trim();
+    const turnoVal = extractTurnoFromRow(r, rawFecha);
     const placaVal = String(getRowVal(r, ['PLACA', 'UNIDAD', 'VEHICULO']) || '').trim();
 
     // DNI y Nombre del colaborador
@@ -2545,6 +2644,8 @@ function renderAnalisisCostos() {
     // Si la fila no tiene pasajero real ni cantidad de pasajeros > 0, se descarta (previene contar filas en blanco/totales)
     if (!isPassengerRow && numPasajCol <= 0) return;
 
+    const ruta = resolveRutaFromRow(r, dniClean, rawRowDni, dominantMap, fechaSoloDia, turnoVal);
+
     // Comprobar si el pasajero cumple los filtros demográficos (Área / Tipo / BD Maestra)
     let passengerMatches = false;
     if (!isDemographicFiltered) {
@@ -2562,12 +2663,12 @@ function renderAnalisisCostos() {
       ? `${fechaSoloDia || 'FECHA'}|${ruta}|${tipoBusVal || 'BUS'}${turnoVal ? '|' + turnoVal : ''}${placaVal ? '|' + placaVal : ''}`
       : `${fechaSoloDia || 'FECHA'}|${ruta}|${tipoBusVal || 'BUS'}|trip_${anonymousTripCounter++}`;
 
-    if (!tripsMap[tripKey]) {
-      const rawCap = getRowVal(r, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
-      const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
-      const rawCosto = getRowVal(r, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL']);
-      const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    const rawCap = getRowVal(r, ['CAPACIDAD', 'CAPACIDAD DE BUS', 'CAPACIDAD BUS', 'CAPACIDAD_BUS']);
+    const capNum = parseFloat(String(rawCap || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    const rawCosto = getRowVal(r, ['COSTO TOTAL', 'COSTO', 'COSTO POR VIAJE', 'COSTO BUS', 'COSTO_TOTAL']);
+    const costoNum = parseFloat(String(rawCosto || '0').replace(/[^0-9.-]+/g, "")) || 0;
 
+    if (!tripsMap[tripKey]) {
       tripsMap[tripKey] = {
         tripKey,
         fecha: fechaSoloDia,
@@ -2579,6 +2680,13 @@ function renderAnalisisCostos() {
         pasajerosFiltrados: 0,
         pasajerosList: []
       };
+    } else {
+      if (costoNum > 0 && (!tripsMap[tripKey].costo || tripsMap[tripKey].costo === 0)) {
+        tripsMap[tripKey].costo = costoNum;
+      }
+      if (capNum > 0 && (!tripsMap[tripKey].capacidad || tripsMap[tripKey].capacidad === 0 || tripsMap[tripKey].capacidad === 50)) {
+        tripsMap[tripKey].capacidad = capNum;
+      }
     }
 
     const trip = tripsMap[tripKey];
