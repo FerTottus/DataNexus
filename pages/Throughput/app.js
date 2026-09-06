@@ -1313,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', () => {
     weekNumbers.forEach(w => {
       html += `<th>S${w} (${currentYear})</th>`;
     });
-    html += `<th style="min-width:150px; background:#f8fafc;">Promedio Semanal (${weekNumbers.length} Sem.)</th></tr></thead><tbody>`;
+    html += `<th style="min-width:105px; background:#f8fafc;">Promedio</th></tr></thead><tbody>`;
 
     const metrics = [
       { key: 'recibo', planKey: 'planRecibo', label: '📦 RECIBO', color: '#2563eb' },
