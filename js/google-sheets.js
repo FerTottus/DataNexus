@@ -310,35 +310,71 @@ const GoogleSheetsService = {
       return { headers: [], rows: [], rawValues: [] };
     }
 
-    // Encontrar la primera fila que tenga datos (para usarla como cabecera)
-    // Esto previene errores si la Fila 1 de Excel está totalmente en blanco
-    let headerRowIndex = 0;
-    let rawHeaders = [];
-    let lastValidColIndex = -1;
+    // Identificar inteligentemente la fila de cabeceras en las primeras 10 filas.
+    // Esto evita confundir filas de título, anotaciones aisladas (ej. texto suelto en P1)
+    // o nombres de tablas de Excel ("Tabla6" en A1) con las verdaderas cabeceras del sistema.
+    const COMMON_HEADER_KEYWORDS = [
+      'DNI', 'FECHA', 'DATE', 'SEMANA', 'SEM', 'RUTA', 'RUTAS', 'DÍA', 'DIA', 'DAY',
+      'NOMBRE', 'NOMBRES', 'APELLIDO', 'APELLIDOS', 'COLABORADOR', 'EMPLEADO', 'TRABAJADOR',
+      'DIST', 'DISTRITO', 'TURNO', 'TIPO', 'TIPO_BUS', 'VEHICULO', 'COSTO', 'TARIFA',
+      'CAPACIDAD', 'CAP', 'CANTIDAD', 'OBSERVACIONES', 'COORDENADAS', 'LAT', 'LNG', 'LON',
+      'PARADERO', 'CLASIFICACION', 'CLASIFICACIÓN', 'AREA', 'ÁREA', 'SECUENCIA', 'ORDEN',
+      'CODIGO', 'CÓDIGO', 'ID', 'USERID', 'USER ID', 'DOCUMENTO', 'HORA', 'ESTADO', 'PLACA',
+      'LINEA', 'TOTAL', 'DESCRIPCION', 'PASAJEROS'
+    ];
 
-    for (let r = 0; r < Math.min(values.length, 10); r++) {
+    let headerRowIndex = -1;
+    let lastValidColIndex = -1;
+    let bestScore = -1;
+
+    const maxScanRows = Math.min(values.length, 10);
+
+    for (let r = 0; r < maxScanRows; r++) {
       const row = values[r] || [];
-      let maxCol = -1;
-      let dataCount = 0;
+      let rowMaxCol = -1;
+      let nonBlankCount = 0;
+      let keywordHits = 0;
+
       for (let c = 0; c < row.length; c++) {
-        if (row[c] !== null && row[c] !== undefined && String(row[c]).trim() !== '') {
-          maxCol = c;
-          dataCount++;
+        const val = row[c];
+        if (val !== null && val !== undefined && String(val).trim() !== '') {
+          rowMaxCol = c;
+          nonBlankCount++;
+
+          const strVal = String(val).trim().toUpperCase();
+          const isKeyword = COMMON_HEADER_KEYWORDS.some(kw => 
+            strVal === kw || 
+            strVal.startsWith(kw + ' ') || 
+            strVal.endsWith(' ' + kw) || 
+            strVal.includes('_' + kw) || 
+            strVal.includes(kw + '_') ||
+            strVal.includes('/' + kw) ||
+            strVal.includes(kw + '/')
+          );
+          if (isKeyword) {
+            keywordHits++;
+          }
         }
       }
-      // Si la fila tiene al menos 2 columnas con texto, asumimos que es la cabecera
-      // (O si es la única que tiene algo)
-      if (dataCount >= 2 || (dataCount > 0 && lastValidColIndex === -1)) {
-        headerRowIndex = r;
-        rawHeaders = row;
-        lastValidColIndex = maxCol;
-        break; // Encontramos la cabecera
+
+      if (nonBlankCount > 0) {
+        // Puntuación ponderada:
+        // - 20 puntos por cada palabra clave típica de cabecera encontrada
+        // - 1 punto por cada columna no vacía
+        const score = (keywordHits * 20) + nonBlankCount;
+        if (score > bestScore) {
+          bestScore = score;
+          headerRowIndex = r;
+          lastValidColIndex = rowMaxCol;
+        }
       }
     }
 
-    if (lastValidColIndex === -1) {
+    if (headerRowIndex === -1 || lastValidColIndex === -1) {
       return { headers: [], rows: [], rawValues: values }; // Hoja totalmente en blanco
     }
+
+    const rawHeaders = values[headerRowIndex] || [];
 
     // Construir cabeceras solo hasta la última columna válida
     const headers = [];
