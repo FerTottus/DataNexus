@@ -1776,12 +1776,42 @@ function renderTables() {
   initTableScrollInteractions();
 }
 
+let activeAutoscroll = null;
+
+function stopAutoscroll() {
+  if (!activeAutoscroll) return;
+  if (activeAutoscroll.animId) cancelAnimationFrame(activeAutoscroll.animId);
+  if (activeAutoscroll.anchorEl && activeAutoscroll.anchorEl.parentNode) {
+    activeAutoscroll.anchorEl.parentNode.removeChild(activeAutoscroll.anchorEl);
+  }
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+  activeAutoscroll = null;
+}
+
 function initTableScrollInteractions() {
+  if (!window._autoscrollGlobalBound) {
+    window._autoscrollGlobalBound = true;
+    window.addEventListener('click', (e) => {
+      if (activeAutoscroll && e.timeStamp - activeAutoscroll.startTime > 120) {
+        stopAutoscroll();
+      }
+    }, true);
+    window.addEventListener('mousedown', (e) => {
+      if (activeAutoscroll && e.button !== 1 && e.timeStamp - activeAutoscroll.startTime > 120) {
+        stopAutoscroll();
+      }
+    }, true);
+    window.addEventListener('keydown', (e) => {
+      if (activeAutoscroll) stopAutoscroll();
+    });
+  }
+
   document.querySelectorAll('.table-responsive').forEach(container => {
     if (container.dataset.scrollEnhanced === 'true') return;
     container.dataset.scrollEnhanced = 'true';
 
-    // 1. Scroll horizontal fluido con la rueda del mouse en cualquier punto de la tabla (encabezado o filas)
+    // 1. Scroll horizontal automático al girar la rueda del mouse (wheel)
     container.addEventListener('wheel', (e) => {
       if (container.scrollWidth > container.clientWidth) {
         if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -1791,36 +1821,72 @@ function initTableScrollInteractions() {
       }
     }, { passive: false });
 
-    // 2. Control de arrastre con la ruedita del mouse (Middle Click - Botón 1)
-    let isMiddleDragging = false;
-    let startX = 0;
-    let startScrollLeft = 0;
-
+    // 2. Modo Autoscroll con un solo clic de la ruedita (sin mantener presionado)
     container.addEventListener('mousedown', (e) => {
-      if (e.button === 1) { // Ruedita presionada
+      if (e.button === 1) { // Ruedita presionada una sola vez
         e.preventDefault();
-        isMiddleDragging = true;
-        startX = e.clientX;
-        startScrollLeft = container.scrollLeft;
-        container.style.cursor = 'all-scroll';
+        e.stopPropagation();
+
+        if (activeAutoscroll) {
+          stopAutoscroll();
+          return;
+        }
+
+        if (container.scrollWidth <= container.clientWidth) return;
+
+        // Crear pin visual con flechas en la posición exacta del clic
+        const anchor = document.createElement('div');
+        anchor.className = 'table-autoscroll-anchor';
+        anchor.style.left = `${e.clientX}px`;
+        anchor.style.top = `${e.clientY}px`;
+        anchor.innerHTML = `
+          <div class="autoscroll-pin">
+            <i class="fa-solid fa-arrows-left-right"></i>
+          </div>
+        `;
+        document.body.appendChild(anchor);
+
+        document.body.style.cursor = 'all-scroll';
         document.body.style.userSelect = 'none';
-      }
-    });
 
-    window.addEventListener('mousemove', (e) => {
-      if (!isMiddleDragging) return;
-      const walk = (e.clientX - startX) * 1.6;
-      container.scrollLeft = startScrollLeft - walk;
-    });
+        activeAutoscroll = {
+          container,
+          originX: e.clientX,
+          anchorEl: anchor,
+          startTime: e.timeStamp,
+          velocity: 0,
+          animId: null
+        };
 
-    window.addEventListener('mouseup', (e) => {
-      if (isMiddleDragging) {
-        isMiddleDragging = false;
-        container.style.cursor = '';
-        document.body.style.userSelect = '';
+        function loop() {
+          if (!activeAutoscroll) return;
+          if (activeAutoscroll.velocity !== 0) {
+            container.scrollLeft += activeAutoscroll.velocity;
+          }
+          activeAutoscroll.animId = requestAnimationFrame(loop);
+        }
+        activeAutoscroll.animId = requestAnimationFrame(loop);
       }
     });
   });
+
+  if (!window._autoscrollMoveBound) {
+    window._autoscrollMoveBound = true;
+    window.addEventListener('mousemove', (e) => {
+      if (!activeAutoscroll) return;
+      const diffX = e.clientX - activeAutoscroll.originX;
+
+      // Zona muerta de 6px en el centro
+      if (Math.abs(diffX) > 6) {
+        const sign = diffX > 0 ? 1 : -1;
+        const dist = Math.abs(diffX) - 6;
+        // Velocidad progresiva según qué tan lejos se mueva el mouse
+        activeAutoscroll.velocity = sign * Math.min(32, Math.pow(dist, 1.15) * 0.12);
+      } else {
+        activeAutoscroll.velocity = 0;
+      }
+    });
+  }
 }
 
 function initCharts() {
