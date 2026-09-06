@@ -988,12 +988,23 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   };
 
+  function shouldShowDataLabel(ctx, userShowLabels) {
+    if (!userShowLabels) return false;
+    const chartW = ctx.chart.width || 400;
+    const labelCount = ctx.chart.data?.labels?.length || 1;
+    const pxPerWeek = chartW / labelCount;
+    // Si hay menos de 28px de ancho por semana en la pantalla (como 40 semanas en móvil o tablet),
+    // ocultamos los rótulos automáticos para que no se empasten ni tapen las barras.
+    // El usuario siempre puede tocar cualquier barra para ver el detalle en el tooltip interactivo.
+    return pxPerWeek >= 28;
+  }
+
   function getBaseChartOptions(showLabels) {
     return {
       responsive: true,
       maintainAspectRatio: false,
       layout: {
-        padding: { top: showLabels ? 48 : 14, bottom: 6, left: 14, right: 14 }
+        padding: { top: showLabels ? 42 : 14, bottom: 6, left: 12, right: 12 }
       },
       plugins: {
         legend: {
@@ -1027,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         },
         datalabels: {
-          display: showLabels,
+          display: (c) => shouldShowDataLabel(c, showLabels),
           clip: false,
           clamp: false
         }
@@ -1071,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
         barPercentage: 0.90,
         categoryPercentage: 0.88,
         datalabels: {
-          display: showLabels,
+          display: (c) => shouldShowDataLabel(c, showLabels),
           clip: false,
           clamp: false,
           anchor: (c) => {
@@ -1115,7 +1126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         barPercentage: 0.90,
         categoryPercentage: 0.88,
         datalabels: {
-          display: showLabels,
+          display: (c) => shouldShowDataLabel(c, showLabels),
           clip: false,
           clamp: false,
           anchor: (c) => {
@@ -1163,7 +1174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pointBackgroundColor: planLine.color,
         tension: 0.25,
         datalabels: {
-          display: showLabels,
+          display: (c) => shouldShowDataLabel(c, showLabels),
           clip: false,
           clamp: false,
           align: 'top',
@@ -1207,7 +1218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pointRadius: 3.5,
         pointBackgroundColor: areaSeries[0].border,
         datalabels: {
-          display: showLabels,
+          display: (c) => shouldShowDataLabel(c, showLabels),
           // Año anterior: etiqueta debajo del punto
           anchor: 'start',
           align: 'bottom',
@@ -1234,7 +1245,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pointRadius: 4,
         pointBackgroundColor: areaSeries[1].border,
         datalabels: {
-          display: showLabels,
+          display: (c) => shouldShowDataLabel(c, showLabels),
           // Año actual: etiqueta arriba del punto con color de la serie
           anchor: 'end',
           align: 'top',
@@ -1264,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pointBackgroundColor: planLine.color,
         tension: 0.25,
         datalabels: {
-          display: showLabels,
+          display: (c) => shouldShowDataLabel(c, showLabels),
           align: 'top',
           anchor: 'end',
           offset: 10,
@@ -1300,20 +1311,26 @@ document.addEventListener('DOMContentLoaded', () => {
       : '';
 
     let html = `
-      <div class="table-wrapper-title">
-        <i class="fa-solid fa-table-list text-primary"></i>
-        <span>Detalle Corporativo Semanal (${currentYear} vs ${prevYear}) · Últimas ${weekNumbers.length} Semanas Cerradas${divTableTag}</span>
+      <div class="table-card-header">
+        <div class="table-wrapper-title">
+          <i class="fa-solid fa-table-list text-primary"></i>
+          <span>Detalle Corporativo Semanal (${currentYear} vs ${prevYear}) · Últimas ${weekNumbers.length} Semanas Cerradas${divTableTag}</span>
+        </div>
+        <span class="table-scroll-hint">
+          <i class="fa-solid fa-arrows-left-right text-primary"></i> Desliza para ver más semanas
+        </span>
       </div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th style="min-width: 160px;">Métrica / Proceso</th>
+      <div class="table-scroll-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="col-sticky">Métrica / Proceso</th>
     `;
     
     weekNumbers.forEach(w => {
       html += `<th>S${w} (${currentYear})</th>`;
     });
-    html += `<th style="min-width:105px; background:#f8fafc;">Promedio</th></tr></thead><tbody>`;
+    html += `<th class="col-promedio">Promedio</th></tr></thead><tbody>`;
 
     const metrics = [
       { key: 'recibo', planKey: 'planRecibo', label: '📦 RECIBO', color: '#2563eb' },
@@ -1323,7 +1340,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     metrics.forEach(m => {
       // 1. Fila Actual (Real) - Promedio Semanal
-      html += `<tr><td style="color:${m.color}; font-weight:700;">${m.label} ${currentYear} (Real)</td>`;
+      html += `<tr><td class="col-sticky" style="color:${m.color}; font-weight:700;">${m.label} ${currentYear} (Real)</td>`;
       let sumCurr = 0;
       let countCurr = 0;
       weekNumbers.forEach(w => {
@@ -1333,10 +1350,10 @@ document.addEventListener('DOMContentLoaded', () => {
         html += `<td style="font-weight:600;">${Math.round(val).toLocaleString('es-PE')}</td>`;
       });
       const avgCurr = countCurr > 0 ? sumCurr / countCurr : (weekNumbers.length > 0 ? sumCurr / weekNumbers.length : 0);
-      html += `<td style="font-weight:800; background:#f1f5f9;">${Math.round(avgCurr).toLocaleString('es-PE')}</td></tr>`;
+      html += `<td class="col-promedio" style="font-weight:800; background:#f1f5f9;">${Math.round(avgCurr).toLocaleString('es-PE')}</td></tr>`;
 
       // 2. Fila Plan (Metas del período cerrado) - Promedio Semanal
-      html += `<tr style="color:#0284c7; background:rgba(239, 246, 255, 0.35);"><td style="font-weight:600; padding-left: 20px;">└ Plan Objetivo</td>`;
+      html += `<tr style="color:#0284c7; background:rgba(239, 246, 255, 0.35);"><td class="col-sticky" style="font-weight:600; padding-left: 20px; color:#0284c7; background:#eff6ff;">└ Plan Objetivo</td>`;
       let sumPlan = 0;
       let countPlan = 0;
       weekNumbers.forEach(w => {
@@ -1346,10 +1363,10 @@ document.addEventListener('DOMContentLoaded', () => {
         html += `<td>${val > 0 ? Math.round(val).toLocaleString('es-PE') : '--'}</td>`;
       });
       const avgPlan = countPlan > 0 ? sumPlan / countPlan : 0;
-      html += `<td style="font-weight:700; background:#eff6ff;">${avgPlan > 0 ? Math.round(avgPlan).toLocaleString('es-PE') : '--'}</td></tr>`;
+      html += `<td class="col-promedio" style="font-weight:700; background:#eff6ff;">${avgPlan > 0 ? Math.round(avgPlan).toLocaleString('es-PE') : '--'}</td></tr>`;
 
       // 3. Fila Año Anterior (Real) - Promedio Semanal
-      html += `<tr style="color:#64748b;"><td style="font-weight:600; padding-left: 20px;">└ Real ${prevYear}</td>`;
+      html += `<tr style="color:#64748b;"><td class="col-sticky" style="font-weight:600; padding-left: 20px; color:#64748b; background:#f8fafc;">└ Real ${prevYear}</td>`;
       let sumPrev = 0;
       let countPrev = 0;
       weekNumbers.forEach(w => {
@@ -1359,10 +1376,10 @@ document.addEventListener('DOMContentLoaded', () => {
         html += `<td>${val > 0 ? Math.round(val).toLocaleString('es-PE') : '--'}</td>`;
       });
       const avgPrev = countPrev > 0 ? sumPrev / countPrev : 0;
-      html += `<td style="font-weight:700; background:#f8fafc;">${avgPrev > 0 ? Math.round(avgPrev).toLocaleString('es-PE') : '--'}</td></tr>`;
+      html += `<td class="col-promedio" style="font-weight:700; background:#f8fafc;">${avgPrev > 0 ? Math.round(avgPrev).toLocaleString('es-PE') : '--'}</td></tr>`;
     });
 
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     container.innerHTML = html;
   }
 });

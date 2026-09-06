@@ -374,13 +374,11 @@
     }
 
     /* Table Styles */
-    .table-wrapper {
+    .table-card {
       background: rgba(255, 255, 255, 0.92);
       border: 1px solid rgba(255, 255, 255, 0.8);
       border-radius: 16px;
       padding: 18px 20px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
       margin-top: 10px;
       box-shadow: 0 6px 20px -4px rgba(15, 23, 42, 0.05);
       width: 100%;
@@ -389,36 +387,70 @@
       box-sizing: border-box;
       position: relative;
     }
-    .table-wrapper::-webkit-scrollbar {
-      height: 8px;
-    }
-    .table-wrapper::-webkit-scrollbar-track {
-      background: #f1f5f9;
-      border-radius: 6px;
-    }
-    .table-wrapper::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 6px;
-    }
-    .table-wrapper::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
+    .table-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+      width: 100%;
     }
     .table-wrapper-title {
       font-size: 0.95rem;
       font-weight: 700;
       color: #1e293b;
-      margin-bottom: 14px;
       display: flex;
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
     }
+    .table-scroll-hint {
+      display: none;
+      font-size: 0.73rem;
+      color: #2563eb;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      align-items: center;
+      gap: 5px;
+    }
+    .table-scroll-wrapper {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      padding: 0;
+      margin: 0;
+      box-sizing: border-box;
+    }
+    .table-scroll-wrapper::-webkit-scrollbar {
+      height: 8px;
+    }
+    .table-scroll-wrapper::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 6px;
+    }
+    .table-scroll-wrapper::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 6px;
+    }
+    .table-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
     .data-table {
       width: 100%;
-      min-width: 820px;
+      min-width: 780px;
       border-collapse: separate;
       border-spacing: 0;
       font-size: 0.86rem;
+      margin: 0;
     }
     .data-table th, .data-table td {
       padding: 10px 14px;
@@ -431,32 +463,33 @@
       font-weight: 700;
       text-align: center;
       color: #475569;
-      border-top: 1px solid #e2e8f0;
       border-bottom: 2px solid #e2e8f0;
     }
-    .data-table td:first-child {
+    .data-table .col-sticky {
       text-align: left;
       font-weight: 700;
       position: sticky;
       left: 0;
       background: #ffffff;
-      z-index: 2;
-      box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05);
+      z-index: 5;
+      box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06);
+      min-width: 155px;
     }
-    .data-table th:first-child {
-      text-align: left;
-      font-weight: 700;
-      position: sticky;
-      left: 0;
+    .data-table thead .col-sticky {
       background: #f8fafc;
-      z-index: 3;
-      box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05);
+      z-index: 6;
+      border-bottom: 2px solid #e2e8f0;
     }
     .data-table tr:hover td {
       background-color: rgba(241, 245, 249, 0.6);
     }
-    .data-table tr:hover td:first-child {
+    .data-table tr:hover .col-sticky {
       background-color: #f1f5f9;
+    }
+    .col-promedio {
+      min-width: 105px;
+      background: #f8fafc;
+      font-weight: 800;
     }
 
     /* Buttons */
@@ -818,9 +851,12 @@
       .divisions-section,
       .glass-card,
       .chart-block,
-      .table-wrapper {
+      .table-card {
         padding: 14px 12px;
         border-radius: 12px;
+      }
+      .table-scroll-hint {
+        display: inline-flex;
       }
       .chart-container-medium {
         height: 310px;
@@ -874,7 +910,24 @@
         justify-content: center;
       }
       .table-wrapper-title {
-        font-size: 0.85rem;
+        font-size: 0.82rem;
+      }
+      .data-table {
+        min-width: 640px;
+        font-size: 0.78rem;
+      }
+      .data-table .col-sticky {
+        min-width: 125px;
+        padding: 8px 10px;
+        font-size: 0.78rem;
+      }
+      .data-table th, .data-table td {
+        padding: 8px 9px;
+        font-size: 0.78rem;
+      }
+      .col-promedio {
+        min-width: 85px;
+        padding: 8px 9px;
       }
     }
   </style>
@@ -1241,7 +1294,7 @@
         </div>
 
         <!-- Tabla Resumen Secos -->
-        <div class="table-wrapper" id="tableSecosContainer"></div>
+        <div class="glass-card table-card" id="tableSecosContainer"></div>
       </div>
 
       <!-- Tab Frescos -->
@@ -1294,7 +1347,7 @@
         </div>
 
         <!-- Tabla Resumen Frescos -->
-        <div class="table-wrapper" id="tableFrescosContainer"></div>
+        <div class="glass-card table-card" id="tableFrescosContainer"></div>
       </div>
 
     </div>
