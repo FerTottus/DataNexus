@@ -1359,8 +1359,8 @@ document.addEventListener('DOMContentLoaded', () => {
           <span>Detalle Corporativo Semanal (${currentYear} vs ${prevYear}) · Últimas ${weekNumbers.length} Semanas Cerradas${divTableTag}</span>
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <button class="btn-table-copy" onclick="window.copyElementAsImage('table${prefix}Container', 'Detalle Corporativo Semanal')" title="Copiar tabla como imagen para PowerPoint">
-            <i class="fa-solid fa-camera"></i> Copiar Imagen
+          <button class="btn-table-copy" onclick="window.copyCorporateTableImage('${prefix}')" title="Copiar tabla desde 'Área' como imagen para PowerPoint">
+            <i class="fa-solid fa-camera"></i> Copiar Imagen (desde Área)
           </button>
           <span class="table-scroll-hint">
             <i class="fa-solid fa-arrows-left-right text-primary"></i> Desliza para ver más semanas
@@ -1368,7 +1368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
       <div class="table-scroll-wrapper">
-        <table class="data-table">
+        <table class="data-table" id="tableCorporateWeekly_${prefix}">
           <thead>
             <tr>
               <th class="col-sticky">Área</th>
@@ -1509,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ${isFiltering ? `<span style="font-size:0.75rem; background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:12px; border:1px solid #bfdbfe; font-weight:700;">Filtrando ${divCodes.length} div.</span>` : ''}
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <button class="btn-table-copy" onclick="window.copyElementAsImage('tableDivisions${prefix}Container', 'Movimiento de Cajas por División')" title="Copiar tabla como imagen para PowerPoint">
+          <button class="btn-table-copy" onclick="window.copyActiveDivisionTableImage('${prefix}')" title="Copiar tabla de división como imagen para PowerPoint">
             <i class="fa-solid fa-camera"></i> Copiar Imagen
           </button>
           <div class="division-view-pills">
@@ -1538,16 +1538,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     procsToRender.forEach(proc => {
+      const cardId = `divProcCard_${prefix}_${proc.key}`;
       html += `
-        <div class="division-process-table-card" style="${currentView !== 'all' ? 'width:100%;' : ''}">
+        <div class="division-process-table-card" id="${cardId}" style="${currentView !== 'all' ? 'width:100%;' : ''}">
           <div class="division-process-header ${proc.cardCls}">
             <div style="display:flex; align-items:center; gap:8px;">
               <span>${proc.icon}</span>
               <span>${proc.title} ${currentYear}</span>
             </div>
-            <span style="font-size:0.72rem; font-weight:700; opacity:0.85;">
-              Cajas / Semana
-            </span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:0.72rem; font-weight:700; opacity:0.85;">
+                Cajas / Semana
+              </span>
+              <button class="btn-chart-copy" onclick="window.copyDivisionProcessCardImage('${cardId}', '${proc.title} ${currentYear}')" title="Copiar esta tabla de ${proc.title} como imagen para PowerPoint">
+                <i class="fa-solid fa-camera"></i> Copiar Imagen
+              </button>
+            </div>
           </div>
           <div class="table-scroll-wrapper">
             <table class="data-table">
@@ -1964,16 +1970,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
   // COPIAR ELEMENTOS (TABLAS Y GRÁFICOS) COMO IMAGEN PARA POWERPOINT
   // ══════════════════════════════════════════════
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 2500);
-  }
+  let isCopyingImageInProgress = false;
 
   function ensureHtml2Canvas() {
     return new Promise((resolve, reject) => {
@@ -1986,129 +1983,253 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function copyCanvasToClipboard(sourceCanvas, labelName) {
-    if (!sourceCanvas) return;
-    const offscreen = document.createElement('canvas');
-    offscreen.width = sourceCanvas.width;
-    offscreen.height = sourceCanvas.height;
-    const ctx = offscreen.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-    ctx.drawImage(sourceCanvas, 0, 0);
-
-    offscreen.toBlob(async (blob) => {
-      if (!blob) return;
-      try {
-        if (navigator.clipboard && window.ClipboardItem) {
-          const item = new ClipboardItem({ 'image/png': blob });
-          await navigator.clipboard.write([item]);
-          showToast(`¡Imagen de ${labelName} copiada! Lista para pegar en PowerPoint (Ctrl + V)`, 'success', 4000);
-        } else {
-          downloadBlob(blob, `${labelName.replace(/\s+/g, '_')}.png`);
-          showToast(`Imagen descargada como PNG para PowerPoint`, 'info', 4000);
-        }
-      } catch (e) {
-        downloadBlob(blob, `${labelName.replace(/\s+/g, '_')}.png`);
-        showToast(`Imagen descargada como PNG para PowerPoint`, 'info', 4000);
+  // Escribe un blob de imagen PNG en el portapapeles. BAJO NINGUNA CIRCUNSTANCIA DESCARGA ARCHIVOS.
+  async function writeBlobToClipboard(blob, labelName) {
+    if (!blob) {
+      showToast('Error al generar la imagen', 'danger');
+      return;
+    }
+    try {
+      if (window.focus) window.focus();
+      if (navigator.clipboard && window.ClipboardItem) {
+        const item = new ClipboardItem({ 'image/png': blob });
+        await navigator.clipboard.write([item]);
+        showToast(`¡Imagen de ${labelName} copiada! Lista para pegar en PowerPoint (Ctrl + V)`, 'success', 4500);
+      } else {
+        showToast('El portapapeles de imágenes no está disponible en este navegador.', 'danger', 4000);
       }
-    }, 'image/png');
+    } catch (clipErr) {
+      console.warn('Error al escribir imagen en el portapapeles:', clipErr);
+      showToast('No se pudo copiar la imagen al portapapeles. Asegúrate de tener activa la ventana y vuelve a intentarlo.', 'danger', 4000);
+    }
   }
 
-  window.copyElementAsImage = async function(target, labelName) {
-    const el = typeof target === 'string' ? document.getElementById(target) : target;
-    if (!el) {
-      showToast('Elemento no encontrado para copiar', 'danger');
+  // 1. Copiar Slide Completo 3 en 1 (Recibo, Despacho, Inventario) con título centrado y dimensiones idénticas
+  window.copyTripleChartsSlideImage = async function() {
+    if (isCopyingImageInProgress) {
+      showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
+      return;
+    }
+    const isFrescos = document.getElementById('tab-frescos')?.classList.contains('active');
+    const prefix = isFrescos ? 'Frescos' : 'Secos';
+    const tripleContainer = document.getElementById(`charts${prefix}Triple`);
+    const slideTitle = document.getElementById(`slideTitle${prefix}`);
+
+    if (!tripleContainer) {
+      showToast('No se encontraron los gráficos para la diapositiva', 'danger');
       return;
     }
 
-    showToast(`Generando imagen de ${labelName || 'tabla'}...`, 'info', 1600);
+    isCopyingImageInProgress = true;
+    showToast(`Generando Diapositiva 3 en 1 para CD ${prefix.toUpperCase()}...`, 'info', 2000);
 
-    // Ocultar temporalmente los botones de acción para que no aparezcan en la captura de PPT
-    const actionElements = el.querySelectorAll('.btn-table-copy, .btn-chart-copy, .table-scroll-hint');
-    actionElements.forEach(btn => btn.setAttribute('data-html2canvas-ignore', 'true'));
+    // Mostrar el título de la diapositiva centrado tipo PPT
+    if (slideTitle) {
+      slideTitle.style.display = 'block';
+      slideTitle.innerText = `THROUGHPUT – CD ${prefix.toUpperCase()} 2026`;
+    }
 
-    // Expandir scrolls para capturar todas las columnas completas
-    const scrollWrappers = el.querySelectorAll('.table-scroll-wrapper');
-    const originalStyles = [];
-    scrollWrappers.forEach(w => {
-      originalStyles.push({
-        el: w,
-        overflow: w.style.overflow,
-        maxWidth: w.style.maxWidth,
-        width: w.style.width
-      });
-      w.style.overflow = 'visible';
-      w.style.maxWidth = 'none';
-      w.style.width = 'fit-content';
-    });
+    // Ocultar botones de copia individuales dentro del contenedor
+    const ignoreElements = tripleContainer.querySelectorAll('.btn-chart-copy, .btn-table-copy');
+    ignoreElements.forEach(el => el.setAttribute('data-html2canvas-ignore', 'true'));
 
-    const restoreStyles = () => {
-      originalStyles.forEach(item => {
-        item.el.style.overflow = item.overflow;
-        item.el.style.maxWidth = item.maxWidth;
-        item.el.style.width = item.width;
-      });
-      actionElements.forEach(btn => btn.removeAttribute('data-html2canvas-ignore'));
-    };
+    // Guardar estilos originales
+    const origBg = tripleContainer.style.background;
+    const origPadding = tripleContainer.style.padding;
+
+    tripleContainer.style.background = '#ffffff';
+    tripleContainer.style.padding = '16px 20px';
 
     try {
       await ensureHtml2Canvas();
-      const canvas = await window.html2canvas(el, {
-        scale: 2, // 2x alta resolución para diapositivas nítidas
+      const canvas = await window.html2canvas(tripleContainer, {
+        scale: 2, // Alta definición para diapositiva PPT
         backgroundColor: '#ffffff',
         useCORS: true,
         logging: false,
-        windowWidth: Math.max(document.documentElement.clientWidth, el.scrollWidth + 120)
+        windowWidth: Math.max(document.documentElement.clientWidth, 1440)
       });
 
-      restoreStyles();
+      // Restaurar estilos y ocultar título
+      if (slideTitle) slideTitle.style.display = 'none';
+      tripleContainer.style.background = origBg;
+      tripleContainer.style.padding = origPadding;
+      ignoreElements.forEach(el => el.removeAttribute('data-html2canvas-ignore'));
 
       canvas.toBlob(async (blob) => {
-        if (!blob) {
-          showToast('Error al generar la imagen', 'danger');
-          return;
-        }
+        await writeBlobToClipboard(blob, `Diapositiva 3 en 1 (CD ${prefix.toUpperCase()})`);
 
-        try {
-          if (navigator.clipboard && window.ClipboardItem) {
-            const item = new ClipboardItem({ 'image/png': blob });
-            await navigator.clipboard.write([item]);
-            showToast(`¡Imagen de ${labelName} copiada al portapapeles! Lista para pegar en PowerPoint (Ctrl + V)`, 'success', 4500);
-
-            // Feedback visual en botón si existe
-            const btn = el.querySelector('.btn-table-copy');
-            if (btn) {
-              const origHtml = btn.innerHTML;
-              btn.innerHTML = `<i class="fa-solid fa-check"></i> ¡Copiado!`;
-              setTimeout(() => { btn.innerHTML = origHtml; }, 2000);
-            }
-          } else {
-            downloadBlob(blob, `${(labelName || 'tabla').replace(/\s+/g, '_')}.png`);
-            showToast(`Imagen descargada como PNG para tu PowerPoint`, 'info', 4000);
-          }
-        } catch (clipErr) {
-          console.warn('Clipboard image write failed, falling back to download:', clipErr);
-          downloadBlob(blob, `${(labelName || 'tabla').replace(/\s+/g, '_')}.png`);
-          showToast(`Imagen descargada como PNG para tu PowerPoint`, 'success', 4000);
+        // Feedback visual en el botón principal
+        const btnSlide = document.getElementById('btnCopySlideTriple');
+        if (btnSlide) {
+          const origHtml = btnSlide.innerHTML;
+          btnSlide.innerHTML = `<i class="fa-solid fa-check"></i> ¡Diapositiva Copiada!`;
+          setTimeout(() => { btnSlide.innerHTML = origHtml; }, 2500);
         }
       }, 'image/png');
 
     } catch (err) {
-      restoreStyles();
-      console.error('Error al capturar elemento:', err);
-
-      // Si es un gráfico, intentar copiar directamente el canvas
-      const chartCanvas = el.querySelector('canvas');
-      if (chartCanvas) {
-        copyCanvasToClipboard(chartCanvas, labelName);
-        return;
-      }
-
-      showToast('No se pudo generar la imagen. Inténtalo de nuevo.', 'danger');
+      if (slideTitle) slideTitle.style.display = 'none';
+      tripleContainer.style.background = origBg;
+      tripleContainer.style.padding = origPadding;
+      ignoreElements.forEach(el => el.removeAttribute('data-html2canvas-ignore'));
+      console.error('Error al capturar diapositiva 3 en 1:', err);
+      showToast('No se pudo generar la diapositiva 3 en 1. Inténtalo de nuevo.', 'danger');
+    } finally {
+      setTimeout(() => { isCopyingImageInProgress = false; }, 400);
     }
   };
 
-  window.copyThroughputChartImage = function(processKey) {
+  // 2. Copiar Tabla Detalle Corporativo Semanal (captura estrictamente desde "Área" sin espacio blanco sobrante)
+  window.copyCorporateTableImage = async function(prefix) {
+    if (isCopyingImageInProgress) {
+      showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
+      return;
+    }
+    const table = document.getElementById(`tableCorporateWeekly_${prefix}`);
+    if (!table) {
+      showToast('Tabla no encontrada para copiar', 'danger');
+      return;
+    }
+
+    isCopyingImageInProgress = true;
+    showToast('Generando imagen de la tabla (desde Área)...', 'info', 1600);
+
+    const scrollWrapper = table.closest('.table-scroll-wrapper');
+    const origScrollLeft = scrollWrapper ? scrollWrapper.scrollLeft : 0;
+    if (scrollWrapper) scrollWrapper.scrollLeft = 0;
+
+    // Medir ancho exacto de la tabla para eliminar el espacio blanco lateral
+    const targetWidth = Math.ceil(table.getBoundingClientRect().width || table.scrollWidth);
+
+    try {
+      await ensureHtml2Canvas();
+      const canvas = await window.html2canvas(table, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        width: targetWidth,
+        windowWidth: targetWidth + 40
+      });
+
+      if (scrollWrapper) scrollWrapper.scrollLeft = origScrollLeft;
+
+      canvas.toBlob(async (blob) => {
+        await writeBlobToClipboard(blob, `Tabla Detalle Corporativo (${prefix})`);
+      }, 'image/png');
+
+    } catch (err) {
+      if (scrollWrapper) scrollWrapper.scrollLeft = origScrollLeft;
+      console.error('Error al capturar tabla corporativa:', err);
+      showToast('No se pudo generar la imagen de la tabla. Inténtalo de nuevo.', 'danger');
+    } finally {
+      setTimeout(() => { isCopyingImageInProgress = false; }, 400);
+    }
+  };
+
+  // 3. Copiar Tarjeta de Proceso de División (captura desde "Despacho (Salidas) 2026" ajustada al ancho de la tabla)
+  window.copyDivisionProcessCardImage = async function(target, labelTitle) {
+    if (isCopyingImageInProgress) {
+      showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
+      return;
+    }
+    const el = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!el) {
+      showToast('Tarjeta de proceso no encontrada', 'danger');
+      return;
+    }
+
+    isCopyingImageInProgress = true;
+    showToast(`Generando imagen de ${labelTitle || 'tabla divisiones'}...`, 'info', 1600);
+
+    const scrollWrapper = el.querySelector('.table-scroll-wrapper');
+    const origScrollLeft = scrollWrapper ? scrollWrapper.scrollLeft : 0;
+    if (scrollWrapper) scrollWrapper.scrollLeft = 0;
+
+    // Medir ancho exacto de la tabla interior para evitar espacio blanco a la derecha
+    const innerTable = el.querySelector('table');
+    let targetWidth = 0;
+    if (innerTable) {
+      targetWidth = Math.ceil(innerTable.getBoundingClientRect().width || innerTable.scrollWidth);
+    } else {
+      targetWidth = Math.ceil(el.scrollWidth || el.offsetWidth);
+    }
+
+    // Guardar estilos originales del card
+    const origWidth = el.style.width;
+    const origMaxWidth = el.style.maxWidth;
+    const origFlex = el.style.flex;
+
+    // Ajustar temporalmente el ancho del card al ancho exacto de la tabla
+    el.style.width = `${targetWidth}px`;
+    el.style.maxWidth = `${targetWidth}px`;
+    el.style.flex = 'none';
+
+    // Ocultar botones de copia internos durante la captura
+    const ignoreBtns = el.querySelectorAll('.btn-chart-copy, .btn-table-copy');
+    ignoreBtns.forEach(b => b.setAttribute('data-html2canvas-ignore', 'true'));
+
+    try {
+      await ensureHtml2Canvas();
+      const canvas = await window.html2canvas(el, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        width: targetWidth,
+        windowWidth: targetWidth + 40
+      });
+
+      // Restaurar estilos originales
+      el.style.width = origWidth;
+      el.style.maxWidth = origMaxWidth;
+      el.style.flex = origFlex;
+      ignoreBtns.forEach(b => b.removeAttribute('data-html2canvas-ignore'));
+      if (scrollWrapper) scrollWrapper.scrollLeft = origScrollLeft;
+
+      canvas.toBlob(async (blob) => {
+        await writeBlobToClipboard(blob, labelTitle || 'Tabla División');
+      }, 'image/png');
+
+    } catch (err) {
+      el.style.width = origWidth;
+      el.style.maxWidth = origMaxWidth;
+      el.style.flex = origFlex;
+      ignoreBtns.forEach(b => b.removeAttribute('data-html2canvas-ignore'));
+      if (scrollWrapper) scrollWrapper.scrollLeft = origScrollLeft;
+      console.error('Error al capturar tabla de división:', err);
+      showToast('No se pudo generar la imagen de la tabla. Inténtalo de nuevo.', 'danger');
+    } finally {
+      setTimeout(() => { isCopyingImageInProgress = false; }, 400);
+    }
+  };
+
+  // 4. Copiar la tabla de división activa según la vista seleccionada
+  window.copyActiveDivisionTableImage = function(prefix) {
+    const currentView = divTableProcess[prefix] || 'all';
+    if (currentView !== 'all') {
+      const cardId = `divProcCard_${prefix}_${currentView}`;
+      const titles = { recibo: 'Recibo (Entradas)', despacho: 'Despacho (Salidas)', inventario: 'Inventario' };
+      const label = `${titles[currentView] || currentView} 2026`;
+      window.copyDivisionProcessCardImage(cardId, label);
+    } else {
+      // Si la vista está en "Todos (3 en 1)", copiamos la tarjeta de Despacho o el primer proceso visible
+      const firstCard = document.querySelector(`#tableDivisions${prefix}Container .division-process-table-card`);
+      if (firstCard) {
+        window.copyDivisionProcessCardImage(firstCard.id, `Tabla Divisiones - CD ${prefix.toUpperCase()}`);
+      } else {
+        showToast('No se encontró la tabla de divisiones para copiar', 'danger');
+      }
+    }
+  };
+
+  // 5. Copiar Gráfico individual Throughput (Recibo, Despacho o Inventario)
+  window.copyThroughputChartImage = async function(processKey) {
+    if (isCopyingImageInProgress) {
+      showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
+      return;
+    }
     const isFrescos = document.getElementById('tab-frescos')?.classList.contains('active');
     const prefix = isFrescos ? 'Frescos' : 'Secos';
 
@@ -2124,9 +2245,78 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const targetId = blockIdMap[processKey] || blockIdMap.recibo;
-    const title = titleMap[processKey] || 'Gráfico Throughput';
+    const label = titleMap[processKey] || 'Gráfico Throughput';
+    const el = document.getElementById(targetId);
+    if (!el) {
+      showToast('Gráfico no encontrado para copiar', 'danger');
+      return;
+    }
 
-    window.copyElementAsImage(targetId, title);
+    isCopyingImageInProgress = true;
+    showToast(`Generando imagen de ${label}...`, 'info', 1500);
+
+    const ignoreBtns = el.querySelectorAll('.btn-chart-copy, .btn-table-copy');
+    ignoreBtns.forEach(b => b.setAttribute('data-html2canvas-ignore', 'true'));
+
+    try {
+      await ensureHtml2Canvas();
+      const canvas = await window.html2canvas(el, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        windowWidth: Math.max(document.documentElement.clientWidth, el.scrollWidth + 60)
+      });
+
+      ignoreBtns.forEach(b => b.removeAttribute('data-html2canvas-ignore'));
+
+      canvas.toBlob(async (blob) => {
+        await writeBlobToClipboard(blob, label);
+      }, 'image/png');
+
+    } catch (err) {
+      ignoreBtns.forEach(b => b.removeAttribute('data-html2canvas-ignore'));
+      console.error('Error al capturar gráfico individual:', err);
+      showToast('No se pudo generar la imagen del gráfico. Inténtalo de nuevo.', 'danger');
+    } finally {
+      setTimeout(() => { isCopyingImageInProgress = false; }, 400);
+    }
+  };
+
+  // 6. Función genérica de respaldo (sin descargas automáticas)
+  window.copyElementAsImage = async function(target, labelName) {
+    if (isCopyingImageInProgress) return;
+    const el = typeof target === 'string' ? document.getElementById(target) : target;
+    if (!el) return;
+
+    isCopyingImageInProgress = true;
+    showToast(`Generando imagen de ${labelName || 'elemento'}...`, 'info', 1600);
+
+    const actionElements = el.querySelectorAll('.btn-table-copy, .btn-chart-copy, .table-scroll-hint');
+    actionElements.forEach(btn => btn.setAttribute('data-html2canvas-ignore', 'true'));
+
+    try {
+      await ensureHtml2Canvas();
+      const canvas = await window.html2canvas(el, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false
+      });
+
+      actionElements.forEach(btn => btn.removeAttribute('data-html2canvas-ignore'));
+
+      canvas.toBlob(async (blob) => {
+        await writeBlobToClipboard(blob, labelName || 'Elemento');
+      }, 'image/png');
+
+    } catch (err) {
+      actionElements.forEach(btn => btn.removeAttribute('data-html2canvas-ignore'));
+      console.error('Error al capturar elemento:', err);
+      showToast('No se pudo generar la imagen. Inténtalo de nuevo.', 'danger');
+    } finally {
+      setTimeout(() => { isCopyingImageInProgress = false; }, 400);
+    }
   };
 
   // ══════════════════════════════════════════════
