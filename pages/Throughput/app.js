@@ -232,7 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  let selectedDivision = null;
+  // Multi-selección activa de divisiones (código Set)
+  const selectedDivisions = new Set();
 
   // Parser de la hoja DIVISION cuando está presente en Google Sheets
   function parseDivisionSheet(rawValues) {
@@ -326,71 +327,125 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════
-  // APARTADO DE DIVISIONES: INTERACTIVIDAD & FILTRADO
   // ══════════════════════════════════════════════
-  function setDivisionFilter(code) {
-    selectedDivision = code;
+  // APARTADO DE DIVISIONES: FILTRADO MULTI-SELECCIÓN & INTERACTIVIDAD
+  // ══════════════════════════════════════════════
+  function updateDivisionUI() {
+    const count = selectedDivisions.size;
+    const isFiltering = count > 0;
+    const isAll = count === 12;
 
     // 1. Actualizar estado visual de las 12 tarjetas de división
     document.querySelectorAll('.division-card').forEach(card => {
       const cardCode = card.dataset.code;
-      if (selectedDivision) {
-        if (cardCode === selectedDivision) {
+      if (isFiltering && !isAll) {
+        if (selectedDivisions.has(cardCode)) {
           card.classList.add('active-selected');
           card.classList.remove('dimmed');
         } else {
           card.classList.remove('active-selected');
           card.classList.add('dimmed');
         }
+      } else if (isAll) {
+        card.classList.add('active-selected');
+        card.classList.remove('dimmed');
       } else {
         card.classList.remove('active-selected', 'dimmed');
       }
     });
 
-    // 2. Actualizar el indicador de división activa en el encabezado
+    // 2. Actualizar indicador y badge en el encabezado
     const indicator = document.getElementById('activeDivisionIndicator');
     const nameEl = document.getElementById('activeDivName');
+    const badgeEl = document.getElementById('divTotalBadge');
+    const btnClear = document.getElementById('btnClearDivisionFilter');
+
+    if (badgeEl) {
+      if (isFiltering && !isAll) {
+        badgeEl.textContent = `${count} de 12 Seleccionadas`;
+        badgeEl.style.background = '#2563eb';
+        badgeEl.style.color = '#ffffff';
+      } else if (isAll) {
+        badgeEl.textContent = '12 de 12 Seleccionadas (Total)';
+        badgeEl.style.background = '#059669';
+        badgeEl.style.color = '#ffffff';
+      } else {
+        badgeEl.textContent = '12 Divisiones (4 Filas × 3 Columnas)';
+        badgeEl.style.background = '#e0e7ff';
+        badgeEl.style.color = '#3730a3';
+      }
+    }
+
     if (indicator && nameEl) {
-      if (selectedDivision) {
+      if (isFiltering) {
         indicator.style.display = 'inline-flex';
-        nameEl.textContent = `${selectedDivision} · ${DIVISION_NAMES[selectedDivision] || ''}`;
+        const sortedCodes = Array.from(selectedDivisions).sort();
+        if (isAll) {
+          nameEl.textContent = 'Todas las divisiones (12)';
+        } else if (sortedCodes.length === 1) {
+          const c = sortedCodes[0];
+          nameEl.textContent = `${c} · ${DIVISION_NAMES[c] || ''}`;
+        } else {
+          nameEl.textContent = `${sortedCodes.length} divisiones (${sortedCodes.join(', ')})`;
+        }
+        if (btnClear) {
+          btnClear.innerHTML = `<i class="fa-solid fa-xmark"></i> Quitar filtros (${sortedCodes.length})`;
+        }
       } else {
         indicator.style.display = 'none';
       }
     }
-
-    // 3. Si se seleccionó una división, cambiar al tab correspondiente de forma suave
-    if (selectedDivision) {
-      const primaryCd = DIVISION_PRIMARY_CD[selectedDivision] || 'secos';
-      const targetTab = primaryCd === 'frescos' ? 'tab-frescos' : 'tab-secos';
-      const targetBtn = document.querySelector(`.glass-tab-btn[data-target="${targetTab}"]`);
-      if (targetBtn && !targetBtn.classList.contains('active')) {
-        targetBtn.click();
-      }
-    }
-
-    // 4. Re-renderizar el dashboard completo con el filtro de división aplicado
-    renderAll();
   }
 
-  window.clearDivisionFilter = () => setDivisionFilter(null);
+  window.toggleDivisionFilter = function(code) {
+    if (!code) {
+      selectedDivisions.clear();
+    } else {
+      const wasEmpty = selectedDivisions.size === 0;
+      if (selectedDivisions.has(code)) {
+        selectedDivisions.delete(code);
+      } else {
+        selectedDivisions.add(code);
+        // Si es la primera división que se selecciona, cambiar suavemente al tab de su CD principal
+        if (wasEmpty) {
+          const primaryCd = DIVISION_PRIMARY_CD[code] || 'secos';
+          const targetTab = primaryCd === 'frescos' ? 'tab-frescos' : 'tab-secos';
+          const targetBtn = document.querySelector(`.glass-tab-btn[data-target="${targetTab}"]`);
+          if (targetBtn && !targetBtn.classList.contains('active')) {
+            targetBtn.click();
+          }
+        }
+      }
+    }
+    updateDivisionUI();
+    renderAll();
+  };
 
-  // Clic en tarjeta de división: activa/desactiva el filtro SIN redirigir a recibo
+  window.clearDivisionFilter = function() {
+    selectedDivisions.clear();
+    updateDivisionUI();
+    renderAll();
+  };
+
+  // Clic en tarjeta de división: activa/desactiva multi-selección SIN saltos ni redirecciones
   document.querySelectorAll('.division-card').forEach(card => {
     card.addEventListener('click', () => {
       const code = card.dataset.code;
-      if (selectedDivision === code) {
-        setDivisionFilter(null);
-      } else {
-        setDivisionFilter(code);
-      }
+      window.toggleDivisionFilter(code);
     });
   });
 
   // Botón para limpiar filtro desde el encabezado
   document.getElementById('btnClearDivisionFilter')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    setDivisionFilter(null);
+    window.clearDivisionFilter();
+  });
+
+  // Botón para seleccionar todas las divisiones corporativas
+  document.getElementById('btnSelectAllDivisions')?.addEventListener('click', () => {
+    Object.keys(DIVISION_NAMES).forEach(c => selectedDivisions.add(c));
+    updateDivisionUI();
+    renderAll();
   });
 
   // 3. Botón de colapso/expansión de la grilla de divisiones
@@ -494,37 +549,58 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderSection(prefix, data, cols, filterValue, showLabels, includeFuture = true) {
     if (!data.rows || data.rows.length === 0) return;
 
+    // Determinar si hay filtro de división activo
+    const countDivs = selectedDivisions.size;
+    const isFilteringDivisions = countDivs > 0 && countDivs < 12;
+
     // Banner de división en este tab
     const bannerEl = document.getElementById(`divFilterBanner${prefix}`);
     if (bannerEl) {
-      if (selectedDivision) {
+      if (isFilteringDivisions) {
         bannerEl.style.display = 'flex';
-        const divName = DIVISION_NAMES[selectedDivision] || '';
-        const isPrimary = (DIVISION_PRIMARY_CD[selectedDivision] === prefix.toLowerCase());
-        const contextText = isPrimary
-          ? `(CD ${prefix.toUpperCase()} es el centro principal de esta división)`
-          : `(Flujo procesado en CD ${prefix.toUpperCase()})`;
+        const sortedCodes = Array.from(selectedDivisions).sort();
+        const pillsHtml = sortedCodes.map(c => `
+          <span class="filter-pill-tag">
+            <strong>${c}</strong> <span style="opacity:0.9;">${DIVISION_NAMES[c] || ''}</span>
+            <i class="fa-solid fa-xmark remove-div-pill" data-code="${c}" title="Deseleccionar ${c}"></i>
+          </span>
+        `).join('');
+
         bannerEl.innerHTML = `
-          <div class="banner-text">
-            <i class="fa-solid fa-filter text-primary"></i>
-            <span>Filtrando por División: <strong>${selectedDivision} · ${divName}</strong> — ${contextText}</span>
+          <div class="banner-text" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:6px; font-weight:700;">
+              <i class="fa-solid fa-filter text-primary"></i>
+              <span>Filtrando ${countDivs} ${countDivs === 1 ? 'división' : 'divisiones'} en CD ${prefix.toUpperCase()}:</span>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+              ${pillsHtml}
+            </div>
           </div>
-          <button class="btn-clear-banner" onclick="window.clearDivisionFilter()"><i class="fa-solid fa-xmark"></i> Quitar filtro</button>
+          <button class="btn-clear-banner" onclick="window.clearDivisionFilter()">
+            <i class="fa-solid fa-xmark"></i> Quitar filtros (${countDivs})
+          </button>
         `;
+
+        bannerEl.querySelectorAll('.remove-div-pill').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.toggleDivisionFilter(btn.dataset.code);
+          });
+        });
       } else {
         bannerEl.style.display = 'none';
         bannerEl.innerHTML = '';
       }
     }
 
-    // Proporción o datos exactos para la división seleccionada
-    const share = (selectedDivision && DIVISION_SHARE[prefix])
-      ? (DIVISION_SHARE[prefix][selectedDivision] !== undefined ? DIVISION_SHARE[prefix][selectedDivision] : 0)
-      : 1;
-
-    const divExact = (selectedDivision && window.parsedDivisionData?.[prefix]?.[selectedDivision])
-      ? window.parsedDivisionData[prefix][selectedDivision]
-      : null;
+    // Participación acumulada de las divisiones seleccionadas en este CD (para plan y fallback)
+    let combinedShare = 1;
+    if (isFilteringDivisions) {
+      combinedShare = 0;
+      selectedDivisions.forEach(code => {
+        combinedShare += (DIVISION_SHARE[prefix]?.[code] || 0);
+      });
+    }
 
     // 1. Extraer y estructurar datos
     const allParsed = [];
@@ -535,29 +611,57 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!parsed || isNaN(parsed.week) || isNaN(parsed.year)) return;
 
       const weekKey = `${parsed.year}-${parsed.week}`;
-      let rRec  = parseFloat(row[cols.recibo]) || 0;
-      let rDesp = parseFloat(row[cols.despacho]) || 0;
-      let rInv  = parseFloat(row[cols.inventario]) || 0;
-      let pRec  = parseFloat(row[cols.planRecibo]) || 0;
-      let pDesp = parseFloat(row[cols.planDespacho]) || 0;
-      let pInv  = parseFloat(row[cols.planInv]) || 0;
+      const baseRec      = parseFloat(row[cols.recibo]) || 0;
+      const baseDesp     = parseFloat(row[cols.despacho]) || 0;
+      const baseInv      = parseFloat(row[cols.inventario]) || 0;
+      const basePlanRec  = parseFloat(row[cols.planRecibo]) || 0;
+      const basePlanDesp = parseFloat(row[cols.planDespacho]) || 0;
+      const basePlanInv  = parseFloat(row[cols.planInv]) || 0;
 
-      if (selectedDivision) {
-        if (divExact) {
-          if (divExact.recibo && divExact.recibo[weekKey] !== undefined) rRec = divExact.recibo[weekKey];
-          else rRec = rRec * share;
-          if (divExact.despacho && divExact.despacho[weekKey] !== undefined) rDesp = divExact.despacho[weekKey];
-          else rDesp = rDesp * share;
-          if (divExact.inventario && divExact.inventario[weekKey] !== undefined) rInv = divExact.inventario[weekKey];
-          else rInv = rInv * share;
-        } else {
-          rRec  = rRec * share;
-          rDesp = rDesp * share;
-          rInv  = rInv * share;
-        }
-        pRec  = pRec * share;
-        pDesp = pDesp * share;
-        pInv  = pInv * share;
+      let rRec  = baseRec;
+      let rDesp = baseDesp;
+      let rInv  = baseInv;
+      let pRec  = basePlanRec;
+      let pDesp = basePlanDesp;
+      let pInv  = basePlanInv;
+
+      if (isFilteringDivisions) {
+        let sumRec = 0;
+        let sumDesp = 0;
+        let sumInv = 0;
+
+        selectedDivisions.forEach(code => {
+          const divExact = window.parsedDivisionData?.[prefix]?.[code];
+          const divShare = DIVISION_SHARE[prefix]?.[code] || 0;
+
+          // Recibo
+          if (divExact?.recibo && divExact.recibo[weekKey] !== undefined) {
+            sumRec += divExact.recibo[weekKey];
+          } else {
+            sumRec += baseRec * divShare;
+          }
+
+          // Despacho
+          if (divExact?.despacho && divExact.despacho[weekKey] !== undefined) {
+            sumDesp += divExact.despacho[weekKey];
+          } else {
+            sumDesp += baseDesp * divShare;
+          }
+
+          // Inventario
+          if (divExact?.inventario && divExact.inventario[weekKey] !== undefined) {
+            sumInv += divExact.inventario[weekKey];
+          } else {
+            sumInv += baseInv * divShare;
+          }
+        });
+
+        rRec  = sumRec;
+        rDesp = sumDesp;
+        rInv  = sumInv;
+        pRec  = basePlanRec * combinedShare;
+        pDesp = basePlanDesp * combinedShare;
+        pInv  = basePlanInv * combinedShare;
       }
 
       allParsed.push({
@@ -713,6 +817,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const closedWeeks = weekNumbers.filter(w => w <= lastDataWeek);
     const futureWeeksCount = weekNumbers.filter(w => w > lastDataWeek).length;
 
+    let divTag = '';
+    if (selectedDivisions.size > 0 && selectedDivisions.size < 12) {
+      const sorted = Array.from(selectedDivisions).sort();
+      if (sorted.length === 1) {
+        divTag = ` [División: ${sorted[0]} · ${DIVISION_NAMES[sorted[0]] || ''}]`;
+      } else {
+        divTag = ` [${sorted.length} Divisiones: ${sorted.join(', ')}]`;
+      }
+    }
+
     if (kpiMode === 'semana') {
       // ── MODO SEMANA ACTUAL: solo la última semana con datos reales ───
       const w = lastDataWeek;
@@ -725,7 +839,6 @@ document.addEventListener('DOMContentLoaded', () => {
       despachoPrev = p.despacho || 0;
       invCurr      = c.inventario || 0;
       invPrev      = p.inventario || 0;
-      const divTag = selectedDivision ? ` [División: ${selectedDivision} · ${DIVISION_NAMES[selectedDivision] || ''}]` : '';
       kpiLabel = `Semana ${w} con datos (${currentYear} vs ${prevYear})${divTag}${futureWeeksCount > 0 ? ` · +${futureWeeksCount} sem. proyectadas en gráficos` : ''}`;
     } else {
       // ── MODO PERÍODO COMPLETO: suma/promedio de semanas cerradas ─────
@@ -755,7 +868,6 @@ document.addEventListener('DOMContentLoaded', () => {
       invCurr      = countInv > 0 ? totInvCurr / countInv : 0;
       invPrev      = closedWeeks.length > 0 ? totInvPrev / closedWeeks.length : 0;
       const proyNote = futureWeeksCount > 0 ? ` + ${futureWeeksCount} proyectadas (Plan)` : '';
-      const divTag = selectedDivision ? ` [División: ${selectedDivision} · ${DIVISION_NAMES[selectedDivision] || ''}]` : '';
       kpiLabel = `Últimas ${closedWeeks.length} semanas cerradas (${currentYear} vs ${prevYear})${divTag}${proyNote}`;
       semanaRef = null;
     }
@@ -1161,10 +1273,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById(`table${prefix}Container`);
     if (!container) return;
 
+    const isFiltering = selectedDivisions.size > 0 && selectedDivisions.size < 12;
+    const sortedCodes = Array.from(selectedDivisions).sort();
+    const divTableTag = isFiltering
+      ? ` · Filtrando ${sortedCodes.length} ${sortedCodes.length === 1 ? 'División' : 'Divisiones'} (${sortedCodes.join(', ')})`
+      : '';
+
     let html = `
       <div class="table-wrapper-title">
         <i class="fa-solid fa-table-list text-primary"></i>
-        <span>Detalle Corporativo Semanal (${currentYear} vs ${prevYear}) · Últimas ${weekNumbers.length} Semanas Cerradas</span>
+        <span>Detalle Corporativo Semanal (${currentYear} vs ${prevYear}) · Últimas ${weekNumbers.length} Semanas Cerradas${divTableTag}</span>
       </div>
       <table class="data-table">
         <thead>

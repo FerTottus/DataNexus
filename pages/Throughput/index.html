@@ -589,6 +589,38 @@
     .btn-clear-banner:hover {
       background: #1d4ed8;
     }
+    .filter-pill-tag {
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      padding: 3px 9px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 1px 3px rgba(37, 99, 235, 0.08);
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .filter-pill-tag strong {
+      color: #2563eb;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+    }
+    .filter-pill-tag .remove-div-pill {
+      cursor: pointer;
+      color: #94a3b8;
+      font-size: 0.72rem;
+      margin-left: 2px;
+      padding: 2px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+    }
+    .filter-pill-tag .remove-div-pill:hover {
+      color: #ef4444;
+      background: #fee2e2;
+    }
   </style>
 </head>
 <body>
@@ -692,14 +724,17 @@
               <span id="divTotalBadge" style="font-size:0.75rem; background:#e0e7ff; color:#3730a3; padding:2px 9px; border-radius:20px; font-weight:700;">12 Divisiones (4 Filas × 3 Columnas)</span>
             </h2>
             <p style="font-size: 0.82rem; color: #64748b; margin: 4px 0 0 0;">
-              Haz clic en cualquiera de las 12 divisiones para <strong>filtrar el dashboard</strong> por esa división. Haz clic de nuevo para quitar el filtro.
+              Haz clic en una o varias divisiones para <strong>filtrar en simultáneo</strong> en los gráficos y KPIs. Haz clic de nuevo sobre una tarjeta para deseleccionarla.
             </p>
           </div>
           <div class="divisions-header-actions">
             <div id="activeDivisionIndicator" class="active-div-pill" style="display:none;">
               <span><i class="fa-solid fa-filter text-primary"></i> Filtrando: <strong id="activeDivName">J01</strong></span>
-              <button id="btnClearDivisionFilter" class="btn-clear-filter" title="Restablecer total corporativo"><i class="fa-solid fa-xmark"></i> Quitar filtro</button>
+              <button id="btnClearDivisionFilter" class="btn-clear-filter" title="Restablecer total corporativo"><i class="fa-solid fa-xmark"></i> Quitar filtros</button>
             </div>
+            <button id="btnSelectAllDivisions" class="btn btn-sm btn-outline-primary" style="border-radius:8px; font-weight:600; padding:5px 12px; font-size:0.78rem;" title="Seleccionar todas las 12 divisiones corporativas">
+              <i class="fa-solid fa-check-double"></i> Seleccionar todas
+            </button>
             <button id="btnToggleDivisions" class="btn btn-sm btn-outline-secondary" style="border-radius:8px; font-weight:600; padding:5px 10px;" title="Minimizar / Expandir panel de divisiones">
               <i class="fa-solid fa-chevron-up" id="iconToggleDivisions"></i>
             </button>
