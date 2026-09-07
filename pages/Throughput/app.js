@@ -1551,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <button class="btn-table-copy" onclick="window.copyActiveDivisionTableImage('${prefix}')" title="Copiar tabla de división como imagen para PowerPoint">
-            <i class="fa-solid fa-camera"></i> Copiar Imagen
+            <i class="fa-solid fa-camera"></i> ${currentView === 'all' ? 'Diapositiva 3 Tablas (16:9)' : 'Copiar Imagen'}
           </button>
           <div class="division-view-pills">
             <button class="division-view-pill ${currentView === 'all' ? 'active' : ''}" onclick="window.setDivTableProcessView('${prefix}', 'all')">
@@ -2228,7 +2228,610 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // 2. Copiar Tabla Detalle Corporativo Semanal (captura estrictamente desde "Área" sin espacio blanco lateral)
+  // ══════════════════════════════════════════════
+  // RENDERIZADORES NATIVOS CANVAS 2D ULTRARRÁPIDOS (<15ms)
+  // ══════════════════════════════════════════════
+
+  // Renderiza una tarjeta de división a Canvas 2D nativo (filas delgadas, sin esperas ni html2canvas)
+  function renderDivisionCardToCanvas(cardEl) {
+    if (!cardEl) return null;
+    const headerEl = cardEl.querySelector('.division-process-header');
+    const titleSpan = headerEl?.querySelector('span:first-of-type');
+    const titleText = titleSpan ? titleSpan.innerText.trim() : 'Tabla Divisiones';
+    const subtitleSpan = headerEl?.querySelector('span:nth-of-type(2)');
+    const subtitleText = subtitleSpan ? subtitleSpan.innerText.trim() : 'Cajas / Semana';
+
+    let headerBg = '#f8fafc';
+    let headerTextCol = '#1e293b';
+    let headerBorderCol = '#e2e8f0';
+
+    if (headerEl?.classList.contains('division-process-recibo')) {
+      headerBg = '#eff6ff'; headerTextCol = '#1e40af'; headerBorderCol = '#bfdbfe';
+    } else if (headerEl?.classList.contains('division-process-despacho')) {
+      headerBg = '#fff7ed'; headerTextCol = '#9a3412'; headerBorderCol = '#fed7aa';
+    } else if (headerEl?.classList.contains('division-process-inventario')) {
+      headerBg = '#ecfdf5'; headerTextCol = '#065f46'; headerBorderCol = '#a7f3d0';
+    }
+
+    const table = cardEl.querySelector('table');
+    if (!table) return null;
+
+    const thEls = Array.from(table.querySelectorAll('thead th'));
+    const colCount = thEls.length;
+    if (colCount === 0) return null;
+
+    const colHeaders = thEls.map(th => {
+      const weekDiv = th.querySelector('.th-week');
+      const monthDiv = th.querySelector('.th-month');
+      const isLastWeek = th.style.background?.includes('eff6ff') || th.getAttribute('style')?.includes('eff6ff');
+      if (weekDiv) {
+        return {
+          top: weekDiv.innerText.trim(),
+          sub: monthDiv ? monthDiv.innerText.trim() : '',
+          isLastWeek: !!isLastWeek,
+          type: 'week'
+        };
+      }
+      const divs = th.querySelectorAll('div');
+      if (divs.length >= 2) {
+        return {
+          top: divs[0].innerText.trim(),
+          sub: divs[1].innerText.trim(),
+          isLastWeek: false,
+          type: 'trend'
+        };
+      }
+      return {
+        top: th.innerText.trim(),
+        sub: '',
+        isLastWeek: false,
+        type: 'code'
+      };
+    });
+
+    const trEls = Array.from(table.querySelectorAll('tbody tr'));
+    const rows = trEls.map(tr => {
+      return Array.from(tr.querySelectorAll('td')).map((td, cIdx) => {
+        const arrow = td.querySelector('.trend-arrow');
+        if (arrow) {
+          const isUp = arrow.classList.contains('trend-up');
+          return {
+            text: arrow.innerText.trim(),
+            isTrend: true,
+            isUp: isUp,
+            type: 'trend'
+          };
+        }
+        return {
+          text: td.innerText.trim(),
+          isLastWeek: colHeaders[cIdx]?.isLastWeek || false,
+          type: cIdx === 0 ? 'code' : 'value'
+        };
+      });
+    });
+
+    const footTrEls = Array.from(table.querySelectorAll('tfoot tr'));
+    const footRows = footTrEls.map(tr => {
+      return Array.from(tr.querySelectorAll('td')).map((td, cIdx) => {
+        const arrow = td.querySelector('.trend-arrow');
+        if (arrow) {
+          const isUp = arrow.classList.contains('trend-up');
+          return {
+            text: arrow.innerText.trim(),
+            isTrend: true,
+            isUp: isUp,
+            type: 'trend'
+          };
+        }
+        return {
+          text: td.innerText.trim(),
+          isLastWeek: colHeaders[cIdx]?.isLastWeek || false,
+          type: cIdx === 0 ? 'code' : 'value'
+        };
+      });
+    });
+
+    const col0Width = 50;
+    const trendColWidth = 100;
+    const weekColWidth = 80;
+
+    const colWidths = colHeaders.map((h, i) => {
+      if (i === 0) return col0Width;
+      if (i === colCount - 1) return trendColWidth;
+      return weekColWidth;
+    });
+
+    const totalWidth = colWidths.reduce((a, b) => a + b, 0);
+    const cardHeaderHeight = 32;
+    const theadHeight = 30;
+    const rowHeight = 21; // Fila delgada y compacta
+    const footHeight = 24; // Fila total
+    const totalHeight = cardHeaderHeight + theadHeight + (rows.length * rowHeight) + (footRows.length * footHeight) + 2;
+
+    const scale = 2; // Retina 2x para máxima nitidez
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(totalWidth * scale);
+    canvas.height = Math.round(totalHeight * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    // Fondo del card
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    roundRect(ctx, 0.5, 0.5, totalWidth - 1, totalHeight - 1, 8);
+    ctx.restore();
+
+    // Cabecera del card
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(8, 0);
+    ctx.lineTo(totalWidth - 8, 0);
+    ctx.quadraticCurveTo(totalWidth, 0, totalWidth, 8);
+    ctx.lineTo(totalWidth, cardHeaderHeight);
+    ctx.lineTo(0, cardHeaderHeight);
+    ctx.lineTo(0, 8);
+    ctx.quadraticCurveTo(0, 0, 8, 0);
+    ctx.closePath();
+    ctx.fillStyle = headerBg;
+    ctx.fill();
+
+    ctx.strokeStyle = headerBorderCol;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, cardHeaderHeight);
+    ctx.lineTo(totalWidth, cardHeaderHeight);
+    ctx.stroke();
+
+    ctx.fillStyle = headerTextCol;
+    ctx.font = 'bold 12px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(titleText, 12, cardHeaderHeight / 2);
+
+    ctx.fillStyle = headerTextCol;
+    ctx.font = 'bold 9.5px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(subtitleText, totalWidth - 12, cardHeaderHeight / 2);
+    ctx.restore();
+
+    // Cabecera de la tabla (thead)
+    let currentY = cardHeaderHeight;
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, currentY, totalWidth, theadHeight);
+
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, currentY + theadHeight);
+    ctx.lineTo(totalWidth, currentY + theadHeight);
+    ctx.stroke();
+
+    let curX = 0;
+    colHeaders.forEach((h, i) => {
+      const w = colWidths[i];
+      if (h.isLastWeek) {
+        ctx.fillStyle = '#eff6ff';
+        ctx.fillRect(curX, currentY, w, theadHeight);
+      }
+
+      if (i < colCount - 1) {
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(curX + w, currentY);
+        ctx.lineTo(curX + w, currentY + theadHeight);
+        ctx.stroke();
+      }
+
+      if (h.type === 'code') {
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 11px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(h.top, curX + w / 2, currentY + theadHeight / 2);
+      } else if (h.type === 'week') {
+        ctx.fillStyle = h.isLastWeek ? '#2563eb' : '#0f172a';
+        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(h.top, curX + w / 2, currentY + 11);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 8.5px Inter, sans-serif';
+        ctx.fillText(h.sub, curX + w / 2, currentY + 22);
+      } else if (h.type === 'trend') {
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(h.top, curX + w / 2, currentY + 11);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 8.5px Inter, sans-serif';
+        ctx.fillText(h.sub, curX + w / 2, currentY + 22);
+      }
+      curX += w;
+    });
+
+    currentY += theadHeight;
+
+    // Filas de datos (tbody)
+    rows.forEach((row, rIdx) => {
+      ctx.fillStyle = (rIdx % 2 === 1) ? '#fafbfc' : '#ffffff';
+      ctx.fillRect(0, currentY, totalWidth, rowHeight);
+
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, currentY + rowHeight);
+      ctx.lineTo(totalWidth, currentY + rowHeight);
+      ctx.stroke();
+
+      curX = 0;
+      row.forEach((cell, cIdx) => {
+        const w = colWidths[cIdx];
+        if (cell.isLastWeek) {
+          ctx.fillStyle = 'rgba(239, 246, 255, 0.4)';
+          ctx.fillRect(curX, currentY, w, rowHeight);
+        }
+
+        if (cIdx < colCount - 1) {
+          ctx.strokeStyle = '#f1f5f9';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(curX + w, currentY);
+          ctx.lineTo(curX + w, currentY + rowHeight);
+          ctx.stroke();
+        }
+
+        if (cell.type === 'code') {
+          ctx.fillStyle = '#1e293b';
+          ctx.font = 'bold 10.5px JetBrains Mono, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(cell.text, curX + w / 2, currentY + rowHeight / 2);
+        } else if (cell.type === 'value') {
+          ctx.fillStyle = cell.isLastWeek ? '#1e3a8a' : '#1e293b';
+          ctx.font = '600 10.5px Inter, -apple-system, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(cell.text, curX + w - 7, currentY + rowHeight / 2);
+        } else if (cell.type === 'trend') {
+          if (cell.text && cell.text !== '--') {
+            const pillW = Math.min(w - 10, 78);
+            const pillH = 15;
+            const pillX = curX + (w - pillW) / 2;
+            const pillY = currentY + (rowHeight - pillH) / 2;
+
+            ctx.save();
+            ctx.beginPath();
+            roundRect(ctx, pillX, pillY, pillW, pillH, 4);
+            ctx.fillStyle = cell.isUp ? '#dcfce7' : '#fee2e2';
+            ctx.fill();
+            ctx.strokeStyle = cell.isUp ? '#bbf7d0' : '#fecaca';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = cell.isUp ? '#15803d' : '#b91c1c';
+            ctx.font = 'bold 9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(cell.text, pillX + pillW / 2, pillY + pillH / 2);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '9.5px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('--', curX + w / 2, currentY + rowHeight / 2);
+          }
+        }
+        curX += w;
+      });
+
+      currentY += rowHeight;
+    });
+
+    // Fila de Total (tfoot)
+    footRows.forEach(row => {
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, currentY, totalWidth, footHeight);
+
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, currentY);
+      ctx.lineTo(totalWidth, currentY);
+      ctx.stroke();
+
+      curX = 0;
+      row.forEach((cell, cIdx) => {
+        const w = colWidths[cIdx];
+        if (cIdx < colCount - 1) {
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(curX + w, currentY);
+          ctx.lineTo(curX + w, currentY + footHeight);
+          ctx.stroke();
+        }
+
+        if (cIdx === 0) {
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 11px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('Total', curX + w / 2, currentY + footHeight / 2);
+        } else if (cell.type === 'value') {
+          ctx.fillStyle = cell.isLastWeek ? '#2563eb' : '#0f172a';
+          ctx.font = 'bold 11px Inter, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(cell.text, curX + w - 7, currentY + footHeight / 2);
+        } else if (cell.type === 'trend') {
+          if (cell.text && cell.text !== '--') {
+            const pillW = Math.min(w - 10, 78);
+            const pillH = 16;
+            const pillX = curX + (w - pillW) / 2;
+            const pillY = currentY + (footHeight - pillH) / 2;
+
+            ctx.save();
+            ctx.beginPath();
+            roundRect(ctx, pillX, pillY, pillW, pillH, 4);
+            ctx.fillStyle = cell.isUp ? '#dcfce7' : '#fee2e2';
+            ctx.fill();
+            ctx.strokeStyle = cell.isUp ? '#bbf7d0' : '#fecaca';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = cell.isUp ? '#15803d' : '#b91c1c';
+            ctx.font = 'bold 9.5px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(cell.text, pillX + pillW / 2, pillY + pillH / 2);
+            ctx.restore();
+          }
+        }
+        curX += w;
+      });
+
+      currentY += footHeight;
+    });
+
+    return { canvas, titleText };
+  }
+
+  // Renderiza el Glosario de Divisiones a Canvas 2D nativo (<3ms)
+  function renderGlossaryToCanvas(glossaryCardEl) {
+    if (!glossaryCardEl) return null;
+    const table = glossaryCardEl.querySelector('.glossary-table');
+    if (!table) return null;
+
+    const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr => {
+      const tds = tr.querySelectorAll('td');
+      return {
+        code: tds[0]?.innerText?.trim() || '',
+        name: tds[1]?.innerText?.trim() || ''
+      };
+    });
+
+    const totalWidth = 280;
+    const headerHeight = 32;
+    const theadHeight = 26;
+    const rowHeight = 20;
+    const totalHeight = headerHeight + theadHeight + (rows.length * rowHeight) + 2;
+
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(totalWidth * scale);
+    canvas.height = Math.round(totalHeight * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    roundRect(ctx, 0.5, 0.5, totalWidth - 1, totalHeight - 1, 8);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.moveTo(8, 0); ctx.lineTo(totalWidth - 8, 0);
+    ctx.quadraticCurveTo(totalWidth, 0, totalWidth, 8);
+    ctx.lineTo(totalWidth, headerHeight);
+    ctx.lineTo(0, headerHeight);
+    ctx.lineTo(0, 8);
+    ctx.quadraticCurveTo(0, 0, 8, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, headerHeight); ctx.lineTo(totalWidth, headerHeight); ctx.stroke();
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 12px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Glosario Divisiones', 12, headerHeight / 2);
+
+    let curY = headerHeight;
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(0, curY, totalWidth, theadHeight);
+
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, curY + theadHeight); ctx.lineTo(totalWidth, curY + theadHeight); ctx.stroke();
+
+    ctx.fillStyle = '#475569';
+    ctx.font = 'bold 10px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Cód.', 25, curY + theadHeight / 2);
+
+    ctx.textAlign = 'left';
+    ctx.fillText('Nombre Oficial', 58, curY + theadHeight / 2);
+
+    curY += theadHeight;
+
+    rows.forEach((r, idx) => {
+      ctx.fillStyle = (idx % 2 === 1) ? '#fafbfc' : '#ffffff';
+      ctx.fillRect(0, curY, totalWidth, rowHeight);
+
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, curY + rowHeight); ctx.lineTo(totalWidth, curY + rowHeight); ctx.stroke();
+
+      const badgeW = 32; const badgeH = 14;
+      const badgeX = 25 - badgeW / 2; const badgeY = curY + (rowHeight - badgeH) / 2;
+      ctx.fillStyle = '#eff6ff';
+      ctx.strokeStyle = '#bfdbfe';
+      roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 3);
+
+      ctx.fillStyle = '#1d4ed8';
+      ctx.font = 'bold 9.5px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(r.code, 25, curY + rowHeight / 2);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '600 10px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(r.name, 58, curY + rowHeight / 2);
+
+      curY += rowHeight;
+    });
+
+    return canvas;
+  }
+
+  // Renderiza la Tabla Corporativa Semanal a Canvas 2D nativo (<8ms)
+  function renderCorporateTableToCanvas(tableEl, prefix) {
+    if (!tableEl) return null;
+    const thEls = Array.from(tableEl.querySelectorAll('thead th'));
+    const colHeaders = thEls.map(th => {
+      const wDiv = th.querySelector('.th-week');
+      const mDiv = th.querySelector('.th-month');
+      if (wDiv) {
+        return { top: wDiv.innerText.trim(), sub: mDiv?.innerText.trim() || '', type: 'week' };
+      }
+      return { top: th.innerText.trim(), sub: '', type: 'text' };
+    });
+
+    const trEls = Array.from(tableEl.querySelectorAll('tbody tr'));
+    const rows = trEls.map(tr => {
+      const tds = Array.from(tr.querySelectorAll('td'));
+      const firstTd = tds[0];
+      const isPlan = firstTd?.innerText?.includes('Plan Objetivo');
+      const isPrev = firstTd?.innerText?.includes('Real 2025');
+      const isMain = !isPlan && !isPrev;
+
+      let textColor = '#1e293b';
+      if (isPlan) textColor = '#0284c7';
+      else if (isPrev) textColor = '#64748b';
+      else if (firstTd?.style.color) textColor = firstTd.style.color;
+
+      return {
+        isMain, isPlan, isPrev, textColor,
+        cells: tds.map(td => td.innerText.trim())
+      };
+    });
+
+    const col0Width = 140;
+    const promColWidth = 85;
+    const weekColWidth = 74;
+    const numWeeks = colHeaders.length - 2;
+
+    const totalWidth = col0Width + (numWeeks * weekColWidth) + promColWidth;
+    const theadHeight = 32;
+    const rowHeight = 21;
+    const totalHeight = theadHeight + (rows.length * rowHeight) + 2;
+
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(totalWidth * scale);
+    canvas.height = Math.round(totalHeight * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    roundRect(ctx, 0.5, 0.5, totalWidth - 1, totalHeight - 1, 6);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, totalWidth, theadHeight);
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, theadHeight); ctx.lineTo(totalWidth, theadHeight); ctx.stroke();
+
+    let curX = 0;
+    colHeaders.forEach((h, i) => {
+      const w = (i === 0) ? col0Width : (i === colHeaders.length - 1 ? promColWidth : weekColWidth);
+      if (i < colHeaders.length - 1) {
+        ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(curX + w, 0); ctx.lineTo(curX + w, theadHeight); ctx.stroke();
+      }
+      if (i === 0) {
+        ctx.fillStyle = '#475569'; ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(h.top, curX + 12, theadHeight / 2);
+      } else if (h.type === 'week') {
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(h.top, curX + w / 2, 11);
+        ctx.fillStyle = '#64748b'; ctx.font = 'bold 8.5px Inter, sans-serif';
+        ctx.fillText(h.sub, curX + w / 2, 22);
+      } else {
+        ctx.fillStyle = '#475569'; ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(h.top, curX + w / 2, theadHeight / 2);
+      }
+      curX += w;
+    });
+
+    let curY = theadHeight;
+    rows.forEach((r, rIdx) => {
+      if (r.isPlan) ctx.fillStyle = 'rgba(239, 246, 255, 0.4)';
+      else if (r.isPrev) ctx.fillStyle = '#ffffff';
+      else ctx.fillStyle = (rIdx > 0 ? '#fdfefe' : '#ffffff');
+      ctx.fillRect(0, curY, totalWidth, rowHeight);
+
+      ctx.strokeStyle = r.isPrev ? '#cbd5e1' : '#f1f5f9';
+      ctx.lineWidth = r.isPrev ? 1.5 : 1;
+      ctx.beginPath(); ctx.moveTo(0, curY + rowHeight); ctx.lineTo(totalWidth, curY + rowHeight); ctx.stroke();
+
+      curX = 0;
+      r.cells.forEach((val, cIdx) => {
+        const w = (cIdx === 0) ? col0Width : (cIdx === r.cells.length - 1 ? promColWidth : weekColWidth);
+        if (cIdx < r.cells.length - 1) {
+          ctx.strokeStyle = '#f1f5f9'; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(curX + w, curY); ctx.lineTo(curX + w, curY + rowHeight); ctx.stroke();
+        }
+
+        ctx.fillStyle = r.textColor;
+        ctx.font = r.isMain ? 'bold 10.5px Inter, sans-serif' : '500 10px Inter, sans-serif';
+        ctx.textBaseline = 'middle';
+
+        if (cIdx === 0) {
+          ctx.textAlign = 'left';
+          ctx.fillText(val, curX + (r.isMain ? 10 : 18), curY + rowHeight / 2);
+        } else {
+          ctx.textAlign = 'right';
+          ctx.fillText(val, curX + w - 7, curY + rowHeight / 2);
+        }
+        curX += w;
+      });
+
+      curY += rowHeight;
+    });
+
+    return canvas;
+  }
+
+  // 2. Copiar Tabla Detalle Corporativo Semanal (<10ms)
   window.copyCorporateTableImage = async function(prefix) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
@@ -2241,42 +2844,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     isCopyingImageInProgress = true;
-    showToast('Generando imagen de la tabla (desde Área)...', 'info', 1600);
-
-    const scrollWrapper = table.closest('.table-scroll-wrapper');
-    const origScrollLeft = scrollWrapper ? scrollWrapper.scrollLeft : 0;
-    if (scrollWrapper) scrollWrapper.scrollLeft = 0;
-
-    // Medir ancho exacto de la tabla para eliminar el espacio blanco lateral
-    const targetWidth = Math.ceil(table.getBoundingClientRect().width || table.scrollWidth);
-
     try {
-      await ensureHtml2Canvas();
-      const canvas = await window.html2canvas(table, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: false,
-        logging: false,
-        width: targetWidth,
-        windowWidth: targetWidth + 40
-      });
-
-      if (scrollWrapper) scrollWrapper.scrollLeft = origScrollLeft;
+      const canvas = renderCorporateTableToCanvas(table, prefix);
+      if (!canvas) throw new Error('No se pudo renderizar la tabla');
 
       canvas.toBlob(async (blob) => {
         await writeBlobToClipboard(blob, `Tabla Detalle Corporativo (${prefix})`);
       }, 'image/png');
-
     } catch (err) {
-      if (scrollWrapper) scrollWrapper.scrollLeft = origScrollLeft;
       console.error('Error al capturar tabla corporativa:', err);
       showToast('No se pudo generar la imagen de la tabla. Inténtalo de nuevo.', 'danger');
     } finally {
-      setTimeout(() => { isCopyingImageInProgress = false; }, 300);
+      setTimeout(() => { isCopyingImageInProgress = false; }, 200);
     }
   };
 
-  // 3. Copiar Tarjeta de Proceso de División (captura desde "Despacho (Salidas) 2026" ajustada al ancho de la tabla)
+  // 3. Copiar Tarjeta de Proceso de División Ultrarrápida (<10ms)
   window.copyDivisionProcessCardImage = async function(target, labelTitle) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
@@ -2289,90 +2872,123 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     isCopyingImageInProgress = true;
-    showToast(`Generando imagen de ${labelTitle || 'tabla divisiones'}...`, 'info', 1600);
-
-    const scrollWrapper = el.querySelector('.table-scroll-wrapper');
-    const origScrollLeft = scrollWrapper ? scrollWrapper.scrollLeft : 0;
-    if (scrollWrapper) scrollWrapper.scrollLeft = 0;
-
-    // Medir ancho exacto de la tabla interior para evitar espacio blanco a la derecha
-    const innerTable = el.querySelector('table');
-    let targetWidth = 0;
-    if (innerTable) {
-      targetWidth = Math.ceil(innerTable.getBoundingClientRect().width || innerTable.scrollWidth);
-    } else {
-      targetWidth = Math.ceil(el.scrollWidth || el.offsetWidth);
-    }
-
-    // Guardar estilos originales del card
-    const origWidth = el.style.width;
-    const origMaxWidth = el.style.maxWidth;
-    const origFlex = el.style.flex;
-
-    // Ajustar temporalmente el ancho del card al ancho exacto de la tabla
-    el.style.width = `${targetWidth}px`;
-    el.style.maxWidth = `${targetWidth}px`;
-    el.style.flex = 'none';
-
-    // Ocultar botones de copia internos durante la captura
-    const ignoreBtns = el.querySelectorAll('.btn-chart-copy, .btn-table-copy');
-    ignoreBtns.forEach(b => b.setAttribute('data-html2canvas-ignore', 'true'));
-
     try {
-      await ensureHtml2Canvas();
-      const canvas = await window.html2canvas(el, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: false,
-        logging: false,
-        width: targetWidth,
-        windowWidth: targetWidth + 40
-      });
+      const res = renderDivisionCardToCanvas(el);
+      if (!res || !res.canvas) throw new Error('No se pudo renderizar la tabla');
 
-      // Restaurar estilos originales
-      el.style.width = origWidth;
-      el.style.maxWidth = origMaxWidth;
-      el.style.flex = origFlex;
-      ignoreBtns.forEach(b => b.removeAttribute('data-html2canvas-ignore'));
-      if (scrollWrapper) scrollWrapper.scrollLeft = origScrollLeft;
-
-      canvas.toBlob(async (blob) => {
-        await writeBlobToClipboard(blob, labelTitle || 'Tabla División');
+      res.canvas.toBlob(async (blob) => {
+        await writeBlobToClipboard(blob, labelTitle || res.titleText);
       }, 'image/png');
-
     } catch (err) {
-      el.style.width = origWidth;
-      el.style.maxWidth = origMaxWidth;
-      el.style.flex = origFlex;
-      ignoreBtns.forEach(b => b.removeAttribute('data-html2canvas-ignore'));
-      if (scrollWrapper) scrollWrapper.scrollLeft = origScrollLeft;
       console.error('Error al capturar tabla de división:', err);
       showToast('No se pudo generar la imagen de la tabla. Inténtalo de nuevo.', 'danger');
     } finally {
-      setTimeout(() => { isCopyingImageInProgress = false; }, 300);
+      setTimeout(() => { isCopyingImageInProgress = false; }, 200);
     }
   };
 
-  // 4. Copiar la tabla de división activa según la vista seleccionada
+  // 4. Copiar Diapositiva Panorámica 16:9 con las 3 Tablas de Divisiones + Glosario (<25ms)
+  window.copyTripleDivisionTablesSlideImage = async function(prefix) {
+    if (isCopyingImageInProgress) {
+      showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
+      return;
+    }
+
+    const cardRecibo = document.getElementById(`divProcCard_${prefix}_recibo`);
+    const cardDespacho = document.getElementById(`divProcCard_${prefix}_despacho`);
+    const cardInventario = document.getElementById(`divProcCard_${prefix}_inventario`);
+    const cardGlossary = document.getElementById(`glossaryCard_${prefix}`);
+
+    if (!cardRecibo || !cardDespacho || !cardInventario) {
+      showToast('No se encontraron las tablas para la diapositiva', 'danger');
+      return;
+    }
+
+    isCopyingImageInProgress = true;
+    try {
+      const resRecibo = renderDivisionCardToCanvas(cardRecibo);
+      const resDespacho = renderDivisionCardToCanvas(cardDespacho);
+      const resInventario = renderDivisionCardToCanvas(cardInventario);
+      const canvasGlossary = cardGlossary ? renderGlossaryToCanvas(cardGlossary) : null;
+
+      const W = 1920;
+      const H = 1080;
+      const offscreen = document.createElement('canvas');
+      offscreen.width = W;
+      offscreen.height = H;
+      const ctx = offscreen.getContext('2d');
+
+      // Fondo blanco puro
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+
+      // Título principal centrado
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '800 28px Inter, -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`MOVIMIENTO DE CAJAS POR DIVISIÓN – CD ${prefix.toUpperCase()} 2026`, W / 2, 38);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '700 13px Inter, -apple-system, sans-serif';
+      ctx.fillText(`ÚLTIMAS SEMANAS CERRADAS · RECIBO, DESPACHO, INVENTARIO Y ESTRUCTURA CORPORATIVA`, W / 2, 68);
+
+      // Fila 1: Recibo (izq) y Despacho (der)
+      const topY = 96;
+      const topH = 450;
+      const tableW = 895;
+      const gapX = 30;
+      const startX = (W - (tableW * 2 + gapX)) / 2;
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      if (resRecibo?.canvas) {
+        ctx.drawImage(resRecibo.canvas, startX, topY, tableW, topH);
+      }
+      if (resDespacho?.canvas) {
+        ctx.drawImage(resDespacho.canvas, startX + tableW + gapX, topY, tableW, topH);
+      }
+
+      // Fila 2: Inventario (ancho) y Glosario (derecha)
+      const bottomY = topY + topH + 20;
+      const bottomH = 475;
+      const glossaryW = 420;
+      const invW = (tableW * 2 + gapX) - glossaryW - gapX;
+
+      if (resInventario?.canvas) {
+        ctx.drawImage(resInventario.canvas, startX, bottomY, invW, bottomH);
+      }
+      if (canvasGlossary) {
+        ctx.drawImage(canvasGlossary, startX + invW + gapX, bottomY, glossaryW, bottomH);
+      }
+
+      offscreen.toBlob(async (blob) => {
+        await writeBlobToClipboard(blob, `Diapositiva 3 Tablas (CD ${prefix.toUpperCase()})`);
+      }, 'image/png');
+
+    } catch (err) {
+      console.error('Error al componer diapositiva 3 tablas:', err);
+      showToast('No se pudo generar la diapositiva de tablas.', 'danger');
+    } finally {
+      setTimeout(() => { isCopyingImageInProgress = false; }, 200);
+    }
+  };
+
+  // 5. Copiar la tabla de división activa según la vista seleccionada
   window.copyActiveDivisionTableImage = function(prefix) {
     const currentView = divTableProcess[prefix] || 'all';
-    if (currentView !== 'all') {
+    if (currentView === 'all') {
+      window.copyTripleDivisionTablesSlideImage(prefix);
+    } else {
       const cardId = `divProcCard_${prefix}_${currentView}`;
       const titles = { recibo: 'Recibo (Entradas)', despacho: 'Despacho (Salidas)', inventario: 'Inventario' };
       const label = `${titles[currentView] || currentView} 2026`;
       window.copyDivisionProcessCardImage(cardId, label);
-    } else {
-      // Si la vista está en "Todos (3 en 1)", copiamos la tarjeta de Despacho o el primer proceso visible
-      const firstCard = document.querySelector(`#tableDivisions${prefix}Container .division-process-table-card`);
-      if (firstCard) {
-        window.copyDivisionProcessCardImage(firstCard.id, `Tabla Divisiones - CD ${prefix.toUpperCase()}`);
-      } else {
-        showToast('No se encontró la tabla de divisiones para copiar', 'danger');
-      }
     }
   };
 
-  // 5. Copiar Glosario de Divisiones como imagen para PowerPoint
+  // 6. Copiar Glosario de Divisiones como imagen para PowerPoint (<3ms)
   window.copyGlossaryImage = async function(prefix) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
@@ -2385,36 +3001,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     isCopyingImageInProgress = true;
-    showToast('Copiando Glosario de Divisiones...', 'info', 1500);
-
-    const ignoreBtns = glossaryCard.querySelectorAll('.btn-table-copy');
-    ignoreBtns.forEach(b => b.setAttribute('data-html2canvas-ignore', 'true'));
-
     try {
-      await ensureHtml2Canvas();
-      const canvas = await window.html2canvas(glossaryCard, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: false,
-        logging: false
-      });
-
-      ignoreBtns.forEach(b => b.removeAttribute('data-html2canvas-ignore'));
+      const canvas = renderGlossaryToCanvas(glossaryCard);
+      if (!canvas) throw new Error('No se pudo renderizar el glosario');
 
       canvas.toBlob(async (blob) => {
         await writeBlobToClipboard(blob, `Glosario de Divisiones (CD ${prefix.toUpperCase()})`);
       }, 'image/png');
-
     } catch (err) {
-      ignoreBtns.forEach(b => b.removeAttribute('data-html2canvas-ignore'));
       console.error('Error al capturar glosario:', err);
       showToast('No se pudo generar la imagen del glosario. Inténtalo de nuevo.', 'danger');
     } finally {
-      setTimeout(() => { isCopyingImageInProgress = false; }, 300);
+      setTimeout(() => { isCopyingImageInProgress = false; }, 200);
     }
   };
 
-  // 6. Copiar Gráfico individual Throughput (Recibo, Despacho o Inventario) Ultrarrápido (<15ms)
+  // 7. Copiar Gráfico individual Throughput (Recibo, Despacho o Inventario) Ultrarrápido (<15ms)
   window.copyThroughputChartImage = async function(processKey) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
