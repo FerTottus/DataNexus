@@ -776,6 +776,85 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .data-table td.col-division-code,
+    .data-table th.col-division-code,
+    .data-table .col-sticky.col-division-code {
+      text-align: center !important;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      color: #1e293b;
+      min-width: 65px !important;
+      width: 65px !important;
+      max-width: 65px !important;
+      padding: 8px 4px !important;
+      letter-spacing: 0.3px;
+    }
+
+    /* Glosario de Divisiones a un Costado */
+    .division-section-content {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      width: 100%;
+    }
+    .division-tables-main {
+      flex: 1;
+      min-width: 0;
+    }
+    .division-glossary-sidebar {
+      width: 280px;
+      min-width: 260px;
+      flex-shrink: 0;
+    }
+    .divisions-glossary-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    }
+    .glossary-header {
+      padding: 10px 14px;
+      font-weight: 800;
+      font-size: 0.86rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      border-bottom: 2px solid #e2e8f0;
+      color: #0f172a;
+    }
+    .glossary-body {
+      padding: 4px;
+    }
+    .glossary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .glossary-table th {
+      background: #f1f5f9;
+      color: #475569;
+      font-weight: 700;
+      padding: 6px 8px;
+      font-size: 0.74rem;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .glossary-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #1e293b;
+    }
+    .glossary-table tr:last-child td {
+      border-bottom: none;
+    }
+    .glossary-table tr:hover td {
+      background-color: #f8fafc;
+    }
+    .glossary-row-highlight td {
+      background-color: #eff6ff;
+    }
     .data-table tr.row-total td {
       font-weight: 800;
       background-color: #f8fafc;
