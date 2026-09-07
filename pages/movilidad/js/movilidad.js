@@ -29,7 +29,13 @@ const AppState = {
   mapDrawn: false,
   routeDirectionsCache: {},
   unmappedPassengers: [], // Pasajeros en Registro Diario no encontrados en BD
-  activeTab: 'operacion', // 'operacion' o 'costos'
+  activeTab: 'operacion', // 'operacion', 'costos' o 'mapacalor'
+  // Módulo de Mapa de Calor Demográfico
+  heatMapInstance: null,
+  heatLayer: null,
+  heatMarkersLayer: null,
+  heatParaderosLayer: null,
+  heatInitialized: false,
   semanaSeleccionada: 'TODAS', // Semana activa en la cabecera
   semanasDisponibles: [], // Lista de semanas únicas
   semanasInfoMap: new Map(), // Mapeo de semana -> { dates, dias, sampleDate }
@@ -159,6 +165,30 @@ function normalizeTipo(val) {
   if (s.includes('STAFF')) return 'STAFF';
   if (s.includes('OPERAR')) return 'OPERARIO';
   return s;
+}
+
+function parseCoordinate(val) {
+  if (val === undefined || val === null || val === '') return null;
+  if (typeof val === 'number') {
+    return isNaN(val) ? null : val;
+  }
+  let s = String(val).trim().replace(',', '.');
+  s = s.replace(/[^0-9.-]+/g, '');
+  const num = parseFloat(s);
+  if (isNaN(num) || num === 0) return null;
+  return num;
+}
+
+function calcularDistanciaHaversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radio de la Tierra en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 function getRowVal(row, candidates) {
@@ -809,6 +839,92 @@ function initUIEvents() {
   if (btnTabCo) {
     btnTabCo.addEventListener('click', () => switchDashboardTab('costos'));
   }
+  const btnTabCa = document.getElementById('btnTabMapaCalor');
+  if (btnTabCa) {
+    btnTabCa.addEventListener('click', () => switchDashboardTab('mapacalor'));
+  }
+
+  // Controles Interactivos del Mapa de Calor Demográfico
+  const setupHeatChipGroup = (containerId) => {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip');
+      if (!btn) return;
+      container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      renderMapaCalorEmpleados();
+    });
+  };
+  setupHeatChipGroup('chipAreaCalor');
+  setupHeatChipGroup('chipTipoCalor');
+
+  const selDistCalor = document.getElementById('selectDistritoCalor');
+  if (selDistCalor) {
+    selDistCalor.addEventListener('change', (e) => {
+      renderMapaCalorEmpleados();
+      if (e.target.value !== 'TODOS') {
+        enfocarDistritoEnMapa(e.target.value);
+      } else {
+        if (AppState.heatMapInstance) {
+          AppState.heatMapInstance.flyTo([-12.015, -76.945], 11, { duration: 1.0 });
+        }
+      }
+    });
+  }
+
+  const toggleHeat = document.getElementById('toggleLayerHeat');
+  if (toggleHeat) {
+    toggleHeat.addEventListener('change', (e) => {
+      if (!AppState.heatMapInstance || !AppState.heatLayer) return;
+      if (e.target.checked) {
+        AppState.heatMapInstance.addLayer(AppState.heatLayer);
+      } else {
+        AppState.heatMapInstance.removeLayer(AppState.heatLayer);
+      }
+    });
+  }
+
+  const togglePoints = document.getElementById('toggleLayerPoints');
+  if (togglePoints) {
+    togglePoints.addEventListener('change', () => {
+      if (!AppState.heatMapInstance) return;
+      renderMapaCalorEmpleados();
+    });
+  }
+
+  const toggleParaderos = document.getElementById('toggleLayerParaderos');
+  if (toggleParaderos) {
+    toggleParaderos.addEventListener('change', () => {
+      if (!AppState.heatMapInstance) return;
+      renderMapaCalorEmpleados();
+    });
+  }
+
+  const sliderRadius = document.getElementById('sliderHeatRadius');
+  const labelRadius = document.getElementById('labelHeatRadius');
+  if (sliderRadius) {
+    sliderRadius.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (labelRadius) labelRadius.innerText = `${val}px`;
+      if (AppState.heatLayer) {
+        AppState.heatLayer.setOptions({ radius: val });
+      }
+    });
+  }
+
+  const btnRecenterHeat = document.getElementById('btnRecenterHeatMap');
+  if (btnRecenterHeat) {
+    btnRecenterHeat.addEventListener('click', () => {
+      if (AppState.heatMapInstance) {
+        AppState.heatMapInstance.flyTo([-12.015, -76.945], 11, { duration: 1.0 });
+      }
+      if (selDistCalor) {
+        selDistCalor.value = 'TODOS';
+        renderMapaCalorEmpleados();
+      }
+    });
+  }
 
   // Selector de Semana en Análisis de Costos (sincronizado con cabecera)
   const selSemCostos = document.getElementById('selectSemanaCostos');
@@ -1105,6 +1221,39 @@ async function loadAllSheets(sheetId) {
         const ruta = String(getRowVal(row, ['RUTA PARADERO', 'RUTA', 'RUTA ASIGNADA', 'RUTA PREFERIDA']) || '').trim();
         const paradero = String(getRowVal(row, ['PARADERO', 'PARADERO MÁS CERCANO', 'PARADERO MAS CERCANO', 'NOMBRE PARADERO']) || '').trim();
 
+        // Extracción de coordenadas geográficas y dirección para el Mapa de Calor
+        const rawLat = getRowVal(row, ['LATITUD', 'LAT', 'LATITUDE', 'COORD Y', 'COORDENADA Y', 'Y']);
+        const rawLng = getRowVal(row, ['LONGITUD', 'LNG', 'LON', 'LONGITUDE', 'COORD X', 'COORDENADA X', 'X']);
+        const provincia = String(getRowVal(row, ['PROVINCIA', 'PROV']) || '').trim();
+        const departamento = String(getRowVal(row, ['DEPARTAMENTO', 'DEPTO', 'DEP']) || '').trim();
+        const direccion = String(getRowVal(row, ['DIRECCIÓN COMPLETA', 'DIRECCION COMPLETA', 'DIRECCION', 'DIRECCIÓN', 'DOMICILIO', 'ADDRESS']) || '').trim();
+
+        let lat = parseCoordinate(rawLat);
+        let lng = parseCoordinate(rawLng);
+
+        // Validar y normalizar coordenadas peruanas (Lima/Callao / Perú: Latitud ~ -12, Longitud ~ -77)
+        if (lat !== null && lng !== null) {
+          lat = -Math.abs(lat);
+          lng = -Math.abs(lng);
+          // Si por error en Excel vinieron invertidas (Lat ~ -77 y Lng ~ -12)
+          if (lat < -50 && lng > -50) {
+            const temp = lat;
+            lat = lng;
+            lng = temp;
+          }
+          // Verificar que esté dentro de un rango geográfico razonable para Perú
+          if (lat > 0 || lat < -20 || lng > -65 || lng < -85) {
+            lat = null;
+            lng = null;
+          }
+        }
+
+        // Si distCdVal es 0 pero tenemos coordenadas válidas, calcular distancia radial al CD Huachipa (-11.997563, -76.900062)
+        let finalDistCd = distCdVal;
+        if (finalDistCd <= 0 && lat !== null && lng !== null) {
+          finalDistCd = parseFloat(calcularDistanciaHaversineKm(lat, lng, -11.997563, -76.900062).toFixed(2));
+        }
+
         combined.push({
           dni: dniClean,
           rawDni: String(rawDni).trim(),
@@ -1112,7 +1261,13 @@ async function loadAllSheets(sheetId) {
           area: areaName,
           tipo: tipo,
           distrito: distrito,
-          distCd: distCdVal,
+          provincia: provincia,
+          departamento: departamento,
+          direccion: direccion,
+          lat: lat,
+          lng: lng,
+          hasCoords: (lat !== null && lng !== null),
+          distCd: finalDistCd,
           clasifCd: clasifCd,
           distParadero: distParaderoVal,
           clasifParadero: clasifParadero,
@@ -1333,6 +1488,10 @@ async function loadAllSheets(sheetId) {
 
     applyFilters();
     renderAnalisisCostos();
+    popularDropdownDistritosCalor();
+    if (AppState.activeTab === 'mapacalor') {
+      renderMapaCalorEmpleados();
+    }
 
     if(window.ClipboardUtil) ClipboardUtil.showToast('Datos cargados exitosamente', 'success');
 
@@ -1553,6 +1712,9 @@ function applyFilters() {
     renderCharts();
   }
   renderAnalisisCostos();
+  if (AppState.activeTab === 'mapacalor') {
+    renderMapaCalorEmpleados();
+  }
 }
 
 function renderTables() {
@@ -2739,13 +2901,17 @@ function switchDashboardTab(tabName) {
   AppState.activeTab = tabName;
   const btnOp = document.getElementById('btnTabOperacion');
   const btnCo = document.getElementById('btnTabCostos');
+  const btnCa = document.getElementById('btnTabMapaCalor');
   const viewOp = document.getElementById('viewOperacionDemografia');
   const viewCo = document.getElementById('viewAnalisisCostos');
+  const viewCa = document.getElementById('viewMapaCalor');
 
   if (tabName === 'costos') {
     if (btnOp) btnOp.classList.remove('active');
+    if (btnCa) btnCa.classList.remove('active');
     if (btnCo) btnCo.classList.add('active');
     if (viewOp) viewOp.classList.add('hidden');
+    if (viewCa) viewCa.classList.add('hidden');
     if (viewCo) viewCo.classList.remove('hidden');
     renderAnalisisCostos();
     setTimeout(() => {
@@ -2756,10 +2922,27 @@ function switchDashboardTab(tabName) {
         AppState.charts['chartCostoPasajerosRutas'].resize();
       }
     }, 60);
-  } else {
+  } else if (tabName === 'mapacalor') {
+    if (btnOp) btnOp.classList.remove('active');
     if (btnCo) btnCo.classList.remove('active');
+    if (btnCa) btnCa.classList.add('active');
+    if (viewOp) viewOp.classList.add('hidden');
+    if (viewCo) viewCo.classList.add('hidden');
+    if (viewCa) viewCa.classList.remove('hidden');
+    initHeatMapIfNeeded();
+    renderMapaCalorEmpleados();
+    setTimeout(() => {
+      if (AppState.heatMapInstance) {
+        AppState.heatMapInstance.invalidateSize();
+      }
+    }, 150);
+  } else {
+    // Operación & Demografía
+    if (btnCo) btnCo.classList.remove('active');
+    if (btnCa) btnCa.classList.remove('active');
     if (btnOp) btnOp.classList.add('active');
     if (viewCo) viewCo.classList.add('hidden');
+    if (viewCa) viewCa.classList.add('hidden');
     if (viewOp) viewOp.classList.remove('hidden');
   }
 }
@@ -4238,4 +4421,371 @@ Por favor realiza:
     prompt('Copia manualmente este texto para Microsoft Copilot:', copilotPrompt);
   }
 }
+
+// =========================================================
+// MÓDULO: Mapa de Calor Demográfico de Colaboradores
+// =========================================================
+
+function initHeatMapIfNeeded() {
+  if (AppState.heatInitialized && AppState.heatMapInstance) return;
+
+  const container = document.getElementById('mapaCalorEmpleados');
+  if (!container || typeof L === 'undefined') return;
+
+  // 1. Inicializar mapa Leaflet centrado en Lima Metropolitana y CD Huachipa
+  const map = L.map('mapaCalorEmpleados', {
+    center: [-12.015, -76.945],
+    zoom: 11,
+    minZoom: 9,
+    maxZoom: 18,
+    wheelDebounceTime: 60,
+    wheelPxPerZoomLevel: 100
+  });
+
+  // 2. Capa base CartoDB Dark Matter (alto contraste para mapa térmico y diseño dark claymorphism)
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  // 3. Marcador permanente del CD Tottus Huachipa (Hub Central Logístico)
+  const cdLat = -11.997563;
+  const cdLng = -76.900062;
+  const cdIcon = L.divIcon({
+    className: 'cd-huachipa-marker-pin',
+    html: `<div style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2.5px solid #60a5fa; box-shadow: 0 0 16px rgba(59, 130, 246, 0.8), 0 4px 8px rgba(0,0,0,0.6); font-size: 15px;"><i class="fa-solid fa-warehouse"></i></div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17]
+  });
+
+  L.marker([cdLat, cdLng], { icon: cdIcon, zIndexOffset: 2000 })
+    .addTo(map)
+    .bindPopup(`
+      <div style="font-family: inherit; font-size: 0.85rem; color: #0f172a; padding: 4px;">
+        <strong style="color: #1e40af; font-size: 0.94rem; display: flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-warehouse"></i> CD Tottus Huachipa
+        </strong>
+        <div style="color: #64748b; font-size: 0.78rem; margin-top: 2px;">Base Central de Operaciones Logísticas</div>
+        <div style="color: #334155; font-size: 0.74rem; margin-top: 4px;">GPS: -11.997563, -76.900062</div>
+      </div>
+    `);
+
+  // 4. Capas agrupadas para marcadores individuales y paraderos
+  AppState.heatMarkersLayer = L.layerGroup().addTo(map);
+  AppState.heatParaderosLayer = L.layerGroup().addTo(map);
+
+  AppState.heatMapInstance = map;
+  AppState.heatInitialized = true;
+}
+
+function popularDropdownDistritosCalor() {
+  const sel = document.getElementById('selectDistritoCalor');
+  if (!sel || !AppState.rawEmployees || AppState.rawEmployees.length === 0) return;
+
+  const currentVal = sel.value;
+  const distSet = new Set();
+  AppState.rawEmployees.forEach(e => {
+    const d = (e.distrito || '').trim();
+    if (d) {
+      const normD = d.charAt(0).toUpperCase() + d.slice(1).toLowerCase();
+      distSet.add(normD);
+    }
+  });
+
+  const sorted = Array.from(distSet).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
+  let opts = '<option value="TODOS">Todos los Distritos</option>';
+  sorted.forEach(d => {
+    opts += `<option value="${d}">${d}</option>`;
+  });
+  sel.innerHTML = opts;
+  if (sorted.includes(currentVal)) {
+    sel.value = currentVal;
+  } else {
+    sel.value = 'TODOS';
+  }
+}
+
+function renderMapaCalorEmpleados() {
+  if (!AppState.rawEmployees || AppState.rawEmployees.length === 0) return;
+
+  // Asegurar que el mapa Leaflet esté instanciado
+  initHeatMapIfNeeded();
+  if (!AppState.heatMapInstance) return;
+
+  // 1. Obtener filtros activos del toolbar de calor
+  const activeAreaBtn = document.querySelector('#chipAreaCalor .chip.active');
+  const areaFiltro = activeAreaBtn ? activeAreaBtn.dataset.value : 'TODOS';
+
+  const activeTipoBtn = document.querySelector('#chipTipoCalor .chip.active');
+  const tipoFiltro = activeTipoBtn ? activeTipoBtn.dataset.value : 'TODOS';
+
+  const selectDistEl = document.getElementById('selectDistritoCalor');
+  const distritoFiltro = selectDistEl ? selectDistEl.value : 'TODOS';
+
+  // 2. Filtrar empleados según selección
+  let emps = AppState.rawEmployees || [];
+  if (areaFiltro !== 'TODOS') {
+    emps = emps.filter(e => e.area === areaFiltro);
+  }
+  if (tipoFiltro !== 'TODOS') {
+    emps = emps.filter(e => e.tipo === tipoFiltro);
+  }
+  if (distritoFiltro !== 'TODOS') {
+    emps = emps.filter(e => e.distrito && e.distrito.toUpperCase() === distritoFiltro.toUpperCase());
+  }
+
+  // Empleados con coordenadas GPS válidas
+  const empsConCoord = emps.filter(e => e.hasCoords && e.lat !== null && e.lng !== null);
+
+  // 3. Actualizar Indicadores Ejecutivos (KPIs Superiores)
+  const kpiTotalEl = document.getElementById('kpiCalorTotalEmps');
+  const kpiTotalSubEl = document.getElementById('kpiCalorTotalEmpsSub');
+  if (kpiTotalEl) {
+    kpiTotalEl.innerHTML = `${empsConCoord.length.toLocaleString()} <span style="font-size: 0.65em; color: #94a3b8; font-weight: 500;">/ ${emps.length.toLocaleString()}</span>`;
+  }
+  if (kpiTotalSubEl) {
+    const pctGeo = emps.length > 0 ? ((empsConCoord.length / emps.length) * 100).toFixed(1) : 0;
+    kpiTotalSubEl.innerText = `${pctGeo}% con GPS (${emps.length - empsConCoord.length} sin coords)`;
+  }
+
+  // Agrupación y conteo por distritos
+  const distCountMap = new Map();
+  emps.forEach(e => {
+    const d = (e.distrito || 'Sin Distrito').trim();
+    if (!d) return;
+    const normD = d.charAt(0).toUpperCase() + d.slice(1).toLowerCase();
+    distCountMap.set(normD, (distCountMap.get(normD) || 0) + 1);
+  });
+
+  const distritosSorted = Array.from(distCountMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // KPI Distrito Núcleo (Top 1)
+  const kpiTopDistEl = document.getElementById('kpiCalorTopDistrito');
+  const kpiTopDistSubEl = document.getElementById('kpiCalorTopDistritoSub');
+  if (distritosSorted.length > 0) {
+    const top = distritosSorted[0];
+    const pctTop = emps.length > 0 ? ((top.count / emps.length) * 100).toFixed(1) : 0;
+    if (kpiTopDistEl) kpiTopDistEl.innerText = top.name;
+    if (kpiTopDistSubEl) kpiTopDistSubEl.innerText = `${top.count} colaboradores (${pctTop}%)`;
+  } else {
+    if (kpiTopDistEl) kpiTopDistEl.innerText = '-';
+    if (kpiTopDistSubEl) kpiTopDistSubEl.innerText = 'Mayor densidad residencial';
+  }
+
+  // KPI Distancia Media al CD
+  const kpiDistMediaEl = document.getElementById('kpiCalorDistMedia');
+  const empsConDist = emps.filter(e => e.distCd && e.distCd > 0);
+  if (empsConDist.length > 0) {
+    const sumDist = empsConDist.reduce((acc, e) => acc + e.distCd, 0);
+    const avgDist = sumDist / empsConDist.length;
+    if (kpiDistMediaEl) kpiDistMediaEl.innerText = `${avgDist.toFixed(1)} km`;
+  } else {
+    if (kpiDistMediaEl) kpiDistMediaEl.innerText = '-';
+  }
+
+  // KPI Desatendidos / Oportunidad de Cobertura (> 2 km de un paradero)
+  const kpiLejosEl = document.getElementById('kpiCalorLejosParadero');
+  const kpiLejosSubEl = document.getElementById('kpiCalorLejosParaderoSub');
+  const empsLejos = emps.filter(e => (e.distParadero && e.distParadero > 2) || (e.clasifParadero && (e.clasifParadero.includes('Moderada') || e.clasifParadero.includes('Lejos'))));
+  if (kpiLejosEl) {
+    kpiLejosEl.innerText = empsLejos.length.toLocaleString();
+  }
+  if (kpiLejosSubEl) {
+    const pctLejos = emps.length > 0 ? ((empsLejos.length / emps.length) * 100).toFixed(1) : 0;
+    kpiLejosSubEl.innerText = `${pctLejos}% a > 2 km de paraderos`;
+  }
+
+  // 4. Actualizar Capa de Calor Térmico (Acelerado por Hardware con Canvas 2D)
+  const heatPoints = empsConCoord.map(e => [e.lat, e.lng, 0.75]);
+  const sliderEl = document.getElementById('sliderHeatRadius');
+  const radius = sliderEl ? parseInt(sliderEl.value, 10) : 25;
+
+  if (!AppState.heatLayer) {
+    if (typeof L.heatLayer === 'function') {
+      AppState.heatLayer = L.heatLayer(heatPoints, {
+        radius: radius,
+        blur: 16,
+        maxZoom: 16,
+        max: 0.85,
+        minOpacity: 0.35,
+        gradient: {
+          0.15: '#2563eb', // Azul
+          0.35: '#06b6d4', // Cian
+          0.55: '#10b981', // Verde
+          0.75: '#f59e0b', // Amarillo / Naranja
+          1.00: '#ef4444'  // Rojo intenso
+        }
+      });
+      const toggleHeat = document.getElementById('toggleLayerHeat');
+      if (!toggleHeat || toggleHeat.checked) {
+        AppState.heatLayer.addTo(AppState.heatMapInstance);
+      }
+    }
+  } else {
+    AppState.heatLayer.setLatLngs(heatPoints);
+    AppState.heatLayer.setOptions({ radius: radius });
+    const toggleHeat = document.getElementById('toggleLayerHeat');
+    if (toggleHeat && !toggleHeat.checked) {
+      if (AppState.heatMapInstance.hasLayer(AppState.heatLayer)) {
+        AppState.heatMapInstance.removeLayer(AppState.heatLayer);
+      }
+    } else {
+      if (!AppState.heatMapInstance.hasLayer(AppState.heatLayer)) {
+        AppState.heatMapInstance.addLayer(AppState.heatLayer);
+      }
+    }
+  }
+
+  // 5. Actualizar Capa de Marcadores Individuales de Colaboradores
+  if (AppState.heatMarkersLayer) {
+    AppState.heatMarkersLayer.clearLayers();
+    const togglePoints = document.getElementById('toggleLayerPoints');
+    if (togglePoints && togglePoints.checked) {
+      empsConCoord.forEach(emp => {
+        const areaColor = emp.area === 'SECOS' ? '#3b82f6' : (emp.area === 'PPA' ? '#10b981' : '#f59e0b');
+        const marker = L.circleMarker([emp.lat, emp.lng], {
+          radius: 5,
+          color: '#38bdf8',
+          fillColor: areaColor,
+          fillOpacity: 0.8,
+          weight: 1.5
+        });
+
+        const popupHtml = `
+          <div style="font-family: inherit; font-size: 0.82rem; line-height: 1.45; color: #0f172a; min-width: 210px; max-width: 280px;">
+            <div style="font-weight: 700; color: #1e3a8a; font-size: 0.9rem; margin-bottom: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px;">
+              ${emp.nombre}
+            </div>
+            <div style="display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
+              <span style="background: #2563eb; color: #fff; padding: 1px 6px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;">${emp.area}</span>
+              <span style="background: #0f172a; color: #94a3b8; padding: 1px 6px; border-radius: 6px; font-size: 0.72rem;">${emp.tipo}</span>
+              <span style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 6px; font-size: 0.72rem;">DNI: ${emp.dni || emp.rawDni || '-'}</span>
+            </div>
+            <div style="font-size: 0.8rem; color: #334155; margin-bottom: 2px;">
+              <b>📍 Distrito:</b> ${emp.distrito || '-'}${emp.provincia ? ', ' + emp.provincia : ''}
+            </div>
+            ${emp.direccion ? `<div style="font-size: 0.76rem; color: #64748b; margin-bottom: 4px;"><b>🏠 Dirección:</b> ${emp.direccion}</div>` : ''}
+            <div style="font-size: 0.78rem; color: #334155;">
+              <b>🚌 Paradero:</b> ${emp.paradero || '-'} <span style="color: #64748b;">(${emp.ruta || 'Sin Ruta'})</span>
+            </div>
+            <div style="font-size: 0.78rem; color: #334155; margin-top: 2px;">
+              <b>📏 Dist. a CD:</b> ${emp.distCd ? emp.distCd.toFixed(1) + ' km' : '-'} | 
+              <b>A Paradero:</b> ${emp.distParadero ? emp.distParadero.toFixed(2) + ' km' : '-'}
+            </div>
+          </div>
+        `;
+        marker.bindPopup(popupHtml);
+        AppState.heatMarkersLayer.addLayer(marker);
+      });
+    }
+  }
+
+  // 6. Actualizar Capa de Paraderos Oficiales de Movilidad
+  if (AppState.heatParaderosLayer) {
+    AppState.heatParaderosLayer.clearLayers();
+    const toggleParaderos = document.getElementById('toggleLayerParaderos');
+    if (toggleParaderos && toggleParaderos.checked && AppState.paraderosData && AppState.paraderosData.length > 0) {
+      AppState.paraderosData.forEach(p => {
+        const lat = parseFloat(p.lat);
+        const lng = parseFloat(p.lng);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          const pMarker = L.circleMarker([lat, lng], {
+            radius: 4.5,
+            color: '#10b981',
+            fillColor: '#34d399',
+            fillOpacity: 0.85,
+            weight: 1.5
+          }).bindTooltip(`<b>🚌 ${p.nombre}</b><br><small style="color: #94a3b8;">Ruta: ${p.ruta}</small>`, {
+            direction: 'top',
+            offset: [0, -6],
+            className: 'etiqueta-paradero'
+          });
+          AppState.heatParaderosLayer.addLayer(pMarker);
+        }
+      });
+    }
+  }
+
+  // 7. Generar Panel Lateral de Concentración por Distritos
+  const listaDistEl = document.getElementById('listaDistritosCalor');
+  const badgeTotalDist = document.getElementById('badgeTotalDistritosCount');
+  if (badgeTotalDist) {
+    badgeTotalDist.innerText = `${distritosSorted.length} Distritos`;
+  }
+
+  if (listaDistEl) {
+    if (distritosSorted.length === 0) {
+      listaDistEl.innerHTML = `
+        <div style="text-align: center; color: #94a3b8; padding: 25px 10px;">
+          <i class="fa-solid fa-circle-exclamation" style="color: #f59e0b; font-size: 1.4rem; margin-bottom: 8px;"></i>
+          <p style="margin: 0; font-size: 0.84rem;">No se encontraron distritos con los filtros seleccionados.</p>
+        </div>
+      `;
+    } else {
+      const maxCount = distritosSorted[0].count;
+      let html = '';
+      distritosSorted.forEach((d, idx) => {
+        const pct = emps.length > 0 ? ((d.count / emps.length) * 100).toFixed(1) : 0;
+        const barWidth = Math.max(8, Math.round((d.count / maxCount) * 100));
+
+        // Distancia promedio al CD para este distrito
+        const empsDist = emps.filter(e => (e.distrito || '').toUpperCase() === d.name.toUpperCase() && e.distCd > 0);
+        const distProm = empsDist.length > 0 ? (empsDist.reduce((a, b) => a + b.distCd, 0) / empsDist.length).toFixed(1) + ' km' : '-';
+
+        html += `
+          <div class="distrito-ranking-item" onclick="enfocarDistritoEnMapa('${d.name.replace(/'/g, "\\'")}')" title="Clic para enfocar ${d.name} en el mapa">
+            <div class="distrito-item-header">
+              <span><b>#${idx + 1}</b> ${d.name}</span>
+              <span class="distrito-item-count">${d.count} <small style="color: #94a3b8; font-weight: normal;">(${pct}%)</small></span>
+            </div>
+            <div class="distrito-item-bar-bg">
+              <div class="distrito-item-bar-fill" style="width: ${barWidth}%;"></div>
+            </div>
+            <div class="distrito-item-footer">
+              <span><i class="fa-solid fa-compass"></i> CD: ~${distProm}</span>
+              <span style="color: #38bdf8;"><i class="fa-solid fa-magnifying-glass-location"></i> Enfocar</span>
+            </div>
+          </div>
+        `;
+      });
+      listaDistEl.innerHTML = html;
+    }
+  }
+}
+
+function enfocarDistritoEnMapa(distritoNombre) {
+  if (!AppState.heatMapInstance || !distritoNombre) return;
+
+  const emps = (AppState.rawEmployees || []).filter(e => 
+    e.distrito && e.distrito.toUpperCase() === distritoNombre.toUpperCase() && e.hasCoords
+  );
+
+  if (emps.length > 0) {
+    let sumLat = 0, sumLng = 0;
+    emps.forEach(e => {
+      sumLat += e.lat;
+      sumLng += e.lng;
+    });
+    const avgLat = sumLat / emps.length;
+    const avgLng = sumLng / emps.length;
+
+    // Sincronizar select si no coincide
+    const selDist = document.getElementById('selectDistritoCalor');
+    if (selDist && selDist.value !== distritoNombre) {
+      selDist.value = distritoNombre;
+      renderMapaCalorEmpleados();
+    }
+
+    AppState.heatMapInstance.flyTo([avgLat, avgLng], 14, { duration: 1.2 });
+  } else {
+    if (window.ClipboardUtil) ClipboardUtil.showToast(`No hay colaboradores con coordenadas para ${distritoNombre}`, 'info');
+  }
+}
+
+// Exponer función para eventos inline en el DOM
+window.enfocarDistritoEnMapa = enfocarDistritoEnMapa;
+
 

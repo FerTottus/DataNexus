@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="../../css/styles.css?v=3.7">
   
   <!-- Estilos Específicos de este Dashboard -->
-  <link rel="stylesheet" href="css/movilidad.css?v=3.9">
+  <link rel="stylesheet" href="css/movilidad.css?v=4.0">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://apis.google.com/js/api.js"></script>
@@ -378,6 +378,10 @@
           <button id="btnTabCostos" class="nav-tab-btn" type="button">
             <i class="fa-solid fa-chart-line"></i>
             <span>Análisis de Costos y Eficiencia</span>
+          </button>
+          <button id="btnTabMapaCalor" class="nav-tab-btn" type="button">
+            <i class="fa-solid fa-fire-flame-curved" style="color: #f97316;"></i>
+            <span>Mapa de Calor Demográfico</span>
           </button>
         </div>
       </div>
@@ -780,6 +784,142 @@
 
       </div> <!-- Fin viewAnalisisCostos -->
 
+      <!-- VISTA 3: MAPA DE CALOR DEMOGRÁFICO DE EMPLEADOS -->
+      <div id="viewMapaCalor" class="tab-view-pane hidden">
+        
+        <!-- NIVEL 1: KPIs Demográficos de Concentración -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-title"><i class="fa-solid fa-users-viewfinder" style="color: #38bdf8;"></i> Colaboradores Georreferenciados</div>
+            <div class="kpi-value" id="kpiCalorTotalEmps">-</div>
+            <div class="kpi-subtitle" id="kpiCalorTotalEmpsSub">Con coordenadas GPS activas</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title"><i class="fa-solid fa-city" style="color: #f59e0b;"></i> Distrito Núcleo (Top 1)</div>
+            <div class="kpi-value" id="kpiCalorTopDistrito" style="font-size: clamp(1.1rem, 2vw, 1.45rem);">-</div>
+            <div class="kpi-subtitle" id="kpiCalorTopDistritoSub">Mayor densidad residencial</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title"><i class="fa-solid fa-compass" style="color: #10b981;"></i> Distancia Media al CD</div>
+            <div class="kpi-value" id="kpiCalorDistMedia">-</div>
+            <div class="kpi-subtitle">Radio hacia CD Huachipa</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title"><i class="fa-solid fa-person-walking-dashed-line-arrow-right" style="color: #ec4899;"></i> Oportunidad de Cobertura</div>
+            <div class="kpi-value" id="kpiCalorLejosParadero" style="color: #f59e0b;">-</div>
+            <div class="kpi-subtitle" id="kpiCalorLejosParaderoSub">> 2 km de paraderos oficiales</div>
+          </div>
+        </div>
+
+        <!-- NIVEL 2: Barra de Filtros y Capas del Mapa de Calor -->
+        <div class="clay-card heatmap-toolbar-card mt-4">
+          <div class="heatmap-toolbar-content">
+            <!-- Filtro Rápido Área -->
+            <div class="heatmap-control-group">
+              <label><i class="fa-solid fa-layer-group" style="color: #60a5fa;"></i> Área:</label>
+              <div class="chip-group" id="chipAreaCalor">
+                <button class="chip active" data-value="TODOS">TODOS</button>
+                <button class="chip" data-value="SECOS">SECOS</button>
+                <button class="chip" data-value="PPA">PPA</button>
+                <button class="chip" data-value="FRESCOS">FRESCOS</button>
+              </div>
+            </div>
+
+            <!-- Filtro Rápido Tipo -->
+            <div class="heatmap-control-group">
+              <label><i class="fa-solid fa-user-tag" style="color: #38bdf8;"></i> Tipo:</label>
+              <div class="chip-group" id="chipTipoCalor">
+                <button class="chip active" data-value="TODOS">TODOS</button>
+                <button class="chip" data-value="OPERARIO">OPERARIO</button>
+                <button class="chip" data-value="STAFF">STAFF</button>
+              </div>
+            </div>
+
+            <!-- Filtro por Distrito -->
+            <div class="heatmap-control-group" style="min-width: 190px;">
+              <label><i class="fa-solid fa-location-dot" style="color: #f43f5e;"></i> Distrito:</label>
+              <select id="selectDistritoCalor" class="form-control form-control-sm">
+                <option value="TODOS">Todos los Distritos</option>
+              </select>
+            </div>
+
+            <!-- Toggles de Capas del Mapa -->
+            <div class="heatmap-control-group heatmap-toggles-wrap">
+              <label class="heatmap-toggle-label" title="Activar/desactivar capa de calor continuo">
+                <input type="checkbox" id="toggleLayerHeat" checked>
+                <span><i class="fa-solid fa-fire text-warning"></i> Calor</span>
+              </label>
+              <label class="heatmap-toggle-label" title="Mostrar puntos individuales con detalle del colaborador">
+                <input type="checkbox" id="toggleLayerPoints">
+                <span><i class="fa-solid fa-location-pin text-info"></i> Puntos</span>
+              </label>
+              <label class="heatmap-toggle-label" title="Superponer trazado de paraderos oficiales para comparar cobertura">
+                <input type="checkbox" id="toggleLayerParaderos" checked>
+                <span><i class="fa-solid fa-bus text-success"></i> Paraderos</span>
+              </label>
+            </div>
+
+            <!-- Control Slider de Radio Térmico -->
+            <div class="heatmap-control-group heatmap-slider-group">
+              <div style="display: flex; justify-content: space-between; font-size: 0.76rem; color: #94a3b8; margin-bottom: 2px;">
+                <span>Dispersión:</span>
+                <span id="labelHeatRadius" style="color: #38bdf8; font-weight: 600;">25px</span>
+              </div>
+              <input type="range" id="sliderHeatRadius" min="12" max="45" value="25" class="heatmap-slider" title="Ajusta el radio térmico de cada punto">
+            </div>
+
+            <!-- Botón Centrar Mapa -->
+            <div class="heatmap-control-group" style="align-self: flex-end;">
+              <button id="btnRecenterHeatMap" class="btn btn-secondary btn-sm" style="height: 34px; border-radius: 9px; padding: 0 14px;" title="Centrar vista en Lima Metropolitana y CD Huachipa">
+                <i class="fa-solid fa-crosshairs"></i> Centrar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- NIVEL 3: Contenedor Principal del Mapa y Ranking Lateral de Distritos -->
+        <div class="heatmap-main-layout mt-4">
+          <!-- Tarjeta del Mapa Leaflet -->
+          <div class="clay-card heatmap-map-card">
+            <div id="mapaCalorEmpleados" class="heatmap-canvas-container"></div>
+            
+            <!-- Leyenda Térmica Flotante en el Mapa -->
+            <div class="heatmap-floating-legend">
+              <span class="legend-label"><i class="fa-solid fa-chart-simple"></i> Densidad:</span>
+              <div class="legend-gradient"></div>
+              <div class="legend-scale">
+                <span>Baja</span>
+                <span>Media</span>
+                <span>Alta</span>
+              </div>
+            </div>
+
+            <!-- Badge Informativo CD Huachipa -->
+            <div class="heatmap-cd-badge">
+              <i class="fa-solid fa-warehouse" style="color: #3b82f6;"></i>
+              <span>📍 CD Tottus Huachipa (Base Central)</span>
+            </div>
+          </div>
+
+          <!-- Panel Lateral de Distribución por Distritos -->
+          <div class="clay-card heatmap-ranking-card" id="panelTopDistritosCalor">
+            <div class="ranking-card-header">
+              <h4 style="margin: 0; font-size: 0.98rem; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-ranking-star" style="color: #f59e0b;"></i> Concentración por Distritos
+              </h4>
+              <span id="badgeTotalDistritosCount" class="badge badge-info" style="font-size: 0.72rem;">0 Distritos</span>
+            </div>
+            <p style="font-size: 0.78rem; color: #94a3b8; margin: 6px 0 12px 0;">
+              Haz clic en cualquier distrito para enfocar el mapa automáticamente:
+            </p>
+            <div class="ranking-card-body" id="listaDistritosCalor">
+              <!-- Se puebla dinámicamente con barras interactivas y flyTo -->
+            </div>
+          </div>
+        </div>
+
+      </div> <!-- Fin viewMapaCalor -->
+
     </section>
 
   </main>
@@ -887,8 +1027,10 @@
   
   <!-- Leaflet JS (Mapeo de Rutas) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet Heat JS (Mapa de Calor Acelerado por Hardware) -->
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
   <!-- Script Específico de Movilidad -->
-  <script src="js/movilidad.js?v=3.9"></script>
+  <script src="js/movilidad.js?v=4.0"></script>
 </body>
 </html>
