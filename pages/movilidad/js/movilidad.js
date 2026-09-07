@@ -4442,12 +4442,20 @@ function initHeatMapIfNeeded() {
     wheelPxPerZoomLevel: 100
   });
 
-  // 2. Capa base CartoDB Dark Matter (alto contraste para mapa térmico y diseño dark claymorphism)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19
-  }).addTo(map);
+  // 2. Capa base oscura en alta definición (Mapbox Dark v11 con fallback a OpenStreetMap)
+  if (AppState.mapboxToken) {
+    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${AppState.mapboxToken}`, {
+      attribution: '© Mapbox © OpenStreetMap',
+      tileSize: 512,
+      zoomOffset: -1,
+      maxZoom: 19
+    }).addTo(map);
+  } else {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+  }
 
   // 3. Marcador permanente del CD Tottus Huachipa (Hub Central Logístico)
   const cdLat = -11.997563;
