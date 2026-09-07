@@ -120,6 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.dataFrescos = null;
     window.parsedDivisionData = null;
     window.dataDivision = null;
+    window.parsedBasesData = null;
+    window.dataBases = null;
 
     // Destruir instancias de gráficos para liberar memoria
     Object.keys(charts).forEach(key => {
@@ -168,8 +170,10 @@ document.addEventListener('DOMContentLoaded', () => {
       // Frescos: Columnas A a L (A5:L109)
       // Secos:   Columnas V a AE (V5:AE109) -> Incluye PLAN DESPACHO y PLAN INV
       // ─────────────────────────────────────────────
-      window.dataFrescos = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!A5:L109`);
-      window.dataSecos   = await window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!V5:AE109`);
+      const fetchTasks = [
+        window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!A5:L109`).then(d => { window.dataFrescos = d; }),
+        window.GoogleSheetsService.fetchSheetData(sheetId, `${sg}!V5:AE109`).then(d => { window.dataSecos = d; })
+      ];
 
       // Cargar desglose de divisiones si la pestaña DIVISION existe
       const sheetDivisionTab = tabNames.find(t => {
@@ -177,13 +181,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return c === 'DIVISION' || c === 'DIVISIONES';
       });
       if (sheetDivisionTab) {
-        try {
-          window.dataDivision = await window.GoogleSheetsService.fetchSheetData(sheetId, `'${sheetDivisionTab}'!A1:AZ55`);
-          window.parsedDivisionData = parseDivisionSheet(window.dataDivision?.rawValues);
-        } catch (divErr) {
-          console.warn("Aviso: No se pudo cargar hoja DIVISION, usando ratios calculados:", divErr);
-        }
+        fetchTasks.push(
+          window.GoogleSheetsService.fetchSheetData(sheetId, `'${sheetDivisionTab}'!A1:AZ55`)
+            .then(d => {
+              window.dataDivision = d;
+              window.parsedDivisionData = parseDivisionSheet(d?.rawValues);
+            })
+            .catch(divErr => console.warn("Aviso al cargar DIVISION:", divErr))
+        );
       }
+
+      // Cargar hoja transaccional BASES para agregación directa por División y Semana
+      const sheetBasesTab = tabNames.find(t => {
+        const c = t.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return c === 'BASES' || c === 'BASE';
+      });
+      if (sheetBasesTab) {
+        fetchTasks.push(
+          window.GoogleSheetsService.fetchSheetData(sheetId, `'${sheetBasesTab}'!A1:J`)
+            .then(d => {
+              window.dataBases = d;
+              window.parsedBasesData = parseBasesSheet(d?.rawValues || d?.rows);
+            })
+            .catch(basesErr => console.warn("Aviso al cargar BASES:", basesErr))
+        );
+      }
+
+      await Promise.all(fetchTasks);
 
       document.getElementById('connectBox').classList.add('hidden');
       document.getElementById('connectionSuccessInfo').classList.remove('hidden');
@@ -398,11 +422,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const subData = {};
 
-      for (let r = firstDataRowIdx; r <= Math.min(endR + 6, rawValues.length - 1); r++) {
+      for (let r = firstDataRowIdx; r <= Math.min(endR, rawValues.length - 1); r++) {
         const row = rawValues[r] || [];
 
-        // Código Recibo
         const codeR = String(row[colRec] || '').trim().toUpperCase();
+        const codeD = colDesp < 9999 ? String(row[colDesp] || '').trim().toUpperCase() : '';
+        const codeI = colInv < 9999 ? String(row[colInv] || '').trim().toUpperCase() : '';
+
+        // Detener si llegamos al final de la sub-tabla (fila de Total general o encabezado Cajas)
+        if (codeR === 'TOTAL' && (codeD === 'TOTAL' || codeD === '') && (codeI === 'TOTAL' || codeI === '')) {
+          break;
+        }
+        if (codeR.includes('CAJAS') || codeD.includes('CAJAS') || codeI.includes('CAJAS')) {
+          break;
+        }
+
+        // Código Recibo
         if (/^J\d{2}$/.test(codeR)) {
           if (!subData[codeR]) subData[codeR] = { recibo: {}, despacho: {}, inventario: {} };
           recWeeks.forEach(w => {
@@ -413,44 +448,149 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Código Despacho
-        if (colDesp < 9999) {
-          const codeD = String(row[colDesp] || '').trim().toUpperCase();
-          if (/^J\d{2}$/.test(codeD)) {
-            if (!subData[codeD]) subData[codeD] = { recibo: {}, despacho: {}, inventario: {} };
-            despWeeks.forEach(w => {
-              const raw = String(row[w.col] !== undefined && row[w.col] !== null ? row[w.col] : '').replace(/,/g, '').trim();
-              const val = parseFloat(raw);
-              if (!isNaN(val)) subData[codeD].despacho[w.key] = val;
-            });
-          }
+        if (colDesp < 9999 && /^J\d{2}$/.test(codeD)) {
+          if (!subData[codeD]) subData[codeD] = { recibo: {}, despacho: {}, inventario: {} };
+          despWeeks.forEach(w => {
+            const raw = String(row[w.col] !== undefined && row[w.col] !== null ? row[w.col] : '').replace(/,/g, '').trim();
+            const val = parseFloat(raw);
+            if (!isNaN(val)) subData[codeD].despacho[w.key] = val;
+          });
         }
 
         // Código Inventario
-        if (colInv < 9999) {
-          const codeI = String(row[colInv] || '').trim().toUpperCase();
-          if (/^J\d{2}$/.test(codeI)) {
-            if (!subData[codeI]) subData[codeI] = { recibo: {}, despacho: {}, inventario: {} };
-            invWeeks.forEach(w => {
-              const raw = String(row[w.col] !== undefined && row[w.col] !== null ? row[w.col] : '').replace(/,/g, '').trim();
-              const val = parseFloat(raw);
-              if (!isNaN(val)) subData[codeI].inventario[w.key] = val;
-            });
-          }
+        if (colInv < 9999 && /^J\d{2}$/.test(codeI)) {
+          if (!subData[codeI]) subData[codeI] = { recibo: {}, despacho: {}, inventario: {} };
+          invWeeks.forEach(w => {
+            const raw = String(row[w.col] !== undefined && row[w.col] !== null ? row[w.col] : '').replace(/,/g, '').trim();
+            const val = parseFloat(raw);
+            if (!isNaN(val)) subData[codeI].inventario[w.key] = val;
+          });
         }
       }
 
       return subData;
     }
 
-    // Secos (filas 15 a 35 aprox)
-    const secosData = parseSubTable(15, 34);
+    // Secos (filas 15 a 31 aprox, se detiene estrictamente antes de Frescos)
+    const secosData = parseSubTable(15, 31);
     if (secosData) divData.Secos = secosData;
 
-    // Frescos (filas 35 a 52 aprox)
-    const frescosData = parseSubTable(35, 52);
+    // Frescos (filas 36 a 48 aprox)
+    const frescosData = parseSubTable(36, 48);
     if (frescosData) divData.Frescos = frescosData;
 
     return divData;
+  }
+
+  // ══════════════════════════════════════════════
+  // PARSER DE LA HOJA BASES (Agrupación directa por División y Semana)
+  // ══════════════════════════════════════════════
+  function parseBasesSheet(rawInput) {
+    if (!rawInput) return null;
+    const rawValues = Array.isArray(rawInput) ? rawInput : (rawInput.rawValues || rawInput.rows || []);
+    if (!rawValues || rawValues.length < 2) return null;
+
+    // 1. Identificar columnas dinámicamente
+    let headerRowIdx = -1;
+    let colYear = -1, colProc = -1, colWeek = -1, colCd = -1, colDiv = -1, colCajas = -1, colSemAno = -1;
+
+    for (let r = 0; r < Math.min(6, rawValues.length); r++) {
+      const row = rawValues[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        const h = String(row[c] || '').trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const cleanH = h.replace(/[\s_\-]/g, '');
+        if (cleanH === 'ANO' || cleanH === 'YEAR' || cleanH === 'ANIO') colYear = c;
+        else if ((cleanH.includes('SEM') && (cleanH.includes('ANO') || cleanH.includes('ANIO') || cleanH.includes('YEAR'))) || cleanH === 'SEMANO' || cleanH === 'SEMANAANO') colSemAno = c;
+        else if (cleanH === 'SEMANA' || cleanH === 'WEEK' || cleanH === 'SEM') colWeek = c;
+        else if (cleanH === 'CD' || cleanH === 'CENTRO' || cleanH === 'LOCAL') colCd = c;
+        else if (cleanH.includes('DIVISION') || cleanH === 'DIV') colDiv = c;
+        else if (cleanH.includes('CAJA') || cleanH === 'QTY' || cleanH === 'CANTIDAD') colCajas = c;
+      }
+      if (colProc === -1) {
+        for (let c = 0; c < row.length; c++) {
+          const h = String(row[c] || '').trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const cleanH = h.replace(/[\s_\-]/g, '');
+          if (cleanH === 'PROCESO' || cleanH === 'PROCESS' || cleanH === 'OPERACION') colProc = c;
+        }
+      }
+      if (colProc !== -1 && colWeek !== -1 && colDiv !== -1 && colCajas !== -1) {
+        headerRowIdx = r;
+        break;
+      }
+    }
+
+    // Fallbacks si las cabeceras coinciden con el orden clásico A1:J
+    if (headerRowIdx === -1) {
+      headerRowIdx = 0;
+      colYear = 0;
+      colProc = 1;
+      colWeek = 2;
+      colCd = 4;
+      colDiv = 6;
+      colCajas = 7;
+      colSemAno = 9;
+    }
+
+    const basesData = { Secos: {}, Frescos: {} };
+
+    // 2. Recorrer y agregar todas las filas transaccionales
+    for (let r = headerRowIdx + 1; r < rawValues.length; r++) {
+      const row = rawValues[r] || [];
+      if (!row || row.length === 0) continue;
+
+      // CD: 655 = Secos, 676 = Frescos
+      const cdRaw = String(row[colCd] !== undefined ? row[colCd] : '').trim().toLowerCase();
+      let prefix = null;
+      if (cdRaw === '655' || cdRaw.includes('655') || cdRaw.includes('seco')) {
+        prefix = 'Secos';
+      } else if (cdRaw === '676' || cdRaw.includes('676') || cdRaw.includes('fresco')) {
+        prefix = 'Frescos';
+      }
+      if (!prefix) continue;
+
+      // Proceso: RECIBO, DESPACHO, INVENTARIO
+      const procRaw = String(row[colProc] || '').trim().toUpperCase();
+      let proc = null;
+      if (procRaw.includes('RECIB') || procRaw.includes('ENTRAD') || procRaw.includes('RECEPC')) proc = 'recibo';
+      else if (procRaw.includes('DESPACH') || procRaw.includes('SALID')) proc = 'despacho';
+      else if (procRaw.includes('INVENT') || procRaw.includes('STOCK')) proc = 'inventario';
+      if (!proc) continue;
+
+      // Código de División: J01, J02, J03, etc.
+      const divRaw = String(row[colDiv] || '').trim().toUpperCase();
+      const divMatch = divRaw.match(/J0?([1-9]|1[0-2])\b/i);
+      if (!divMatch) continue;
+      const div = 'J' + divMatch[1].padStart(2, '0');
+
+      // Obtener clave de semana (año-semana)
+      let weekKey = null;
+      if (colSemAno !== -1 && row[colSemAno]) {
+        const p = parseWeekLabel(row[colSemAno]);
+        if (p) weekKey = p.key;
+      }
+      if (!weekKey) {
+        const w = parseInt(row[colWeek], 10);
+        const y = parseInt(row[colYear], 10) || 2026;
+        if (!isNaN(w) && w >= 1 && w <= 53) {
+          weekKey = `${y}-${w}`;
+        }
+      }
+      if (!weekKey) continue;
+
+      // Cantidad de cajas
+      const cajasVal = cleanNumber(row[colCajas]);
+      if (cajasVal === 0) continue;
+
+      if (!basesData[prefix][div]) {
+        basesData[prefix][div] = { recibo: {}, despacho: {}, inventario: {} };
+      }
+      if (!basesData[prefix][div][proc][weekKey]) {
+        basesData[prefix][div][proc][weekKey] = 0;
+      }
+      basesData[prefix][div][proc][weekKey] += cajasVal;
+    }
+
+    return basesData;
   }
 
   // ══════════════════════════════════════════════
@@ -750,29 +890,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let sumInv = 0;
 
         selectedDivisions.forEach(code => {
-          const divExact = window.parsedDivisionData?.[prefix]?.[code];
+          const vRec = getDivVal(prefix, code, 'recibo', weekKey, null);
+          const vDesp = getDivVal(prefix, code, 'despacho', weekKey, null);
+          const vInv = getDivVal(prefix, code, 'inventario', weekKey, null);
+
+          const hasDataSource = !!(window.parsedBasesData || window.parsedDivisionData);
           const divShare = DIVISION_SHARE[prefix]?.[code] || 0;
 
-          // Recibo
-          if (divExact?.recibo && divExact.recibo[weekKey] !== undefined) {
-            sumRec += divExact.recibo[weekKey];
-          } else {
-            sumRec += baseRec * divShare;
-          }
-
-          // Despacho
-          if (divExact?.despacho && divExact.despacho[weekKey] !== undefined) {
-            sumDesp += divExact.despacho[weekKey];
-          } else {
-            sumDesp += baseDesp * divShare;
-          }
-
-          // Inventario
-          if (divExact?.inventario && divExact.inventario[weekKey] !== undefined) {
-            sumInv += divExact.inventario[weekKey];
-          } else {
-            sumInv += baseInv * divShare;
-          }
+          sumRec  += (vRec > 0 || hasDataSource) ? vRec : (baseRec * divShare);
+          sumDesp += (vDesp > 0 || hasDataSource) ? vDesp : (baseDesp * divShare);
+          sumInv  += (vInv > 0 || hasDataSource) ? vInv : (baseInv * divShare);
         });
 
         rRec  = sumRec;
@@ -1562,13 +1689,17 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function getDivVal(prefix, code, proc, weekKey, dataMap) {
-    // 1. Verificar si existen datos parseados directos de la hoja DIVISION
+    // 1. Prioridad 1: Sumatoria exacta transaccional de la hoja BASES (Tabla2)
+    const divBases = window.parsedBasesData?.[prefix]?.[code]?.[proc];
+    if (divBases && divBases[weekKey] !== undefined && divBases[weekKey] !== null) {
+      return parseFloat(divBases[weekKey]) || 0;
+    }
+    // 2. Prioridad 2: Datos tabulares directos de la hoja DIVISION
     const divExact = window.parsedDivisionData?.[prefix]?.[code]?.[proc];
-    if (divExact && divExact[weekKey] !== undefined) {
+    if (divExact && divExact[weekKey] !== undefined && divExact[weekKey] !== null) {
       return parseFloat(divExact[weekKey]) || 0;
     }
-    // 2. Si no hay datos registrados en la hoja DIVISION para esta semana,
-    // retornamos 0 para no inventar cifras artificiales que descuadren con el archivo de trabajo.
+    // 3. Si no hay datos registrados en BASES ni en DIVISION para esta semana, retornamos 0
     return 0;
   }
 
@@ -3780,6 +3911,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.dataFrescos = null;
     window.parsedDivisionData = null;
     window.dataDivision = null;
+    window.parsedBasesData = null;
+    window.dataBases = null;
 
     document.getElementById('dashboardSection')?.classList.add('hidden');
     document.getElementById('connectBox')?.classList.remove('hidden');
