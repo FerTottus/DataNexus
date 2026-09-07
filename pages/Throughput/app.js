@@ -849,6 +849,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 9. Tabla de Movimientos por División (Año Actual) con Flechas de Tendencia
     renderDivisionsTable(prefix, tableWeeks, currentYear, dataMap, lastDataWeek);
+
+    // Guardar contexto activo para exportación de diapositivas
+    window._cdContext = window._cdContext || {};
+    window._cdContext[prefix] = {
+      weekNumbers,
+      closedWeeks,
+      tableWeeks,
+      currentYear,
+      prevYear,
+      dataMap,
+      lastDataWeek
+    };
   }
 
   // ══════════════════════════════════════════════
@@ -1386,8 +1398,11 @@ document.addEventListener('DOMContentLoaded', () => {
           <span>Detalle Corporativo Semanal (${currentYear} vs ${prevYear}) · Últimas ${weekNumbers.length} Semanas Cerradas${divTableTag}</span>
         </div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-          <button class="btn-table-copy" onclick="window.copyCorporateTableImage('${prefix}')" title="Copiar tabla desde 'Área' como imagen para PowerPoint">
-            <i class="fa-solid fa-camera"></i> Copiar Imagen (desde Área)
+          <button class="btn-table-copy" onclick="window.copyCorporateSummarySlideImage('${prefix}')" title="Copiar diapositiva ejecutiva completa (Título + KPIs + Tabla) para PowerPoint" style="background: linear-gradient(135deg, #1d4ed8, #2563eb); color:#ffffff; border-color:#1e40af; font-weight:700; box-shadow: 0 2px 6px rgba(37,99,235,0.25);">
+            <i class="fa-solid fa-file-powerpoint"></i> Copiar Diapositiva (Título + KPIs + Tabla)
+          </button>
+          <button class="btn-table-copy" onclick="window.copyCorporateTableImage('${prefix}')" title="Copiar solo la tabla desde 'Área' como imagen para PowerPoint">
+            <i class="fa-solid fa-table"></i> Copiar Solo Tabla (desde Área)
           </button>
           <span class="table-scroll-hint">
             <i class="fa-solid fa-arrows-left-right text-primary"></i> Desliza para ver más semanas
@@ -2214,7 +2229,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
 
   // Renderiza una tarjeta de división a Canvas 2D nativo (filas delgadas, sin esperas ni html2canvas)
-  function renderDivisionCardToCanvas(cardEl) {
+  function renderDivisionCardToCanvas(cardEl, customOptions = {}) {
     if (!cardEl) return null;
     const headerEl = cardEl.querySelector('.division-process-header');
     const titleSpan = headerEl?.querySelector('span:first-of-type');
@@ -2312,21 +2327,34 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    const col0Width = 50;
-    const trendColWidth = 100;
-    const weekColWidth = 80;
+    let col0Width = 50;
+    let trendColWidth = 100;
+    let weekColWidth = 80;
+
+    if (customOptions.targetWidth) {
+      col0Width = customOptions.col0Width || 60;
+      trendColWidth = customOptions.trendColWidth || 126;
+      const numWeeks = colCount - 2;
+      weekColWidth = Math.floor((customOptions.targetWidth - col0Width - trendColWidth) / numWeeks);
+    }
 
     const colWidths = colHeaders.map((h, i) => {
       if (i === 0) return col0Width;
-      if (i === colCount - 1) return trendColWidth;
+      if (i === colCount - 1) {
+        if (customOptions.targetWidth) {
+          const sumSoFar = col0Width + (weekColWidth * (colCount - 2));
+          return customOptions.targetWidth - sumSoFar;
+        }
+        return trendColWidth;
+      }
       return weekColWidth;
     });
 
-    const totalWidth = colWidths.reduce((a, b) => a + b, 0);
-    const cardHeaderHeight = 32;
-    const theadHeight = 30;
-    const rowHeight = 21; // Fila delgada y compacta
-    const footHeight = 24; // Fila total
+    const totalWidth = customOptions.targetWidth || colWidths.reduce((a, b) => a + b, 0);
+    const cardHeaderHeight = customOptions.cardHeaderHeight || 32;
+    const theadHeight = customOptions.theadHeight || 30;
+    const rowHeight = customOptions.rowHeight || 21; // Fila delgada y compacta
+    const footHeight = customOptions.footHeight || 24; // Fila total
     const totalHeight = cardHeaderHeight + theadHeight + (rows.length * rowHeight) + (footRows.length * footHeight) + 2;
 
     const scale = 2; // Retina 2x para máxima nitidez
@@ -2688,6 +2716,157 @@ document.addEventListener('DOMContentLoaded', () => {
     return canvas;
   }
 
+  // Renderiza el Glosario de Divisiones en 2 Columnas para Diapositiva Panorámica 16:9 (<5ms)
+  function renderGlossaryDualColumnToCanvas(glossaryCardEl, targetWidth, targetHeight, prefix) {
+    let items = [];
+    if (glossaryCardEl) {
+      const rows = Array.from(glossaryCardEl.querySelectorAll('.glossary-table tbody tr'));
+      items = rows.map(tr => {
+        const tds = tr.querySelectorAll('td');
+        return {
+          code: tds[0]?.innerText?.trim() || '',
+          name: tds[1]?.innerText?.trim() || ''
+        };
+      }).filter(i => i.code);
+    }
+
+    // Fallback de códigos de división si no se leen del DOM
+    if (items.length === 0) {
+      const isFrescos = prefix.toLowerCase() === 'frescos';
+      const codes = isFrescos
+        ? ['J01', 'J03', 'J04', 'J05', 'J06', 'J07']
+        : ['J01', 'J02', 'J05', 'J06', 'J07', 'J08', 'J09', 'J10', 'J11', 'J12'];
+      items = codes.map(c => ({ code: c, name: DIVISION_NAMES[c] || '' }));
+    }
+
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(targetWidth * scale);
+    canvas.height = Math.round(targetHeight * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    // Fondo del card
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    roundRect(ctx, 0.5, 0.5, targetWidth - 1, targetHeight - 1, 8);
+
+    // Header del card
+    const headerHeight = 34;
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.moveTo(8, 0); ctx.lineTo(targetWidth - 8, 0);
+    ctx.quadraticCurveTo(targetWidth, 0, targetWidth, 8);
+    ctx.lineTo(targetWidth, headerHeight);
+    ctx.lineTo(0, headerHeight);
+    ctx.lineTo(0, 8);
+    ctx.quadraticCurveTo(0, 0, 8, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, headerHeight); ctx.lineTo(targetWidth, headerHeight); ctx.stroke();
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 12.5px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('📖 Glosario Divisiones Corporativas', 14, headerHeight / 2);
+
+    // Subdividir en 2 columnas equilibradas
+    const mid = Math.ceil(items.length / 2);
+    const colLeft = items.slice(0, mid);
+    const colRight = items.slice(mid);
+
+    const theadHeight = 28;
+    const colW = Math.floor((targetWidth - 44) / 2); // Ancho de cada subcolumna
+    const leftX = 14;
+    const rightX = leftX + colW + 16;
+
+    // Divisor vertical entre las dos columnas
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(leftX + colW + 8, headerHeight);
+    ctx.lineTo(leftX + colW + 8, targetHeight);
+    ctx.stroke();
+
+    // Renderizar cabeceras de ambas subcolumnas
+    [leftX, rightX].forEach(startX => {
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(startX, headerHeight, colW, theadHeight);
+
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(startX, headerHeight + theadHeight);
+      ctx.lineTo(startX + colW, headerHeight + theadHeight);
+      ctx.stroke();
+
+      ctx.fillStyle = '#475569';
+      ctx.font = 'bold 10.5px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Cód.', startX + 28, headerHeight + theadHeight / 2);
+
+      ctx.textAlign = 'left';
+      ctx.fillText('Nombre Oficial', startX + 64, headerHeight + theadHeight / 2);
+    });
+
+    // Calcular altura de fila disponible de forma proporcional
+    const maxRows = Math.max(colLeft.length, colRight.length);
+    const availH = targetHeight - headerHeight - theadHeight - 4;
+    const subRowHeight = Math.floor(availH / maxRows);
+
+    // Renderizar filas de datos
+    [
+      { list: colLeft, startX: leftX },
+      { list: colRight, startX: rightX }
+    ].forEach(({ list, startX }) => {
+      let curY = headerHeight + theadHeight;
+      list.forEach((item, idx) => {
+        ctx.fillStyle = (idx % 2 === 1) ? '#fafbfc' : '#ffffff';
+        ctx.fillRect(startX, curY, colW, subRowHeight);
+
+        ctx.strokeStyle = '#f1f5f9';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(startX, curY + subRowHeight);
+        ctx.lineTo(startX + colW, curY + subRowHeight);
+        ctx.stroke();
+
+        // Badge código división
+        const badgeW = 34;
+        const badgeH = 18;
+        const badgeX = startX + 28 - badgeW / 2;
+        const badgeY = curY + (subRowHeight - badgeH) / 2;
+
+        ctx.fillStyle = '#eff6ff';
+        ctx.strokeStyle = '#bfdbfe';
+        ctx.lineWidth = 1;
+        roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 4);
+
+        ctx.fillStyle = '#1d4ed8';
+        ctx.font = 'bold 10px JetBrains Mono, monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.code, badgeX + badgeW / 2, badgeY + badgeH / 2);
+
+        // Nombre oficial
+        ctx.fillStyle = '#1e293b';
+        ctx.font = '600 11px Inter, -apple-system, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(item.name, startX + 64, curY + subRowHeight / 2);
+
+        curY += subRowHeight;
+      });
+    });
+
+    return canvas;
+  }
+
   // Renderiza la Tabla Corporativa Semanal a Canvas 2D nativo (<8ms)
   function renderCorporateTableToCanvas(tableEl, prefix) {
     if (!tableEl) return null;
@@ -2812,6 +2991,399 @@ document.addEventListener('DOMContentLoaded', () => {
     return canvas;
   }
 
+  // Renderiza la Diapositiva Ejecutiva Completa: Título + 2 Filas de KPIs + Tabla Detalle Corporativo a Canvas 2D
+  function renderCorporateSlideToCanvas(tableEl, prefix) {
+    if (!tableEl) return null;
+
+    // Obtener contexto de datos guardado
+    const ctxData = window._cdContext?.[prefix] || {};
+    const currentYear = ctxData.currentYear || 2026;
+    const prevYear = ctxData.prevYear || 2025;
+    const lastDataWeek = ctxData.lastDataWeek || 36;
+    const dataMap = ctxData.dataMap || {};
+    const tableWeeks = ctxData.tableWeeks || [];
+
+    // Parsear datos de la tabla del DOM
+    const thEls = Array.from(tableEl.querySelectorAll('thead th'));
+    const colHeaders = thEls.map(th => {
+      const wDiv = th.querySelector('.th-week');
+      const mDiv = th.querySelector('.th-month');
+      if (wDiv) {
+        return { top: wDiv.innerText.trim(), sub: mDiv?.innerText.trim() || '', type: 'week' };
+      }
+      return { top: th.innerText.trim(), sub: '', type: 'text' };
+    });
+
+    const trEls = Array.from(tableEl.querySelectorAll('tbody tr'));
+    const rows = trEls.map(tr => {
+      const tds = Array.from(tr.querySelectorAll('td'));
+      const firstTd = tds[0];
+      const isPlan = firstTd?.innerText?.includes('Plan Objetivo');
+      const isPrev = firstTd?.innerText?.includes('Real 2025');
+      const isMain = !isPlan && !isPrev;
+
+      let textColor = '#1e293b';
+      if (isPlan) textColor = '#0284c7';
+      else if (isPrev) textColor = '#64748b';
+      else if (firstTd?.style.color) textColor = firstTd.style.color;
+
+      return {
+        isMain, isPlan, isPrev, textColor,
+        cells: tds.map(td => td.innerText.trim())
+      };
+    });
+
+    // Helper cálculo YoY
+    const calcYoY = (curr, prev) => {
+      if (!prev || prev === 0) return { pct: '0.0%', isUp: true };
+      const diff = ((curr - prev) / prev) * 100;
+      return {
+        pct: (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%',
+        isUp: diff >= 0
+      };
+    };
+    const fmt = n => Math.round(n).toLocaleString('es-PE');
+
+    // 1. Métricas Semana Actual (última semana cerrada)
+    const cWeek = dataMap[`${currentYear}-${lastDataWeek}`] || {};
+    const pWeek = dataMap[`${prevYear}-${lastDataWeek}`] || {};
+    const reciboSemCurr = cWeek.recibo || 0;
+    const reciboSemPrev = pWeek.recibo || 0;
+    const despSemCurr   = cWeek.despacho || 0;
+    const despSemPrev   = pWeek.despacho || 0;
+    const invSemCurr    = cWeek.inventario || 0;
+    const invSemPrev    = pWeek.inventario || 0;
+
+    const yoyReciboSem = calcYoY(reciboSemCurr, reciboSemPrev);
+    const yoyDespSem   = calcYoY(despSemCurr, despSemPrev);
+    const yoyInvSem    = calcYoY(invSemCurr, invSemPrev);
+
+    // 2. Métricas Período Completo (semanas mostradas en tabla)
+    const weeksToSum = tableWeeks.length > 0 ? tableWeeks : [lastDataWeek];
+    let totReciboCurr = 0, totReciboPrev = 0;
+    let totDespCurr = 0, totDespPrev = 0;
+    let totInvCurr = 0, totInvPrev = 0, countInv = 0, countInvPrev = 0;
+
+    weeksToSum.forEach(w => {
+      const c = dataMap[`${currentYear}-${w}`];
+      const p = dataMap[`${prevYear}-${w}`];
+      if (c) {
+        totReciboCurr += c.recibo || 0;
+        totDespCurr   += c.despacho || 0;
+        if (c.inventario > 0) { totInvCurr += c.inventario; countInv++; }
+      }
+      if (p) {
+        totReciboPrev += p.recibo || 0;
+        totDespPrev   += p.despacho || 0;
+        if (p.inventario > 0) { totInvPrev += p.inventario; countInvPrev++; }
+      }
+    });
+
+    const avgInvCurr = countInv > 0 ? totInvCurr / countInv : 0;
+    const avgInvPrev = countInvPrev > 0 ? totInvPrev / countInvPrev : 0;
+
+    const yoyReciboPer = calcYoY(totReciboCurr, totReciboPrev);
+    const yoyDespPer   = calcYoY(totDespCurr, totDespPrev);
+    const yoyInvPer    = calcYoY(avgInvCurr, avgInvPrev);
+
+    // Dimensiones de la Diapositiva 16:9 Widescreen (1920x1080)
+    const W = 1920;
+    const H = 1080;
+    const scale = 2; // Retina 2x para máxima calidad de copiado
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(W * scale);
+    canvas.height = Math.round(H * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    // Fondo blanco puro
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+
+    // ── TÍTULO PRINCIPAL ──
+    const titleText = `THROUGHPUT–CD ${prefix.toUpperCase()} ${currentYear}`;
+    ctx.fillStyle = '#0f172a';
+    ctx.font = '800 38px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(titleText, W / 2, 54);
+
+    // ── KPI CARDS (2 Filas de 3 tarjetas) ──
+    const kpiMarginX = 80;
+    const kpiTotalW = W - (kpiMarginX * 2); // 1760px
+    const kpiGapX = 24;
+    const kpiCardW = Math.floor((kpiTotalW - (kpiGapX * 2)) / 3); // 570px
+    const kpiCardH = 88;
+
+    const kpiRow1Y = 104;
+    const kpiRow2Y = kpiRow1Y + kpiCardH + 14;
+
+    const kpiCardsRow1 = [
+      {
+        icon: '📦',
+        label: `RECIBO S${lastDataWeek}`,
+        val: reciboSemCurr,
+        prevVal: reciboSemPrev,
+        yoy: yoyReciboSem,
+        color: '#2563eb'
+      },
+      {
+        icon: '🚛',
+        label: `DESPACHO S${lastDataWeek}`,
+        val: despSemCurr,
+        prevVal: despSemPrev,
+        yoy: yoyDespSem,
+        color: '#ea580c'
+      },
+      {
+        icon: '📊',
+        label: 'INVENTARIO FINAL',
+        val: invSemCurr,
+        prevVal: invSemPrev,
+        yoy: yoyInvSem,
+        color: '#059669'
+      }
+    ];
+
+    const kpiCardsRow2 = [
+      {
+        icon: '📦',
+        label: 'TOTAL ENTRADAS (RECIBO)',
+        val: totReciboCurr,
+        prevVal: totReciboPrev,
+        yoy: yoyReciboPer,
+        color: '#2563eb'
+      },
+      {
+        icon: '🚛',
+        label: 'TOTAL SALIDAS (DESPACHO)',
+        val: totDespCurr,
+        prevVal: totDespPrev,
+        yoy: yoyDespPer,
+        color: '#ea580c'
+      },
+      {
+        icon: '📊',
+        label: 'STOCK INVENTARIO (PROM.)',
+        val: avgInvCurr,
+        prevVal: avgInvPrev,
+        yoy: yoyInvPer,
+        color: '#059669'
+      }
+    ];
+
+    const drawKpiCard = (card, x, y) => {
+      // Fondo tarjeta y borde
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, x, y, kpiCardW, kpiCardH, 10);
+
+      // Pastilla de color vertical a la izquierda
+      ctx.fillStyle = card.color;
+      roundRect(ctx, x + 16, y + 15, 4, 15, 2);
+
+      // Título KPI
+      ctx.fillStyle = card.color;
+      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(card.label, x + 26, y + 22);
+
+      // Valor numérico
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '800 27px Inter, sans-serif';
+      ctx.fillText(fmt(card.val), x + 18, y + 50);
+
+      // Subtítulo comparativo (Badge YoY + vs anterior)
+      const badgeW = 66;
+      const badgeH = 19;
+      const badgeX = x + 18;
+      const badgeY = y + 62;
+
+      ctx.fillStyle = card.yoy.isUp ? '#dcfce7' : '#fee2e2';
+      ctx.strokeStyle = card.yoy.isUp ? '#bbf7d0' : '#fecaca';
+      ctx.lineWidth = 1;
+      roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 4);
+
+      ctx.fillStyle = card.yoy.isUp ? '#15803d' : '#b91c1c';
+      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const arrowIcon = card.yoy.isUp ? '▲ ' : '▼ ';
+      ctx.fillText(arrowIcon + card.yoy.pct, badgeX + badgeW / 2, badgeY + badgeH / 2);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 11px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`vs ${fmt(card.prevVal)} (${prevYear})`, badgeX + badgeW + 8, badgeY + badgeH / 2);
+    };
+
+    // Dibujar las 2 filas de KPIs
+    kpiCardsRow1.forEach((card, idx) => {
+      const x = kpiMarginX + idx * (kpiCardW + kpiGapX);
+      drawKpiCard(card, x, kpiRow1Y);
+    });
+
+    kpiCardsRow2.forEach((card, idx) => {
+      const x = kpiMarginX + idx * (kpiCardW + kpiGapX);
+      drawKpiCard(card, x, kpiRow2Y);
+    });
+
+    // ── TABLA DETALLE CORPORATIVO SEMANAL (desde Área) ──
+    const tableX = kpiMarginX;
+    const tableY = kpiRow2Y + kpiCardH + 22;
+    const tableW = kpiTotalW; // Exactamente el mismo ancho que las tarjetas KPI (1760px)
+
+    const col0W = 230;
+    const promColW = 160;
+    const numWeekCols = colHeaders.length - 2;
+    const weekColW = Math.floor((tableW - col0W - promColW) / numWeekCols); // ~171px
+    const actualTableW = col0W + (weekColW * numWeekCols) + promColW;
+
+    const theadH = 46;
+    const rowH = 42;
+    const tableH = theadH + (rows.length * rowH) + 2;
+
+    // Borde exterior y fondo de tabla
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, tableX, tableY, actualTableW, tableH, 8);
+
+    // Cabecera de la tabla (thead)
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.moveTo(tableX + 8, tableY);
+    ctx.lineTo(tableX + actualTableW - 8, tableY);
+    ctx.quadraticCurveTo(tableX + actualTableW, tableY, tableX + actualTableW, tableY + 8);
+    ctx.lineTo(tableX + actualTableW, tableY + theadH);
+    ctx.lineTo(tableX, tableY + theadH);
+    ctx.lineTo(tableX, tableY + 8);
+    ctx.quadraticCurveTo(tableX, tableY, tableX + 8, tableY);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(tableX, tableY + theadH);
+    ctx.lineTo(tableX + actualTableW, tableY + theadH);
+    ctx.stroke();
+
+    let curColX = tableX;
+    colHeaders.forEach((h, i) => {
+      const w = (i === 0) ? col0W : (i === colHeaders.length - 1 ? promColW : weekColW);
+      if (i < colHeaders.length - 1) {
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(curColX + w, tableY);
+        ctx.lineTo(curColX + w, tableY + theadH);
+        ctx.stroke();
+      }
+
+      if (i === 0) {
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 14px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(h.top, curColX + 16, tableY + theadH / 2);
+      } else if (h.type === 'week') {
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 14px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(h.top, curColX + w / 2, tableY + 16);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.fillText(h.sub, curColX + w / 2, tableY + 31);
+      } else {
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 14px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(h.top, curColX + w / 2, tableY + theadH / 2);
+      }
+      curColX += w;
+    });
+
+    // Filas de datos (tbody)
+    let curRowY = tableY + theadH;
+    rows.forEach((r, rIdx) => {
+      if (r.isPlan) ctx.fillStyle = 'rgba(239, 246, 255, 0.45)';
+      else if (r.isPrev) ctx.fillStyle = '#ffffff';
+      else ctx.fillStyle = (rIdx > 0 ? '#fdfefe' : '#ffffff');
+      ctx.fillRect(tableX, curRowY, actualTableW, rowH);
+
+      ctx.strokeStyle = r.isPrev ? '#cbd5e1' : '#f1f5f9';
+      ctx.lineWidth = r.isPrev ? 1.5 : 1;
+      ctx.beginPath();
+      ctx.moveTo(tableX, curRowY + rowH);
+      ctx.lineTo(tableX + actualTableW, curRowY + rowH);
+      ctx.stroke();
+
+      curColX = tableX;
+      r.cells.forEach((val, cIdx) => {
+        const w = (cIdx === 0) ? col0W : (cIdx === r.cells.length - 1 ? promColW : weekColW);
+        if (cIdx < r.cells.length - 1) {
+          ctx.strokeStyle = '#f1f5f9';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(curColX + w, curRowY);
+          ctx.lineTo(curColX + w, curRowY + rowH);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = r.textColor;
+        ctx.font = r.isMain ? 'bold 13.5px Inter, sans-serif' : '500 12.5px Inter, sans-serif';
+        ctx.textBaseline = 'middle';
+
+        if (cIdx === 0) {
+          ctx.textAlign = 'left';
+          ctx.fillText(val, curColX + (r.isMain ? 16 : 26), curRowY + rowH / 2);
+        } else {
+          ctx.textAlign = 'right';
+          ctx.fillText(val, curColX + w - 12, curRowY + rowH / 2);
+        }
+        curColX += w;
+      });
+
+      curRowY += rowH;
+    });
+
+    return canvas;
+  }
+
+  // 1.5. Copiar Diapositiva Ejecutiva Completa: Título + KPIs + Tabla Corporativa (<15ms)
+  window.copyCorporateSummarySlideImage = async function(prefix) {
+    if (isCopyingImageInProgress) {
+      showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
+      return;
+    }
+    const table = document.getElementById(`tableCorporateWeekly_${prefix}`);
+    if (!table) {
+      showToast('Tabla corporativa no encontrada para copiar', 'danger');
+      return;
+    }
+
+    isCopyingImageInProgress = true;
+    try {
+      const canvas = renderCorporateSlideToCanvas(table, prefix);
+      if (!canvas) throw new Error('No se pudo renderizar la diapositiva corporativa');
+
+      canvas.toBlob(async (blob) => {
+        await writeBlobToClipboard(blob, `Diapositiva Ejecutiva THROUGHPUT CD ${prefix.toUpperCase()}`);
+      }, 'image/png');
+    } catch (err) {
+      console.error('Error al capturar diapositiva corporativa:', err);
+      showToast('No se pudo generar la diapositiva ejecutiva. Inténtalo de nuevo.', 'danger');
+    } finally {
+      setTimeout(() => { isCopyingImageInProgress = false; }, 200);
+    }
+  };
+
   // 2. Copiar Tabla Detalle Corporativo Semanal (<10ms)
   window.copyCorporateTableImage = async function(prefix) {
     if (isCopyingImageInProgress) {
@@ -2868,7 +3440,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // 4. Copiar Diapositiva Panorámica 16:9 con las 3 Tablas de Divisiones + Glosario (<25ms)
+  // 4. Copiar Diapositiva Panorámica 16:9 con las 3 Tablas de Divisiones + Glosario (<20ms, sin estiramientos)
   window.copyTripleDivisionTablesSlideImage = async function(prefix) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
@@ -2887,10 +3459,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     isCopyingImageInProgress = true;
     try {
-      const resRecibo = renderDivisionCardToCanvas(cardRecibo);
-      const resDespacho = renderDivisionCardToCanvas(cardDespacho);
-      const resInventario = renderDivisionCardToCanvas(cardInventario);
-      const canvasGlossary = cardGlossary ? renderGlossaryToCanvas(cardGlossary) : null;
+      const isSecos = prefix.toLowerCase() === 'secos';
+      const cardW = 890;
+      const rowH = isSecos ? 25 : 30;
+      const headerH = isSecos ? 34 : 36;
+      const theadH = isSecos ? 30 : 32;
+      const footH = isSecos ? 28 : 32;
+
+      const opts = {
+        targetWidth: cardW,
+        rowHeight: rowH,
+        cardHeaderHeight: headerH,
+        theadHeight: theadH,
+        footHeight: footH
+      };
+
+      const resRecibo = renderDivisionCardToCanvas(cardRecibo, opts);
+      const resDespacho = renderDivisionCardToCanvas(cardDespacho, opts);
+      const resInventario = renderDivisionCardToCanvas(cardInventario, opts);
+
+      const scale = 2;
+      const cardH = Math.round(resRecibo.canvas.height / scale);
+      const canvasGlossary = renderGlossaryDualColumnToCanvas(cardGlossary, cardW, cardH, prefix);
 
       const W = 1920;
       const H = 1080;
@@ -2903,45 +3493,43 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
 
-      // Título principal centrado
+      // Título principal centrado (SIN subtítulo como solicitó el usuario)
+      const currentYear = window._cdContext?.[prefix]?.currentYear || 2026;
+      const titleY = isSecos ? 52 : 72;
       ctx.fillStyle = '#0f172a';
-      ctx.font = '800 28px Inter, -apple-system, sans-serif';
+      ctx.font = '800 32px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`MOVIMIENTO DE CAJAS POR DIVISIÓN – CD ${prefix.toUpperCase()} 2026`, W / 2, 38);
+      ctx.fillText(`MOVIMIENTO DE CAJAS POR DIVISIÓN – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, titleY);
 
-      ctx.fillStyle = '#64748b';
-      ctx.font = '700 13px Inter, -apple-system, sans-serif';
-      ctx.fillText(`ÚLTIMAS SEMANAS CERRADAS · RECIBO, DESPACHO, INVENTARIO Y ESTRUCTURA CORPORATIVA`, W / 2, 68);
-
+      // Disposición 2x2 armónica sin distorsión de aspecto:
       // Fila 1: Recibo (izq) y Despacho (der)
-      const topY = 96;
-      const topH = 450;
-      const tableW = 895;
+      // Fila 2: Inventario (izq) y Glosario (der)
       const gapX = 30;
-      const startX = (W - (tableW * 2 + gapX)) / 2;
+      const gapY = isSecos ? 28 : 36;
+      const startX = (W - (cardW * 2 + gapX)) / 2; // 55px
+
+      const totalGridH = (cardH * 2) + gapY;
+      const topY = isSecos ? 110 : Math.round((H - totalGridH) / 2) + 24;
+      const bottomY = topY + cardH + gapY;
 
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
+      // Fila 1: Recibo y Despacho (Mismo ancho de 890px, altura natural)
       if (resRecibo?.canvas) {
-        ctx.drawImage(resRecibo.canvas, startX, topY, tableW, topH);
+        ctx.drawImage(resRecibo.canvas, startX, topY, cardW, cardH);
       }
       if (resDespacho?.canvas) {
-        ctx.drawImage(resDespacho.canvas, startX + tableW + gapX, topY, tableW, topH);
+        ctx.drawImage(resDespacho.canvas, startX + cardW + gapX, topY, cardW, cardH);
       }
 
-      // Fila 2: Inventario (ancho) y Glosario (derecha)
-      const bottomY = topY + topH + 20;
-      const bottomH = 475;
-      const glossaryW = 420;
-      const invW = (tableW * 2 + gapX) - glossaryW - gapX;
-
+      // Fila 2: Inventario y Glosario (Mismo ancho de 890px, alineación vertical exacta)
       if (resInventario?.canvas) {
-        ctx.drawImage(resInventario.canvas, startX, bottomY, invW, bottomH);
+        ctx.drawImage(resInventario.canvas, startX, bottomY, cardW, cardH);
       }
       if (canvasGlossary) {
-        ctx.drawImage(canvasGlossary, startX + invW + gapX, bottomY, glossaryW, bottomH);
+        ctx.drawImage(canvasGlossary, startX + cardW + gapX, bottomY, cardW, cardH);
       }
 
       offscreen.toBlob(async (blob) => {
