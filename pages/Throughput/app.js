@@ -267,111 +267,189 @@ document.addEventListener('DOMContentLoaded', () => {
     J12: 'secos'
   };
 
-  // Participación volumétrica promedio de referencia por CD
+  // Participación volumétrica promedio de referencia por CD (normalizada al 100%)
   const DIVISION_SHARE = {
     Secos: {
-      J01: 0.594, J02: 0.196, J08: 0.093, J09: 0.043,
+      J01: 0.593, J02: 0.196, J08: 0.093, J09: 0.043,
       J10: 0.025, J05: 0.025, J11: 0.018, J06: 0.004,
-      J07: 0.003, J12: 0.0003, J03: 0.0, J04: 0.0
+      J07: 0.003, J12: 0.0,   J03: 0.0,   J04: 0.0
     },
     Frescos: {
-      J05: 0.336, J04: 0.254, J06: 0.228, J07: 0.132,
-      J03: 0.039, J01: 0.009, J02: 0.0, J08: 0.0,
-      J09: 0.0, J10: 0.0, J11: 0.0, J12: 0.0
+      J05: 0.338, J04: 0.254, J06: 0.228, J07: 0.132,
+      J03: 0.039, J01: 0.009, J02: 0.0,   J08: 0.0,
+      J09: 0.0,   J10: 0.0,   J11: 0.0,   J12: 0.0
     }
   };
 
   // Multi-selección activa de divisiones (código Set)
   const selectedDivisions = new Set();
 
-  // Parser de la hoja DIVISION cuando está presente en Google Sheets
+  // Parser universal de etiquetas de semana ([36-2026], 36-2026, [2026-36], S36, Sem 36, 36)
+  function parseWeekLabel(label, defaultYear = 2026) {
+    if (label === null || label === undefined) return null;
+    const s = String(label).trim().replace(/[\[\]]/g, '');
+    if (!s) return null;
+
+    // Formato 1: "36-2026" o "36/2026" (Semana-Año)
+    let m = s.match(/^(\d{1,2})[-\/](\d{4})$/);
+    if (m) {
+      const w = parseInt(m[1], 10);
+      const y = parseInt(m[2], 10);
+      if (w >= 1 && w <= 53 && y >= 2020 && y <= 2040) {
+        return { week: w, year: y, key: `${y}-${w}` };
+      }
+    }
+
+    // Formato 2: "2026-36" o "2026/36" (Año-Semana)
+    m = s.match(/^(\d{4})[-\/](\d{1,2})$/);
+    if (m) {
+      const y = parseInt(m[1], 10);
+      const w = parseInt(m[2], 10);
+      if (w >= 1 && w <= 53 && y >= 2020 && y <= 2040) {
+        return { week: w, year: y, key: `${y}-${w}` };
+      }
+    }
+
+    // Formato 3: "S36", "Sem 36", "Semana 36", "SEM 36"
+    m = s.match(/^(?:SEM(?:ANA)?|S)\s*(\d{1,2})$/i);
+    if (m) {
+      const w = parseInt(m[1], 10);
+      if (w >= 1 && w <= 53) {
+        return { week: w, year: defaultYear, key: `${defaultYear}-${w}` };
+      }
+    }
+
+    // Formato 4: Solo número "36" (1 a 53)
+    if (/^\d{1,2}$/.test(s)) {
+      const w = parseInt(s, 10);
+      if (w >= 1 && w <= 53) {
+        return { week: w, year: defaultYear, key: `${defaultYear}-${w}` };
+      }
+    }
+
+    return null;
+  }
+
+  // Parser dinámico y resiliente de la hoja DIVISION
   function parseDivisionSheet(rawValues) {
-    if (!rawValues || rawValues.length < 25) return null;
+    if (!rawValues || rawValues.length < 20) return null;
     const divData = { Secos: {}, Frescos: {} };
 
-    // Secos (filas 18 a 30 aprox)
-    const headerRowSecos = rawValues[18] || [];
-    const secosRecWeeks = [], secosDespWeeks = [], secosInvWeeks = [];
-    for (let c = 2; c <= 9; c++) {
-      const p = parseWeekLabel(headerRowSecos[c]);
-      if (p) secosRecWeeks.push({ col: c, key: `${p.year}-${p.week}` });
-    }
-    for (let c = 11; c <= 18; c++) {
-      const p = parseWeekLabel(headerRowSecos[c]);
-      if (p) secosDespWeeks.push({ col: c, key: `${p.year}-${p.week}` });
-    }
-    for (let c = 20; c <= 27; c++) {
-      const p = parseWeekLabel(headerRowSecos[c]);
-      if (p) secosInvWeeks.push({ col: c, key: `${p.year}-${p.week}` });
-    }
+    // Función auxiliar para parsear una sub-tabla por bloques de procesos (Secos o Frescos)
+    function parseSubTable(startR, endR) {
+      let headerRowIdx = -1;
+      let firstDataRowIdx = -1;
+      let codeCols = [];
 
-    for (let r = 19; r <= Math.min(32, rawValues.length - 1); r++) {
-      const row = rawValues[r] || [];
-      const codeRec = String(row[1] || '').trim().toUpperCase();
-      if (/^J\d{2}$/.test(codeRec)) {
-        if (!divData.Secos[codeRec]) divData.Secos[codeRec] = { recibo: {}, despacho: {}, inventario: {} };
-        secosRecWeeks.forEach(w => {
-          divData.Secos[codeRec].recibo[w.key] = parseFloat(row[w.col]) || 0;
-        });
-      }
-      const codeDesp = String(row[10] || '').trim().toUpperCase();
-      if (/^J\d{2}$/.test(codeDesp)) {
-        if (!divData.Secos[codeDesp]) divData.Secos[codeDesp] = { recibo: {}, despacho: {}, inventario: {} };
-        secosDespWeeks.forEach(w => {
-          divData.Secos[codeDesp].despacho[w.key] = parseFloat(row[w.col]) || 0;
-        });
-      }
-      const codeInv = String(row[19] || '').trim().toUpperCase();
-      if (/^J\d{2}$/.test(codeInv)) {
-        if (!divData.Secos[codeInv]) divData.Secos[codeInv] = { recibo: {}, despacho: {}, inventario: {} };
-        secosInvWeeks.forEach(w => {
-          divData.Secos[codeInv].inventario[w.key] = parseFloat(row[w.col]) || 0;
-        });
-      }
-    }
-
-    // Frescos (filas 37 a 46 aprox)
-    if (rawValues.length >= 40) {
-      const headerRowFrescos = rawValues[37] || [];
-      const fRecWeeks = [], fDespWeeks = [], fInvWeeks = [];
-      for (let c = 2; c <= 9; c++) {
-        const p = parseWeekLabel(headerRowFrescos[c]);
-        if (p) fRecWeeks.push({ col: c, key: `${p.year}-${p.week}` });
-      }
-      for (let c = 11; c <= 18; c++) {
-        const p = parseWeekLabel(headerRowFrescos[c]);
-        if (p) fDespWeeks.push({ col: c, key: `${p.year}-${p.week}` });
-      }
-      for (let c = 20; c <= 27; c++) {
-        const p = parseWeekLabel(headerRowFrescos[c]);
-        if (p) fInvWeeks.push({ col: c, key: `${p.year}-${p.week}` });
-      }
-
-      for (let r = 38; r <= Math.min(46, rawValues.length - 1); r++) {
+      for (let r = startR; r <= Math.min(endR, rawValues.length - 1); r++) {
         const row = rawValues[r] || [];
-        const codeRec = String(row[1] || '').trim().toUpperCase();
-        if (/^J\d{2}$/.test(codeRec)) {
-          if (!divData.Frescos[codeRec]) divData.Frescos[codeRec] = { recibo: {}, despacho: {}, inventario: {} };
-          fRecWeeks.forEach(w => {
-            divData.Frescos[codeRec].recibo[w.key] = parseFloat(row[w.col]) || 0;
-          });
+        const found = [];
+        for (let c = 0; c < row.length; c++) {
+          const val = String(row[c] || '').trim().toUpperCase();
+          if (/^J\d{2}$/.test(val)) {
+            found.push(c);
+          }
         }
-        const codeDesp = String(row[10] || '').trim().toUpperCase();
-        if (/^J\d{2}$/.test(codeDesp)) {
-          if (!divData.Frescos[codeDesp]) divData.Frescos[codeDesp] = { recibo: {}, despacho: {}, inventario: {} };
-          fDespWeeks.forEach(w => {
-            divData.Frescos[codeDesp].despacho[w.key] = parseFloat(row[w.col]) || 0;
-          });
-        }
-        const codeInv = String(row[19] || '').trim().toUpperCase();
-        if (/^J\d{2}$/.test(codeInv)) {
-          if (!divData.Frescos[codeInv]) divData.Frescos[codeInv] = { recibo: {}, despacho: {}, inventario: {} };
-          fInvWeeks.forEach(w => {
-            divData.Frescos[codeInv].inventario[w.key] = parseFloat(row[w.col]) || 0;
-          });
+        if (found.length >= 2 || (found.length >= 1 && firstDataRowIdx === -1)) {
+          firstDataRowIdx = r;
+          codeCols = found;
+          // Buscar fila de cabecera de semanas inmediatamente arriba (r-1, r-2, r-3)
+          for (let hr = r - 1; hr >= Math.max(0, r - 3); hr--) {
+            const hRow = rawValues[hr] || [];
+            let wCount = 0;
+            for (let c = 0; c < hRow.length; c++) {
+              if (parseWeekLabel(hRow[c])) wCount++;
+            }
+            if (wCount >= 2) {
+              headerRowIdx = hr;
+              break;
+            }
+          }
+          break;
         }
       }
+
+      if (headerRowIdx === -1 || firstDataRowIdx === -1 || codeCols.length === 0) {
+        return null;
+      }
+
+      const headerRow = rawValues[headerRowIdx] || [];
+      const colRec = codeCols[0];
+      const colDesp = codeCols.length > 1 ? codeCols[1] : 9999;
+      const colInv = codeCols.length > 2 ? codeCols[2] : 9999;
+
+      const recWeeks = [];
+      const despWeeks = [];
+      const invWeeks = [];
+
+      // Escanear dinámicamente todas las columnas de la fila de cabeceras
+      for (let c = 0; c < headerRow.length; c++) {
+        const p = parseWeekLabel(headerRow[c]);
+        if (!p) continue;
+
+        if (c > colRec && c < colDesp) {
+          recWeeks.push({ col: c, key: p.key });
+        } else if (c > colDesp && c < colInv) {
+          despWeeks.push({ col: c, key: p.key });
+        } else if (c > colInv && c < colInv + 25) {
+          invWeeks.push({ col: c, key: p.key });
+        }
+      }
+
+      const subData = {};
+
+      for (let r = firstDataRowIdx; r <= Math.min(endR + 6, rawValues.length - 1); r++) {
+        const row = rawValues[r] || [];
+
+        // Código Recibo
+        const codeR = String(row[colRec] || '').trim().toUpperCase();
+        if (/^J\d{2}$/.test(codeR)) {
+          if (!subData[codeR]) subData[codeR] = { recibo: {}, despacho: {}, inventario: {} };
+          recWeeks.forEach(w => {
+            const raw = String(row[w.col] !== undefined && row[w.col] !== null ? row[w.col] : '').replace(/,/g, '').trim();
+            const val = parseFloat(raw);
+            if (!isNaN(val)) subData[codeR].recibo[w.key] = val;
+          });
+        }
+
+        // Código Despacho
+        if (colDesp < 9999) {
+          const codeD = String(row[colDesp] || '').trim().toUpperCase();
+          if (/^J\d{2}$/.test(codeD)) {
+            if (!subData[codeD]) subData[codeD] = { recibo: {}, despacho: {}, inventario: {} };
+            despWeeks.forEach(w => {
+              const raw = String(row[w.col] !== undefined && row[w.col] !== null ? row[w.col] : '').replace(/,/g, '').trim();
+              const val = parseFloat(raw);
+              if (!isNaN(val)) subData[codeD].despacho[w.key] = val;
+            });
+          }
+        }
+
+        // Código Inventario
+        if (colInv < 9999) {
+          const codeI = String(row[colInv] || '').trim().toUpperCase();
+          if (/^J\d{2}$/.test(codeI)) {
+            if (!subData[codeI]) subData[codeI] = { recibo: {}, despacho: {}, inventario: {} };
+            invWeeks.forEach(w => {
+              const raw = String(row[w.col] !== undefined && row[w.col] !== null ? row[w.col] : '').replace(/,/g, '').trim();
+              const val = parseFloat(raw);
+              if (!isNaN(val)) subData[codeI].inventario[w.key] = val;
+            });
+          }
+        }
+      }
+
+      return subData;
     }
+
+    // Secos (filas 15 a 35 aprox)
+    const secosData = parseSubTable(15, 34);
+    if (secosData) divData.Secos = secosData;
+
+    // Frescos (filas 35 a 52 aprox)
+    const frescosData = parseSubTable(35, 52);
+    if (frescosData) divData.Frescos = frescosData;
+
     return divData;
   }
 
@@ -586,12 +664,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
   // CORE PROCESSING & SECTION RENDERER
   // ══════════════════════════════════════════════
-  function parseWeekLabel(label) {
-    const s = String(label).replace(/[\[\]]/g, '');
-    const parts = s.split('-');
-    if (parts.length !== 2) return null;
-    return { week: parseInt(parts[0], 10), year: parseInt(parts[1], 10) };
-  }
 
   function renderSection(prefix, data, cols, filterValue, showLabels, includeFuture = true) {
     if (!data.rows || data.rows.length === 0) return;
@@ -1490,17 +1562,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function getDivVal(prefix, code, proc, weekKey, dataMap) {
-    // 1. Verificar si existen datos parseados directos
+    // 1. Verificar si existen datos parseados directos de la hoja DIVISION
     const divExact = window.parsedDivisionData?.[prefix]?.[code]?.[proc];
     if (divExact && divExact[weekKey] !== undefined) {
       return parseFloat(divExact[weekKey]) || 0;
     }
-    // 2. Fallback: Participación porcentual de la división sobre el total corporativo
-    if (dataMap && dataMap[weekKey]) {
-      const totalVal = dataMap[weekKey][proc] || 0;
-      const share = DIVISION_SHARE[prefix]?.[code] || 0;
-      return totalVal * share;
-    }
+    // 2. Si no hay datos registrados en la hoja DIVISION para esta semana,
+    // retornamos 0 para no inventar cifras artificiales que descuadren con el archivo de trabajo.
     return 0;
   }
 
@@ -1653,7 +1721,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const diff = vLast - vPrev;
         let trendHtml = '';
 
-        if (vPrev > 0) {
+        if (vPrev > 0 && vLast > 0) {
           const pct = ((vLast - vPrev) / vPrev) * 100;
           if (diff >= 0) {
             trendHtml = `
@@ -1686,7 +1754,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const totDiff = totLast - totPrev;
       let totTrendHtml = '';
 
-      if (totPrev > 0) {
+      if (totPrev > 0 && totLast > 0) {
         const totPct = ((totLast - totPrev) / totPrev) * 100;
         if (totDiff >= 0) {
           totTrendHtml = `
@@ -1711,7 +1779,8 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       weekNumbers.forEach(w => {
         const isLastCol = (w === W_last);
-        tablesHtml += `<td style="font-weight:800; ${isLastCol ? 'background:#e0f2fe; color:#0369a1;' : ''}">${Math.round(weekTotals[w]).toLocaleString('es-PE')}</td>`;
+        const hasData = (weekTotals[w] > 0);
+        tablesHtml += `<td style="font-weight:800; ${isLastCol ? 'background:#e0f2fe; color:#0369a1;' : ''}">${hasData ? Math.round(weekTotals[w]).toLocaleString('es-PE') : '--'}</td>`;
       });
 
       tablesHtml += `
