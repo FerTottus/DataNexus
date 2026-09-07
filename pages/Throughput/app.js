@@ -2232,10 +2232,16 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderDivisionCardToCanvas(cardEl, customOptions = {}) {
     if (!cardEl) return null;
     const headerEl = cardEl.querySelector('.division-process-header');
-    const titleSpan = headerEl?.querySelector('span:first-of-type');
-    const titleText = titleSpan ? titleSpan.innerText.trim() : 'Tabla Divisiones';
-    const subtitleSpan = headerEl?.querySelector('span:nth-of-type(2)');
-    const subtitleText = subtitleSpan ? subtitleSpan.innerText.trim() : 'Cajas / Semana';
+    let titleText = 'Tabla Divisiones';
+    if (headerEl) {
+      const leftTitleDiv = headerEl.querySelector('div:first-of-type');
+      if (leftTitleDiv) {
+        titleText = leftTitleDiv.innerText.replace(/\s+/g, ' ').trim();
+      } else {
+        const titleSpan = headerEl.querySelector('span:first-of-type');
+        titleText = titleSpan ? titleSpan.innerText.trim() : 'Tabla Divisiones';
+      }
+    }
 
     let headerBg = '#f8fafc';
     let headerTextCol = '#1e293b';
@@ -2394,16 +2400,10 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.stroke();
 
     ctx.fillStyle = headerTextCol;
-    ctx.font = 'bold 12px Inter, -apple-system, sans-serif';
+    ctx.font = 'bold 12.5px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(titleText, 12, cardHeaderHeight / 2);
-
-    ctx.fillStyle = headerTextCol;
-    ctx.font = 'bold 9.5px Inter, -apple-system, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(subtitleText, totalWidth - 12, cardHeaderHeight / 2);
+    ctx.fillText(titleText, 14, cardHeaderHeight / 2);
     ctx.restore();
 
     // Cabecera de la tabla (thead)
@@ -2716,8 +2716,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return canvas;
   }
 
-  // Renderiza el Glosario de Divisiones en 2 Columnas para Diapositiva Panorámica 16:9 (<5ms)
-  function renderGlossaryDualColumnToCanvas(glossaryCardEl, targetWidth, targetHeight, prefix) {
+  // Renderiza el Glosario de Divisiones Compacto para Diapositiva Panorámica 16:9 (<4ms)
+  function renderSlideGlossaryToCanvas(glossaryCardEl, prefix) {
     let items = [];
     if (glossaryCardEl) {
       const rows = Array.from(glossaryCardEl.querySelectorAll('.glossary-table tbody tr'));
@@ -2739,10 +2739,17 @@ document.addEventListener('DOMContentLoaded', () => {
       items = codes.map(c => ({ code: c, name: DIVISION_NAMES[c] || '' }));
     }
 
+    const isSecos = prefix.toLowerCase() === 'secos';
+    const totalWidth = 400; // Glosario compacto y elegante
+    const headerHeight = 34;
+    const theadHeight = 28;
+    const rowHeight = isSecos ? 24 : 27;
+    const totalHeight = headerHeight + theadHeight + (items.length * rowHeight) + 2;
+
     const scale = 2;
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(targetWidth * scale);
-    canvas.height = Math.round(targetHeight * scale);
+    canvas.width = Math.round(totalWidth * scale);
+    canvas.height = Math.round(totalHeight * scale);
     const ctx = canvas.getContext('2d');
     ctx.scale(scale, scale);
 
@@ -2750,15 +2757,14 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 1;
-    roundRect(ctx, 0.5, 0.5, targetWidth - 1, targetHeight - 1, 8);
+    roundRect(ctx, 0.5, 0.5, totalWidth - 1, totalHeight - 1, 8);
 
     // Header del card
-    const headerHeight = 34;
     ctx.fillStyle = '#f8fafc';
     ctx.beginPath();
-    ctx.moveTo(8, 0); ctx.lineTo(targetWidth - 8, 0);
-    ctx.quadraticCurveTo(targetWidth, 0, targetWidth, 8);
-    ctx.lineTo(targetWidth, headerHeight);
+    ctx.moveTo(8, 0); ctx.lineTo(totalWidth - 8, 0);
+    ctx.quadraticCurveTo(totalWidth, 0, totalWidth, 8);
+    ctx.lineTo(totalWidth, headerHeight);
     ctx.lineTo(0, headerHeight);
     ctx.lineTo(0, 8);
     ctx.quadraticCurveTo(0, 0, 8, 0);
@@ -2767,104 +2773,70 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(0, headerHeight); ctx.lineTo(targetWidth, headerHeight); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, headerHeight); ctx.lineTo(totalWidth, headerHeight); ctx.stroke();
 
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 12.5px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('📖 Glosario Divisiones Corporativas', 14, headerHeight / 2);
+    ctx.fillText('📖 Glosario Divisiones (Referencia)', 14, headerHeight / 2);
 
-    // Subdividir en 2 columnas equilibradas
-    const mid = Math.ceil(items.length / 2);
-    const colLeft = items.slice(0, mid);
-    const colRight = items.slice(mid);
+    // Thead
+    let curY = headerHeight;
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(0, curY, totalWidth, theadHeight);
 
-    const theadHeight = 28;
-    const colW = Math.floor((targetWidth - 44) / 2); // Ancho de cada subcolumna
-    const leftX = 14;
-    const rightX = leftX + colW + 16;
-
-    // Divisor vertical entre las dos columnas
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(leftX + colW + 8, headerHeight);
-    ctx.lineTo(leftX + colW + 8, targetHeight);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, curY + theadHeight); ctx.lineTo(totalWidth, curY + theadHeight); ctx.stroke();
 
-    // Renderizar cabeceras de ambas subcolumnas
-    [leftX, rightX].forEach(startX => {
-      ctx.fillStyle = '#f1f5f9';
-      ctx.fillRect(startX, headerHeight, colW, theadHeight);
+    ctx.fillStyle = '#475569';
+    ctx.font = 'bold 10.5px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Cód.', 28, curY + theadHeight / 2);
 
-      ctx.strokeStyle = '#e2e8f0';
+    ctx.textAlign = 'left';
+    ctx.fillText('Nombre Oficial', 64, curY + theadHeight / 2);
+
+    curY += theadHeight;
+
+    // Filas
+    items.forEach((item, idx) => {
+      ctx.fillStyle = (idx % 2 === 1) ? '#fafbfc' : '#ffffff';
+      ctx.fillRect(0, curY, totalWidth, rowHeight);
+
+      ctx.strokeStyle = '#f1f5f9';
       ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(startX, headerHeight + theadHeight);
-      ctx.lineTo(startX + colW, headerHeight + theadHeight);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, curY + rowHeight); ctx.lineTo(totalWidth, curY + rowHeight); ctx.stroke();
 
-      ctx.fillStyle = '#475569';
-      ctx.font = 'bold 10.5px Inter, sans-serif';
+      const badgeW = 34; const badgeH = 17;
+      const badgeX = 28 - badgeW / 2; const badgeY = curY + (rowHeight - badgeH) / 2;
+      ctx.fillStyle = '#eff6ff';
+      ctx.strokeStyle = '#bfdbfe';
+      ctx.lineWidth = 1;
+      roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 4);
+
+      ctx.fillStyle = '#1d4ed8';
+      ctx.font = 'bold 10px JetBrains Mono, monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Cód.', startX + 28, headerHeight + theadHeight / 2);
+      ctx.fillText(item.code, badgeX + badgeW / 2, badgeY + badgeH / 2);
 
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '600 11px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText('Nombre Oficial', startX + 64, headerHeight + theadHeight / 2);
+      ctx.fillText(item.name, 64, curY + rowHeight / 2);
+
+      curY += rowHeight;
     });
 
-    // Calcular altura de fila disponible de forma proporcional
-    const maxRows = Math.max(colLeft.length, colRight.length);
-    const availH = targetHeight - headerHeight - theadHeight - 4;
-    const subRowHeight = Math.floor(availH / maxRows);
+    return { canvas, width: totalWidth, height: totalHeight };
+  }
 
-    // Renderizar filas de datos
-    [
-      { list: colLeft, startX: leftX },
-      { list: colRight, startX: rightX }
-    ].forEach(({ list, startX }) => {
-      let curY = headerHeight + theadHeight;
-      list.forEach((item, idx) => {
-        ctx.fillStyle = (idx % 2 === 1) ? '#fafbfc' : '#ffffff';
-        ctx.fillRect(startX, curY, colW, subRowHeight);
-
-        ctx.strokeStyle = '#f1f5f9';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(startX, curY + subRowHeight);
-        ctx.lineTo(startX + colW, curY + subRowHeight);
-        ctx.stroke();
-
-        // Badge código división
-        const badgeW = 34;
-        const badgeH = 18;
-        const badgeX = startX + 28 - badgeW / 2;
-        const badgeY = curY + (subRowHeight - badgeH) / 2;
-
-        ctx.fillStyle = '#eff6ff';
-        ctx.strokeStyle = '#bfdbfe';
-        ctx.lineWidth = 1;
-        roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 4);
-
-        ctx.fillStyle = '#1d4ed8';
-        ctx.font = 'bold 10px JetBrains Mono, monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(item.code, badgeX + badgeW / 2, badgeY + badgeH / 2);
-
-        // Nombre oficial
-        ctx.fillStyle = '#1e293b';
-        ctx.font = '600 11px Inter, -apple-system, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(item.name, startX + 64, curY + subRowHeight / 2);
-
-        curY += subRowHeight;
-      });
-    });
-
-    return canvas;
+  function renderGlossaryDualColumnToCanvas(glossaryCardEl, targetWidth, targetHeight, prefix) {
+    const res = renderSlideGlossaryToCanvas(glossaryCardEl, prefix);
+    return res.canvas;
   }
 
   // Renderiza la Tabla Corporativa Semanal a Canvas 2D nativo (<8ms)
@@ -3102,26 +3074,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── TÍTULO PRINCIPAL ──
     const titleText = `THROUGHPUT–CD ${prefix.toUpperCase()} ${currentYear}`;
+    const titleY = 58;
     ctx.fillStyle = '#0f172a';
-    ctx.font = '800 38px Inter, -apple-system, sans-serif';
+    ctx.font = '800 36px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(titleText, W / 2, 54);
+    ctx.fillText(titleText, W / 2, titleY);
 
     // ── KPI CARDS (2 Filas de 3 tarjetas) ──
     const kpiMarginX = 80;
     const kpiTotalW = W - (kpiMarginX * 2); // 1760px
     const kpiGapX = 24;
     const kpiCardW = Math.floor((kpiTotalW - (kpiGapX * 2)) / 3); // 570px
-    const kpiCardH = 88;
+    const kpiCardH = 92;
 
-    const kpiRow1Y = 104;
-    const kpiRow2Y = kpiRow1Y + kpiCardH + 14;
+    // ── SECCIÓN 1: SEMANA ACTUAL CERRADA ──
+    const sec1Y = 102;
+    ctx.fillStyle = '#eff6ff';
+    ctx.strokeStyle = '#bfdbfe';
+    ctx.lineWidth = 1;
+    roundRect(ctx, kpiMarginX, sec1Y, 320, 25, 5);
+
+    ctx.fillStyle = '#1d4ed8';
+    ctx.font = 'bold 11px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`⚡ SEMANA ACTUAL CERRADA · SEMANA ${lastDataWeek}`, kpiMarginX + 12, sec1Y + 13);
+
+    const kpiRow1Y = 135;
 
     const kpiCardsRow1 = [
       {
         icon: '📦',
-        label: `RECIBO S${lastDataWeek}`,
+        label: `ENTRADAS (RECIBO) · SEMANA ${lastDataWeek}`,
         val: reciboSemCurr,
         prevVal: reciboSemPrev,
         yoy: yoyReciboSem,
@@ -3129,7 +3114,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
         icon: '🚛',
-        label: `DESPACHO S${lastDataWeek}`,
+        label: `SALIDAS (DESPACHO) · SEMANA ${lastDataWeek}`,
         val: despSemCurr,
         prevVal: despSemPrev,
         yoy: yoyDespSem,
@@ -3137,7 +3122,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
         icon: '📊',
-        label: 'INVENTARIO FINAL',
+        label: `INVENTARIO FINAL · SEMANA ${lastDataWeek}`,
         val: invSemCurr,
         prevVal: invSemPrev,
         yoy: yoyInvSem,
@@ -3145,10 +3130,25 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     ];
 
+    // ── SECCIÓN 2: ACUMULADO Y PROMEDIO DEL PERÍODO ──
+    const sec2Y = 246;
+    ctx.fillStyle = '#f8fafc';
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 1;
+    roundRect(ctx, kpiMarginX, sec2Y, 410, 25, 5);
+
+    ctx.fillStyle = '#334155';
+    ctx.font = 'bold 11px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`📈 ACUMULADO Y PROMEDIO · ÚLTIMAS ${weeksToSum.length} SEMANAS CERRADAS`, kpiMarginX + 12, sec2Y + 13);
+
+    const kpiRow2Y = 279;
+
     const kpiCardsRow2 = [
       {
         icon: '📦',
-        label: 'TOTAL ENTRADAS (RECIBO)',
+        label: 'TOTAL ENTRADAS (RECIBO) · ACUMULADO',
         val: totReciboCurr,
         prevVal: totReciboPrev,
         yoy: yoyReciboPer,
@@ -3156,7 +3156,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
         icon: '🚛',
-        label: 'TOTAL SALIDAS (DESPACHO)',
+        label: 'TOTAL SALIDAS (DESPACHO) · ACUMULADO',
         val: totDespCurr,
         prevVal: totDespPrev,
         yoy: yoyDespPer,
@@ -3164,7 +3164,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
         icon: '📊',
-        label: 'STOCK INVENTARIO (PROM.)',
+        label: 'STOCK INVENTARIO · PROMEDIO DEL PERÍODO',
         val: avgInvCurr,
         prevVal: avgInvPrev,
         yoy: yoyInvPer,
@@ -3199,7 +3199,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const badgeW = 66;
       const badgeH = 19;
       const badgeX = x + 18;
-      const badgeY = y + 62;
+      const badgeY = y + 64;
 
       ctx.fillStyle = card.yoy.isUp ? '#dcfce7' : '#fee2e2';
       ctx.strokeStyle = card.yoy.isUp ? '#bbf7d0' : '#fecaca';
@@ -3232,7 +3232,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── TABLA DETALLE CORPORATIVO SEMANAL (desde Área) ──
     const tableX = kpiMarginX;
-    const tableY = kpiRow2Y + kpiCardH + 22;
+    const tableY = 398;
     const tableW = kpiTotalW; // Exactamente el mismo ancho que las tarjetas KPI (1760px)
 
     const col0W = 230;
@@ -3241,8 +3241,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const weekColW = Math.floor((tableW - col0W - promColW) / numWeekCols); // ~171px
     const actualTableW = col0W + (weekColW * numWeekCols) + promColW;
 
-    const theadH = 46;
-    const rowH = 42;
+    const theadH = 48;
+    const rowH = 48;
     const tableH = theadH + (rows.length * rowH) + 2;
 
     // Borde exterior y fondo de tabla
@@ -3480,7 +3480,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const scale = 2;
       const cardH = Math.round(resRecibo.canvas.height / scale);
-      const canvasGlossary = renderGlossaryDualColumnToCanvas(cardGlossary, cardW, cardH, prefix);
+      const resGlossary = renderSlideGlossaryToCanvas(cardGlossary, prefix);
 
       const W = 1920;
       const H = 1080;
@@ -3493,30 +3493,28 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
 
-      // Título principal centrado (SIN subtítulo como solicitó el usuario)
+      // Centrado vertical exacto
+      const gapX = 30;
+      const gapY = isSecos ? 38 : 46;
+      const startX = (W - (cardW * 2 + gapX)) / 2; // 55px
+
+      const totalGridH = (cardH * 2) + gapY;
+      const topY = isSecos ? 175 : 235;
+      const bottomY = topY + cardH + gapY;
+
+      // Título principal centrado verticalmente respecto a las tablas
       const currentYear = window._cdContext?.[prefix]?.currentYear || 2026;
-      const titleY = isSecos ? 52 : 72;
+      const titleY = isSecos ? 85 : 115;
       ctx.fillStyle = '#0f172a';
-      ctx.font = '800 32px Inter, -apple-system, sans-serif';
+      ctx.font = '800 34px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`MOVIMIENTO DE CAJAS POR DIVISIÓN – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, titleY);
 
-      // Disposición 2x2 armónica sin distorsión de aspecto:
-      // Fila 1: Recibo (izq) y Despacho (der)
-      // Fila 2: Inventario (izq) y Glosario (der)
-      const gapX = 30;
-      const gapY = isSecos ? 28 : 36;
-      const startX = (W - (cardW * 2 + gapX)) / 2; // 55px
-
-      const totalGridH = (cardH * 2) + gapY;
-      const topY = isSecos ? 110 : Math.round((H - totalGridH) / 2) + 24;
-      const bottomY = topY + cardH + gapY;
-
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      // Fila 1: Recibo y Despacho (Mismo ancho de 890px, altura natural)
+      // Fila 1: Recibo y Despacho (Mismo ancho de 890px)
       if (resRecibo?.canvas) {
         ctx.drawImage(resRecibo.canvas, startX, topY, cardW, cardH);
       }
@@ -3524,12 +3522,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.drawImage(resDespacho.canvas, startX + cardW + gapX, topY, cardW, cardH);
       }
 
-      // Fila 2: Inventario y Glosario (Mismo ancho de 890px, alineación vertical exacta)
+      // Fila 2: Inventario (izquierda) y Glosario Compacto (derecha, alineado)
       if (resInventario?.canvas) {
         ctx.drawImage(resInventario.canvas, startX, bottomY, cardW, cardH);
       }
-      if (canvasGlossary) {
-        ctx.drawImage(canvasGlossary, startX + cardW + gapX, bottomY, cardW, cardH);
+      if (resGlossary?.canvas) {
+        ctx.drawImage(resGlossary.canvas, startX + cardW + gapX, bottomY, resGlossary.width, resGlossary.height);
       }
 
       offscreen.toBlob(async (blob) => {
