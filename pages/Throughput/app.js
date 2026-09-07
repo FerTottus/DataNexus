@@ -112,8 +112,49 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   document.getElementById('btnChangeSheet')?.addEventListener('click', () => {
-    document.getElementById('connectBox').classList.remove('hidden');
-    document.getElementById('connectionSuccessInfo').classList.add('hidden');
+    // Resetear input y datos cargados
+    const inputEl = document.getElementById('sheetUrlInput');
+    if (inputEl) inputEl.value = '';
+
+    window.dataSecos = null;
+    window.dataFrescos = null;
+    window.parsedDivisionData = null;
+    window.dataDivision = null;
+
+    // Destruir instancias de gráficos para liberar memoria
+    Object.keys(charts).forEach(key => {
+      if (charts[key] && typeof charts[key].destroy === 'function') {
+        charts[key].destroy();
+      }
+      delete charts[key];
+    });
+
+    document.getElementById('dashboardSection')?.classList.add('hidden');
+    document.getElementById('connectionSuccessInfo')?.classList.add('hidden');
+    document.getElementById('connectBox')?.classList.remove('hidden');
+  });
+
+  // Permitir presionar Enter en el input para cargar
+  document.getElementById('sheetUrlInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('btnFetchData')?.click();
+    }
+  });
+
+  // Botón para cargar datos de prueba a demanda (opcional para pruebas/demos)
+  document.getElementById('btnLoadDemo')?.addEventListener('click', () => {
+    window.dataSecos = JSON.parse(JSON.stringify(DEFAULT_SECOS_DATA));
+    window.dataFrescos = JSON.parse(JSON.stringify(DEFAULT_FRESCOS_DATA));
+    window.parsedDivisionData = JSON.parse(JSON.stringify(DEFAULT_DIVISIONS_DATA));
+
+    document.getElementById('connectBox')?.classList.add('hidden');
+    document.getElementById('connectionSuccessInfo')?.classList.remove('hidden');
+    const nameEl = document.getElementById('connectedSheetName');
+    if (nameEl) nameEl.textContent = 'Datos de prueba (Demostración)';
+    document.getElementById('dashboardSection')?.classList.remove('hidden');
+
+    renderAll();
   });
 
   // ══════════════════════════════════════════════
@@ -2647,35 +2688,21 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // ══════════════════════════════════════════════
-  // INICIALIZACIÓN DE DATOS Y ARRANQUE INMEDIATO
+  // INICIALIZACIÓN DE DATOS Y ESTADO LIMPIO
   // ══════════════════════════════════════════════
   function initThroughputData() {
-    try {
-      const savedSecos = localStorage.getItem('DataNexus_Throughput_Secos');
-      const savedFrescos = localStorage.getItem('DataNexus_Throughput_Frescos');
-      const savedDivs = localStorage.getItem('DataNexus_Throughput_Divisions');
+    // Al cargar la página o refrescar con F5, mantener el dashboard limpio y oculto
+    // hasta que el usuario cargue su enlace de Google Sheet o use 'Datos de Prueba'.
+    window.dataSecos = null;
+    window.dataFrescos = null;
+    window.parsedDivisionData = null;
+    window.dataDivision = null;
 
-      if (savedSecos && savedFrescos) {
-        window.dataSecos = JSON.parse(savedSecos);
-        window.dataFrescos = JSON.parse(savedFrescos);
-        window.parsedDivisionData = savedDivs ? JSON.parse(savedDivs) : JSON.parse(JSON.stringify(DEFAULT_DIVISIONS_DATA));
-      } else {
-        window.dataSecos = JSON.parse(JSON.stringify(DEFAULT_SECOS_DATA));
-        window.dataFrescos = JSON.parse(JSON.stringify(DEFAULT_FRESCOS_DATA));
-        window.parsedDivisionData = JSON.parse(JSON.stringify(DEFAULT_DIVISIONS_DATA));
-      }
-    } catch (e) {
-      window.dataSecos = JSON.parse(JSON.stringify(DEFAULT_SECOS_DATA));
-      window.dataFrescos = JSON.parse(JSON.stringify(DEFAULT_FRESCOS_DATA));
-      window.parsedDivisionData = JSON.parse(JSON.stringify(DEFAULT_DIVISIONS_DATA));
-    }
-
-    // Mostrar el dashboard directamente con la data lista
-    document.getElementById('dashboardSection')?.classList.remove('hidden');
-
-    renderAll();
+    document.getElementById('dashboardSection')?.classList.add('hidden');
+    document.getElementById('connectBox')?.classList.remove('hidden');
+    document.getElementById('connectionSuccessInfo')?.classList.add('hidden');
   }
 
-  // Cargar datos e inicializar throughput
+  // Inicializar estado limpio al arrancar
   initThroughputData();
 });
