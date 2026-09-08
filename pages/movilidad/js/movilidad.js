@@ -875,13 +875,9 @@ function initUIEvents() {
 
   const toggleHeat = document.getElementById('toggleLayerHeat');
   if (toggleHeat) {
-    toggleHeat.addEventListener('change', (e) => {
-      if (!AppState.heatMapInstance || !AppState.heatLayer) return;
-      if (e.target.checked) {
-        AppState.heatMapInstance.addLayer(AppState.heatLayer);
-      } else {
-        AppState.heatMapInstance.removeLayer(AppState.heatLayer);
-      }
+    toggleHeat.addEventListener('change', () => {
+      if (!AppState.heatMapInstance) return;
+      renderMapaCalorEmpleados();
     });
   }
 
@@ -4700,15 +4696,18 @@ function renderMapaCalorEmpleados() {
         const lat = parseFloat(p.lat);
         const lng = parseFloat(p.lng);
         if (!isNaN(lat) && !isNaN(lng)) {
-          const pMarker = L.circleMarker([lat, lng], {
-            radius: 4.5,
-            color: '#10b981',
-            fillColor: '#34d399',
-            fillOpacity: 0.85,
-            weight: 1.5
+          const busPinIcon = L.divIcon({
+            className: 'paradero-bus-pin',
+            html: `<div style="background: #059669; color: #ffffff; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 10px; border: 1.5px solid #a7f3d0; box-shadow: 0 2px 6px rgba(0,0,0,0.6);"><i class="fa-solid fa-bus"></i></div>`,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          });
+          const pMarker = L.marker([lat, lng], {
+            icon: busPinIcon,
+            zIndexOffset: 1200
           }).bindTooltip(`<b>🚌 ${p.nombre}</b><br><small style="color: #94a3b8;">Ruta: ${p.ruta}</small>`, {
             direction: 'top',
-            offset: [0, -6],
+            offset: [0, -10],
             className: 'etiqueta-paradero'
           });
           AppState.heatParaderosLayer.addLayer(pMarker);

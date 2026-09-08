@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="../../css/styles.css?v=3.7">
   
   <!-- Estilos Específicos de este Dashboard -->
-  <link rel="stylesheet" href="css/movilidad.css?v=4.0">
+  <link rel="stylesheet" href="css/movilidad.css?v=4.1">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://apis.google.com/js/api.js"></script>
@@ -849,11 +849,11 @@
                 <input type="checkbox" id="toggleLayerHeat" checked>
                 <span><i class="fa-solid fa-fire text-warning"></i> Calor</span>
               </label>
-              <label class="heatmap-toggle-label" title="Mostrar puntos individuales con detalle del colaborador">
+              <label class="heatmap-toggle-label" title="Mostrar ubicaciones individuales de cada colaborador (hogares)">
                 <input type="checkbox" id="toggleLayerPoints">
-                <span><i class="fa-solid fa-location-pin text-info"></i> Puntos</span>
+                <span><i class="fa-solid fa-users text-info"></i> Colaboradores</span>
               </label>
-              <label class="heatmap-toggle-label" title="Superponer trazado de paraderos oficiales para comparar cobertura">
+              <label class="heatmap-toggle-label" title="Superponer trazado de paraderos oficiales de movilidad">
                 <input type="checkbox" id="toggleLayerParaderos" checked>
                 <span><i class="fa-solid fa-bus text-success"></i> Paraderos</span>
               </label>
@@ -885,12 +885,23 @@
             
             <!-- Leyenda Térmica Flotante en el Mapa -->
             <div class="heatmap-floating-legend">
-              <span class="legend-label"><i class="fa-solid fa-chart-simple"></i> Densidad:</span>
+              <span class="legend-label"><i class="fa-solid fa-fire text-warning"></i> Densidad de Calor:</span>
               <div class="legend-gradient"></div>
               <div class="legend-scale">
                 <span>Baja</span>
                 <span>Media</span>
                 <span>Alta</span>
+              </div>
+              <div style="border-top: 1px solid rgba(255, 255, 255, 0.12); margin: 6px 0 5px 0;"></div>
+              <span class="legend-label"><i class="fa-solid fa-users text-info"></i> Colaboradores por Área:</span>
+              <div style="display: flex; gap: 8px; font-size: 0.72rem; color: #cbd5e1; align-items: center; margin-bottom: 3px;">
+                <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:#3b82f6; margin-right:4px;"></span>Secos</span>
+                <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:#10b981; margin-right:4px;"></span>PPA</span>
+                <span><span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:#f59e0b; margin-right:4px;"></span>Frescos</span>
+              </div>
+              <div style="display: flex; gap: 6px; font-size: 0.72rem; color: #cbd5e1; align-items: center;">
+                <span style="background: #059669; color: #fff; padding: 1px 5px; border-radius: 4px; font-size: 0.68rem; border: 1px solid #a7f3d0;"><i class="fa-solid fa-bus"></i> Paradero</span>
+                <span style="font-size: 0.68rem; color: #94a3b8;">Paradas de ruta</span>
               </div>
             </div>
 
@@ -1031,6 +1042,6 @@
   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
   <!-- Script Específico de Movilidad -->
-  <script src="js/movilidad.js?v=4.0"></script>
+  <script src="js/movilidad.js?v=4.1"></script>
 </body>
 </html>
