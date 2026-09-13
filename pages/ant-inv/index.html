@@ -357,6 +357,25 @@
     .exec-table-sm td { padding: 5px 8px; font-size: 0.84rem; }
     .exec-table-sm tfoot td { padding: 6px 8px; font-size: 0.86rem; }
 
+    /* Estilo Corporativo Verde para Diapositiva 2 (Zonas) */
+    .exec-table-green {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .exec-table-green thead th {
+      background: #2d6a4f !important;
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      font-size: 0.76rem !important;
+      border-bottom: 2px solid #1e4620 !important;
+      text-align: right;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .exec-table-green thead th:first-child { text-align: left; }
+    .exec-table-green tbody tr:nth-child(even) { background: #f4faf6; }
+    .exec-table-green tbody tr:nth-child(odd) { background: #ffffff; }
+
     /* ═════════════════════════════════════════════════════════════════════════ */
     /* CLASE MAESTRA DE CAPTURA 16:9 PARA POWERPOINT (1600x900 NATIVO)           */
     /* Llena 100% de la diapositiva panorámica sin bordes vacíos a los lados    */
@@ -420,6 +439,15 @@
       padding: 2.5px 4px !important;
       font-size: 0.74rem !important;
     }
+    .capturing-16-9 .exec-table-green thead th {
+      background: #2d6a4f !important;
+      color: #ffffff !important;
+      padding: 3.5px 4px !important;
+      font-size: 0.70rem !important;
+      border-bottom: 2px solid #1e4620 !important;
+    }
+    .capturing-16-9 .exec-table-green tbody tr:nth-child(even) { background: #f4faf6 !important; }
+    .capturing-16-9 .exec-table-green tbody tr:nth-child(odd) { background: #ffffff !important; }
     .capturing-16-9 h2 {
       font-size: 1.40rem !important;
     }
@@ -870,16 +898,16 @@
 
       <!-- Tabla Principal: Antigüedad por Zonas (Pivot Completo idéntico a PPT) -->
       <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-        <table class="exec-table exec-table-sm" id="tableS2Zones" style="width: 100%; border-collapse: collapse;">
+        <table class="exec-table exec-table-sm exec-table-green" id="tableS2Zones" style="width: 100%; border-collapse: collapse;">
           <thead>
-            <tr style="background: #2d6a4f; color: #ffffff;">
-              <th style="text-align: center; vertical-align: middle; width: 90px; background: #1e4620; color: #ffffff; font-weight: 800; font-size: 0.80rem;">ZONA</th>
-              <th style="text-align: left; vertical-align: middle; width: 85px; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">Valores</th>
-              <th style="text-align: right; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">0 a 10 Sem</th>
-              <th style="text-align: right; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">10 a 25 Sem</th>
-              <th style="text-align: right; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">25 a 52 Sem</th>
-              <th style="text-align: right; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">mayor a 52 Sem</th>
-              <th style="text-align: right; background: #1e4620; color: #ffffff; font-weight: 900; font-size: 0.82rem;">Total general</th>
+            <tr style="background: #2d6a4f !important; color: #ffffff !important;">
+              <th style="text-align: center; vertical-align: middle; width: 90px; background: #1e4620 !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">ZONA</th>
+              <th style="text-align: left; vertical-align: middle; width: 85px; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">Valores</th>
+              <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">0 a 10 Sem</th>
+              <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">10 a 25 Sem</th>
+              <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">25 a 52 Sem</th>
+              <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">mayor a 52 Sem</th>
+              <th style="text-align: right; background: #1e4620 !important; color: #ffffff !important; font-weight: 900; font-size: 0.82rem;">Total general</th>
             </tr>
           </thead>
           <tbody id="tbodyS2Zones">
@@ -898,59 +926,9 @@
         </h3>
       </div>
 
-      <!-- Tablas Gemelas de Top SKUs >52 Semanas por Zona -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-        
-        <!-- Top RCK -->
-        <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-          <div style="background: #2d6a4f; color: #ffffff; text-align: center; font-weight: 900; font-size: 0.86rem; padding: 4px; border-radius: 5px 5px 0 0; margin-bottom: 4px; letter-spacing: 0.5px;">
-            RCK
-          </div>
-          <table class="exec-table exec-table-sm" id="tableS2Rck" style="width: 100%;">
-            <thead>
-              <tr style="background: #2d6a4f; color: #ffffff;">
-                <th style="width: 75px; color: #ffffff; font-weight: 800;">SKU</th>
-                <th style="text-align: left; color: #ffffff; font-weight: 800;">DESCRIPCION</th>
-                <th style="text-align: center; font-size: 0.70rem; color: #ffffff; font-weight: 800;">RNG-FV</th>
-                <th style="color: #ffffff; text-align: right; font-weight: 800;">LPN's</th>
-                <th style="text-align: right; color: #ffffff; font-weight: 800;">COSTOS</th>
-                <th style="text-align: right; color: #ffffff; font-weight: 800;">BULTOS</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyS2Rck">
-              <!-- Dinámico -->
-            </tbody>
-            <tfoot id="tfootS2Rck">
-              <!-- Totales -->
-            </tfoot>
-          </table>
-        </div>
-
-        <!-- Top RHB -->
-        <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-          <div style="background: #2d6a4f; color: #ffffff; text-align: center; font-weight: 900; font-size: 0.86rem; padding: 4px; border-radius: 5px 5px 0 0; margin-bottom: 4px; letter-spacing: 0.5px;">
-            RHB
-          </div>
-          <table class="exec-table exec-table-sm" id="tableS2Rhb" style="width: 100%;">
-            <thead>
-              <tr style="background: #2d6a4f; color: #ffffff;">
-                <th style="width: 75px; color: #ffffff; font-weight: 800;">SKU</th>
-                <th style="text-align: left; color: #ffffff; font-weight: 800;">DESCRIPCION</th>
-                <th style="text-align: center; font-size: 0.70rem; color: #ffffff; font-weight: 800;">RNG-FV</th>
-                <th style="color: #ffffff; text-align: right; font-weight: 800;">LPN's</th>
-                <th style="text-align: right; color: #ffffff; font-weight: 800;">COSTOS</th>
-                <th style="text-align: right; color: #ffffff; font-weight: 800;">BULTOS</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyS2Rhb">
-              <!-- Dinámico -->
-            </tbody>
-            <tfoot id="tfootS2Rhb">
-              <!-- Totales -->
-            </tfoot>
-          </table>
-        </div>
-
+      <!-- Tablas Dinámicas de Top SKUs >52 Semanas por Zona (RCK, RHB, TOL o cualquier zona con información) -->
+      <div id="containerS2TopZones" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+        <!-- Se renderiza dinámicamente según las zonas con información (2 columnas para RCK/RHB, 3 columnas si TOL u otra zona tiene datos) -->
       </div>
     </div>
 
