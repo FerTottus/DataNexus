@@ -2317,6 +2317,77 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 1. Copiar Slide Completo 3 en 1 Panorámico 16:9 (Widescreen 1920x1080) Ultrarrápido (<20ms, sin esperas ni errores de foco)
+  // Renderiza un gráfico Chart.js a un canvas estático del tamaño exacto de destino (sin estiramientos ni distorsión)
+  function createSlideChartCanvas(srcChart, targetW, targetH, fallbackCanvas) {
+    if (!srcChart || !srcChart.data) {
+      return fallbackCanvas || null;
+    }
+    try {
+      const scale = 2; // Retina 2x
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = Math.round(targetW * scale);
+      tempCanvas.height = Math.round(targetH * scale);
+
+      // Datasets calibrados con grosor armónico (evita barras desproporcionadas tipo bloque)
+      const slideDatasets = srcChart.data.datasets.map(ds => {
+        const copy = { ...ds };
+        if (ds.type === 'bar' || !ds.type) {
+          copy.maxBarThickness = 42;
+          copy.borderRadius = 6;
+        }
+        return copy;
+      });
+
+      // Opciones para renderizado limpio de alta resolución sin animaciones
+      const slideOptions = {
+        ...srcChart.options,
+        responsive: false,
+        maintainAspectRatio: false,
+        animation: false,
+        devicePixelRatio: scale,
+        layout: {
+          padding: { top: 6, bottom: 6, left: 14, right: 14 }
+        },
+        plugins: {
+          ...srcChart.options.plugins,
+          legend: {
+            ...srcChart.options.plugins?.legend,
+            labels: {
+              ...srcChart.options.plugins?.legend?.labels,
+              font: { size: 12, weight: '700', family: "'Inter', sans-serif" },
+              padding: 12,
+              boxWidth: 10
+            }
+          }
+        }
+      };
+
+      const tempChart = new Chart(tempCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: srcChart.data.labels,
+          datasets: slideDatasets
+        },
+        options: slideOptions
+      });
+
+      tempChart.render();
+
+      const staticCanvas = document.createElement('canvas');
+      staticCanvas.width = tempCanvas.width;
+      staticCanvas.height = tempCanvas.height;
+      const sCtx = staticCanvas.getContext('2d');
+      sCtx.drawImage(tempCanvas, 0, 0);
+
+      tempChart.destroy();
+      return staticCanvas;
+    } catch (e) {
+      console.warn('Fallback al canvas original para la diapositiva:', e);
+      return fallbackCanvas || null;
+    }
+  }
+
+  // 1. Copiar Slide Completo 3 en 1 Panorámico 16:9 (Widescreen 1920x1080) Ultrarrápido (<20ms, sin estiramientos)
   window.copyTripleChartsSlideImage = async function() {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
@@ -2337,26 +2408,29 @@ document.addEventListener('DOMContentLoaded', () => {
     isCopyingImageInProgress = true;
 
     try {
-      // Dimensiones Widescreen estándar de PowerPoint 16:9 (1920 x 1080 Full HD)
+      // Dimensiones Widescreen estándar de PowerPoint 16:9 (1920 x 1080 Full HD con escala Retina 2x)
       const W = 1920;
       const H = 1080;
+      const scale = 2;
       const offscreen = document.createElement('canvas');
-      offscreen.width = W;
-      offscreen.height = H;
+      offscreen.width = Math.round(W * scale);
+      offscreen.height = Math.round(H * scale);
       const ctx = offscreen.getContext('2d');
+      ctx.scale(scale, scale);
 
       // 1. Fondo blanco puro
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
 
       // 2. Título principal centrado ejecutiva
+      const currentYear = window._cdContext?.[prefix]?.currentYear || 2026;
       ctx.fillStyle = '#0f172a';
-      ctx.font = '800 32px Inter, -apple-system, sans-serif';
+      ctx.font = '800 34px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`THROUGHPUT – CD ${prefix.toUpperCase()} 2026`, W / 2, 42);
+      ctx.fillText(`THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, 42);
 
-      // 3. Dibujar los 3 bloques apilados aprovechando todo el ancho de la diapositiva (sin espacios blancos laterales)
+      // 3. Dibujar los 3 bloques apilados aprovechando el ancho de la diapositiva con proporciones perfectas
       const topMargin = 72;
       const bottomMargin = 20;
       const sideMargin = 35;
@@ -2366,9 +2440,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const cardHeight = Math.floor((availableHeight - (gap * 2)) / 3); // ~320px
 
       const sections = [
-        { canvas: cRecibo, title: 'Entradas (Recibo)', color: '#2563eb', badge: 'Cajas / Semana' },
-        { canvas: cDespacho, title: 'Salidas (Despacho)', color: '#ea580c', badge: 'Cajas / Semana' },
-        { canvas: cInventario, title: 'Inventario Activo', color: '#059669', badge: 'Stock en Cajas · Barras Comparativas' }
+        { chartId: `chart${prefix}Recibo`, canvas: cRecibo, title: 'Entradas (Recibo)', color: '#2563eb', badge: 'Cajas / Semana' },
+        { chartId: `chart${prefix}Despacho`, canvas: cDespacho, title: 'Salidas (Despacho)', color: '#ea580c', badge: 'Cajas / Semana' },
+        { chartId: `chart${prefix}Inventario`, canvas: cInventario, title: 'Inventario Activo', color: '#059669', badge: 'Stock en Cajas · Barras Comparativas' }
       ];
 
       sections.forEach((sec, idx) => {
@@ -2385,16 +2459,16 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = sec.color;
-        ctx.font = '800 15px Inter, -apple-system, sans-serif';
+        ctx.font = '800 16px Inter, -apple-system, sans-serif';
         ctx.fillText(sec.title, sideMargin + 16, headerY);
 
         // Badge a la derecha
         ctx.textAlign = 'right';
         ctx.fillStyle = '#64748b';
-        ctx.font = '700 11.5px Inter, -apple-system, sans-serif';
+        ctx.font = '700 12px Inter, -apple-system, sans-serif';
         ctx.fillText(sec.badge, sideMargin + cardWidth - 16, headerY);
 
-        // Gráfico (Canvas de Chart.js) estirado en todo el ancho para llenar la diapositiva
+        // Gráfico renderizado nativamente a las dimensiones exactas de destino (0% distorsión)
         const chartX = sideMargin + 10;
         const chartY = y0 + 32;
         const chartW = cardWidth - 20;
@@ -2402,7 +2476,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(sec.canvas, chartX, chartY, chartW, chartH);
+
+        const chartCanvas = createSlideChartCanvas(charts[sec.chartId], chartW, chartH, sec.canvas);
+        if (chartCanvas) {
+          ctx.drawImage(chartCanvas, chartX, chartY, chartW, chartH);
+        }
       });
 
       offscreen.toBlob(async (blob) => {
@@ -2557,10 +2635,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const totalWidth = customOptions.targetWidth || colWidths.reduce((a, b) => a + b, 0);
-    const cardHeaderHeight = customOptions.cardHeaderHeight || 32;
-    const theadHeight = customOptions.theadHeight || 30;
-    const rowHeight = customOptions.rowHeight || 21; // Fila delgada y compacta
-    const footHeight = customOptions.footHeight || 24; // Fila total
+    const cardHeaderHeight = customOptions.cardHeaderHeight || 36;
+    const theadHeight = customOptions.theadHeight || 34;
+    const rowHeight = customOptions.rowHeight || 28; // Fila legible y cómoda
+    const footHeight = customOptions.footHeight || 32; // Fila total
     const totalHeight = cardHeaderHeight + theadHeight + (rows.length * rowHeight) + (footRows.length * footHeight) + 2;
 
     const scale = 2; // Retina 2x para máxima nitidez
@@ -2600,7 +2678,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.stroke();
 
     ctx.fillStyle = headerTextCol;
-    ctx.font = 'bold 12.5px Inter, -apple-system, sans-serif';
+    ctx.font = 'bold 14.5px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(titleText, 14, cardHeaderHeight / 2);
@@ -2637,30 +2715,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (h.type === 'code') {
         ctx.fillStyle = '#1e293b';
-        ctx.font = 'bold 11px JetBrains Mono, monospace';
+        ctx.font = 'bold 13px JetBrains Mono, monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(h.top, curX + w / 2, currentY + theadHeight / 2);
       } else if (h.type === 'week') {
         ctx.fillStyle = h.isLastWeek ? '#2563eb' : '#0f172a';
-        ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.font = 'bold 13px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(h.top, curX + w / 2, currentY + 11);
+        ctx.fillText(h.top, curX + w / 2, currentY + 12);
 
         ctx.fillStyle = '#64748b';
-        ctx.font = 'bold 8.5px Inter, sans-serif';
-        ctx.fillText(h.sub, curX + w / 2, currentY + 22);
+        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.fillText(h.sub, curX + w / 2, currentY + 24);
       } else if (h.type === 'trend') {
         ctx.fillStyle = '#0f172a';
-        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.font = 'bold 12px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(h.top, curX + w / 2, currentY + 11);
+        ctx.fillText(h.top, curX + w / 2, currentY + 12);
 
         ctx.fillStyle = '#64748b';
-        ctx.font = 'bold 8.5px Inter, sans-serif';
-        ctx.fillText(h.sub, curX + w / 2, currentY + 22);
+        ctx.font = 'bold 9.5px Inter, sans-serif';
+        ctx.fillText(h.sub, curX + w / 2, currentY + 24);
       }
       curX += w;
     });
@@ -2698,20 +2776,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (cell.type === 'code') {
           ctx.fillStyle = '#1e293b';
-          ctx.font = 'bold 10.5px JetBrains Mono, monospace';
+          ctx.font = 'bold 13px JetBrains Mono, monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(cell.text, curX + w / 2, currentY + rowHeight / 2);
         } else if (cell.type === 'value') {
           ctx.fillStyle = cell.isLastWeek ? '#1e3a8a' : '#1e293b';
-          ctx.font = '600 10.5px Inter, -apple-system, sans-serif';
+          ctx.font = cell.isLastWeek ? 'bold 14px Inter, -apple-system, sans-serif' : '600 13.5px Inter, -apple-system, sans-serif';
           ctx.textAlign = 'right';
           ctx.textBaseline = 'middle';
           ctx.fillText(cell.text, curX + w - 7, currentY + rowHeight / 2);
         } else if (cell.type === 'trend') {
           if (cell.text && cell.text !== '--') {
-            const pillW = Math.min(w - 10, 78);
-            const pillH = 15;
+            const pillW = Math.min(w - 6, 84);
+            const pillH = 19;
             const pillX = curX + (w - pillW) / 2;
             const pillY = currentY + (rowHeight - pillH) / 2;
 
@@ -2725,14 +2803,14 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.stroke();
 
             ctx.fillStyle = cell.isUp ? '#15803d' : '#b91c1c';
-            ctx.font = 'bold 9px Inter, sans-serif';
+            ctx.font = 'bold 11px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(cell.text, pillX + pillW / 2, pillY + pillH / 2);
             ctx.restore();
           } else {
             ctx.fillStyle = '#94a3b8';
-            ctx.font = '9.5px Inter, sans-serif';
+            ctx.font = 'bold 11px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('--', curX + w / 2, currentY + rowHeight / 2);
@@ -2770,20 +2848,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (cIdx === 0) {
           ctx.fillStyle = '#0f172a';
-          ctx.font = 'bold 11px Inter, sans-serif';
+          ctx.font = 'bold 13.5px Inter, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('Total', curX + w / 2, currentY + footHeight / 2);
         } else if (cell.type === 'value') {
           ctx.fillStyle = cell.isLastWeek ? '#2563eb' : '#0f172a';
-          ctx.font = 'bold 11px Inter, sans-serif';
+          ctx.font = cell.isLastWeek ? '800 14.5px Inter, sans-serif' : '800 14px Inter, sans-serif';
           ctx.textAlign = 'right';
           ctx.textBaseline = 'middle';
           ctx.fillText(cell.text, curX + w - 7, currentY + footHeight / 2);
         } else if (cell.type === 'trend') {
           if (cell.text && cell.text !== '--') {
-            const pillW = Math.min(w - 10, 78);
-            const pillH = 16;
+            const pillW = Math.min(w - 6, 84);
+            const pillH = 19;
             const pillX = curX + (w - pillW) / 2;
             const pillY = currentY + (footHeight - pillH) / 2;
 
@@ -2797,7 +2875,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.stroke();
 
             ctx.fillStyle = cell.isUp ? '#15803d' : '#b91c1c';
-            ctx.font = 'bold 9.5px Inter, sans-serif';
+            ctx.font = 'bold 11px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(cell.text, pillX + pillW / 2, pillY + pillH / 2);
@@ -2940,10 +3018,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const isSecos = prefix.toLowerCase() === 'secos';
-    const totalWidth = 400; // Glosario compacto y elegante
-    const headerHeight = 34;
-    const theadHeight = 28;
-    const rowHeight = isSecos ? 24 : 27;
+    const totalWidth = 460; // Glosario amplio, claro y elegante
+    const headerHeight = 36;
+    const theadHeight = 30;
+    const rowHeight = isSecos ? 29 : 34;
     const totalHeight = headerHeight + theadHeight + (items.length * rowHeight) + 2;
 
     const scale = 2;
@@ -2976,7 +3054,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.beginPath(); ctx.moveTo(0, headerHeight); ctx.lineTo(totalWidth, headerHeight); ctx.stroke();
 
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 12.5px Inter, -apple-system, sans-serif';
+    ctx.font = 'bold 14px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText('📖 Glosario Divisiones (Referencia)', 14, headerHeight / 2);
@@ -2991,13 +3069,13 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.beginPath(); ctx.moveTo(0, curY + theadHeight); ctx.lineTo(totalWidth, curY + theadHeight); ctx.stroke();
 
     ctx.fillStyle = '#475569';
-    ctx.font = 'bold 10.5px Inter, sans-serif';
+    ctx.font = 'bold 12px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Cód.', 28, curY + theadHeight / 2);
+    ctx.fillText('Cód.', 32, curY + theadHeight / 2);
 
     ctx.textAlign = 'left';
-    ctx.fillText('Nombre Oficial', 64, curY + theadHeight / 2);
+    ctx.fillText('Nombre Oficial', 74, curY + theadHeight / 2);
 
     curY += theadHeight;
 
@@ -3010,23 +3088,23 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(0, curY + rowHeight); ctx.lineTo(totalWidth, curY + rowHeight); ctx.stroke();
 
-      const badgeW = 34; const badgeH = 17;
-      const badgeX = 28 - badgeW / 2; const badgeY = curY + (rowHeight - badgeH) / 2;
+      const badgeW = 40; const badgeH = 21;
+      const badgeX = 32 - badgeW / 2; const badgeY = curY + (rowHeight - badgeH) / 2;
       ctx.fillStyle = '#eff6ff';
       ctx.strokeStyle = '#bfdbfe';
       ctx.lineWidth = 1;
       roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 4);
 
       ctx.fillStyle = '#1d4ed8';
-      ctx.font = 'bold 10px JetBrains Mono, monospace';
+      ctx.font = 'bold 12.5px JetBrains Mono, monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(item.code, badgeX + badgeW / 2, badgeY + badgeH / 2);
 
       ctx.fillStyle = '#1e293b';
-      ctx.font = '600 11px Inter, -apple-system, sans-serif';
+      ctx.font = '600 13px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(item.name, 64, curY + rowHeight / 2);
+      ctx.fillText(item.name, 74, curY + rowHeight / 2);
 
       curY += rowHeight;
     });
@@ -3071,14 +3149,14 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     });
 
-    const col0Width = 140;
-    const promColWidth = 85;
-    const weekColWidth = 74;
+    const col0Width = 200;
+    const promColWidth = 130;
+    const weekColWidth = 100;
     const numWeeks = colHeaders.length - 2;
 
     const totalWidth = col0Width + (numWeeks * weekColWidth) + promColWidth;
-    const theadHeight = 32;
-    const rowHeight = 21;
+    const theadHeight = 44;
+    const rowHeight = 32;
     const totalHeight = theadHeight + (rows.length * rowHeight) + 2;
 
     const scale = 2;
@@ -3091,7 +3169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 1;
-    roundRect(ctx, 0.5, 0.5, totalWidth - 1, totalHeight - 1, 6);
+    roundRect(ctx, 0.5, 0.5, totalWidth - 1, totalHeight - 1, 8);
 
     ctx.fillStyle = '#f8fafc';
     ctx.fillRect(0, 0, totalWidth, theadHeight);
@@ -3107,17 +3185,17 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.beginPath(); ctx.moveTo(curX + w, 0); ctx.lineTo(curX + w, theadHeight); ctx.stroke();
       }
       if (i === 0) {
-        ctx.fillStyle = '#475569'; ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.fillStyle = '#475569'; ctx.font = 'bold 14px Inter, sans-serif';
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(h.top, curX + 12, theadHeight / 2);
+        ctx.fillText(h.top, curX + 16, theadHeight / 2);
       } else if (h.type === 'week') {
-        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.fillStyle = '#0f172a'; ctx.font = 'bold 14px Inter, sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(h.top, curX + w / 2, 11);
-        ctx.fillStyle = '#64748b'; ctx.font = 'bold 8.5px Inter, sans-serif';
-        ctx.fillText(h.sub, curX + w / 2, 22);
+        ctx.fillText(h.top, curX + w / 2, 14);
+        ctx.fillStyle = '#64748b'; ctx.font = 'bold 10.5px Inter, sans-serif';
+        ctx.fillText(h.sub, curX + w / 2, 28);
       } else {
-        ctx.fillStyle = '#475569'; ctx.font = 'bold 11px Inter, sans-serif';
+        ctx.fillStyle = '#475569'; ctx.font = 'bold 14px Inter, sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(h.top, curX + w / 2, theadHeight / 2);
       }
@@ -3144,15 +3222,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         ctx.fillStyle = r.textColor;
-        ctx.font = r.isMain ? 'bold 10.5px Inter, sans-serif' : '500 10px Inter, sans-serif';
         ctx.textBaseline = 'middle';
 
         if (cIdx === 0) {
+          ctx.font = r.isMain ? 'bold 14.5px Inter, sans-serif' : '600 13px Inter, sans-serif';
           ctx.textAlign = 'left';
-          ctx.fillText(val, curX + (r.isMain ? 10 : 18), curY + rowHeight / 2);
+          ctx.fillText(val, curX + (r.isMain ? 14 : 22), curY + rowHeight / 2);
         } else {
+          ctx.font = r.isMain ? 'bold 15px Inter, sans-serif' : '600 13.5px Inter, sans-serif';
           ctx.textAlign = 'right';
-          ctx.fillText(val, curX + w - 7, curY + rowHeight / 2);
+          ctx.fillText(val, curX + w - 10, curY + rowHeight / 2);
         }
         curX += w;
       });
@@ -3273,8 +3352,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillRect(0, 0, W, H);
 
     // ── TÍTULO PRINCIPAL ──
-    const titleText = `THROUGHPUT–CD ${prefix.toUpperCase()} ${currentYear}`;
-    const titleY = 58;
+    const titleText = `THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`;
+    const titleY = 56;
     ctx.fillStyle = '#0f172a';
     ctx.font = '800 36px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'center';
@@ -3286,22 +3365,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const kpiTotalW = W - (kpiMarginX * 2); // 1760px
     const kpiGapX = 24;
     const kpiCardW = Math.floor((kpiTotalW - (kpiGapX * 2)) / 3); // 570px
-    const kpiCardH = 92;
+    const kpiCardH = 96;
 
     // ── SECCIÓN 1: SEMANA ACTUAL CERRADA ──
-    const sec1Y = 102;
+    const sec1Y = 100;
     ctx.fillStyle = '#eff6ff';
     ctx.strokeStyle = '#bfdbfe';
     ctx.lineWidth = 1;
-    roundRect(ctx, kpiMarginX, sec1Y, 320, 25, 5);
+    roundRect(ctx, kpiMarginX, sec1Y, 360, 28, 6);
 
     ctx.fillStyle = '#1d4ed8';
-    ctx.font = 'bold 11px Inter, -apple-system, sans-serif';
+    ctx.font = 'bold 13px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`⚡ SEMANA ACTUAL CERRADA · SEMANA ${lastDataWeek}`, kpiMarginX + 12, sec1Y + 13);
+    ctx.fillText(`⚡ SEMANA ACTUAL CERRADA · SEMANA ${lastDataWeek}`, kpiMarginX + 14, sec1Y + 14);
 
-    const kpiRow1Y = 135;
+    const kpiRow1Y = 136;
 
     const kpiCardsRow1 = [
       {
@@ -3331,19 +3410,19 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     // ── SECCIÓN 2: ACUMULADO Y PROMEDIO DEL PERÍODO ──
-    const sec2Y = 246;
+    const sec2Y = 248;
     ctx.fillStyle = '#f8fafc';
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 1;
-    roundRect(ctx, kpiMarginX, sec2Y, 410, 25, 5);
+    roundRect(ctx, kpiMarginX, sec2Y, 460, 28, 6);
 
     ctx.fillStyle = '#334155';
-    ctx.font = 'bold 11px Inter, -apple-system, sans-serif';
+    ctx.font = 'bold 13px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`📈 ACUMULADO Y PROMEDIO · ÚLTIMAS ${weeksToSum.length} SEMANAS CERRADAS`, kpiMarginX + 12, sec2Y + 13);
+    ctx.fillText(`📈 ACUMULADO Y PROMEDIO · ÚLTIMAS ${weeksToSum.length} SEMANAS CERRADAS`, kpiMarginX + 14, sec2Y + 14);
 
-    const kpiRow2Y = 279;
+    const kpiRow2Y = 284;
 
     const kpiCardsRow2 = [
       {
@@ -3381,25 +3460,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Pastilla de color vertical a la izquierda
       ctx.fillStyle = card.color;
-      roundRect(ctx, x + 16, y + 15, 4, 15, 2);
+      roundRect(ctx, x + 16, y + 14, 4.5, 17, 2);
 
       // Título KPI
       ctx.fillStyle = card.color;
-      ctx.font = 'bold 11px Inter, sans-serif';
+      ctx.font = 'bold 13px Inter, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(card.label, x + 26, y + 22);
+      ctx.fillText(card.label, x + 28, y + 22);
 
-      // Valor numérico
+      // Valor numérico (claramente grande y legible)
       ctx.fillStyle = '#0f172a';
-      ctx.font = '800 27px Inter, sans-serif';
-      ctx.fillText(fmt(card.val), x + 18, y + 50);
+      ctx.font = '800 34px Inter, sans-serif';
+      ctx.fillText(fmt(card.val), x + 18, y + 52);
 
       // Subtítulo comparativo (Badge YoY + vs anterior)
-      const badgeW = 66;
-      const badgeH = 19;
+      const badgeW = 78;
+      const badgeH = 22;
       const badgeX = x + 18;
-      const badgeY = y + 64;
+      const badgeY = y + 66;
 
       ctx.fillStyle = card.yoy.isUp ? '#dcfce7' : '#fee2e2';
       ctx.strokeStyle = card.yoy.isUp ? '#bbf7d0' : '#fecaca';
@@ -3407,16 +3486,16 @@ document.addEventListener('DOMContentLoaded', () => {
       roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 4);
 
       ctx.fillStyle = card.yoy.isUp ? '#15803d' : '#b91c1c';
-      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.font = 'bold 12px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const arrowIcon = card.yoy.isUp ? '▲ ' : '▼ ';
       ctx.fillText(arrowIcon + card.yoy.pct, badgeX + badgeW / 2, badgeY + badgeH / 2);
 
       ctx.fillStyle = '#64748b';
-      ctx.font = '600 11px Inter, sans-serif';
+      ctx.font = '600 12.5px Inter, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`vs ${fmt(card.prevVal)} (${prevYear})`, badgeX + badgeW + 8, badgeY + badgeH / 2);
+      ctx.fillText(`vs ${fmt(card.prevVal)} (${prevYear})`, badgeX + badgeW + 10, badgeY + badgeH / 2);
     };
 
     // Dibujar las 2 filas de KPIs
@@ -3432,13 +3511,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── TABLA DETALLE CORPORATIVO SEMANAL (desde Área) ──
     const tableX = kpiMarginX;
-    const tableY = 398;
+    const tableY = 402;
     const tableW = kpiTotalW; // Exactamente el mismo ancho que las tarjetas KPI (1760px)
 
-    const col0W = 230;
-    const promColW = 160;
+    const col0W = 240;
+    const promColW = 170;
     const numWeekCols = colHeaders.length - 2;
-    const weekColW = Math.floor((tableW - col0W - promColW) / numWeekCols); // ~171px
+    const weekColW = Math.floor((tableW - col0W - promColW) / numWeekCols);
     const actualTableW = col0W + (weekColW * numWeekCols) + promColW;
 
     const theadH = 48;
@@ -3485,23 +3564,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (i === 0) {
         ctx.fillStyle = '#475569';
-        ctx.font = 'bold 14px Inter, sans-serif';
+        ctx.font = 'bold 16px Inter, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(h.top, curColX + 16, tableY + theadH / 2);
+        ctx.fillText(h.top, curColX + 18, tableY + theadH / 2);
       } else if (h.type === 'week') {
         ctx.fillStyle = '#0f172a';
-        ctx.font = 'bold 14px Inter, sans-serif';
+        ctx.font = 'bold 16px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(h.top, curColX + w / 2, tableY + 16);
 
         ctx.fillStyle = '#64748b';
-        ctx.font = 'bold 10px Inter, sans-serif';
-        ctx.fillText(h.sub, curColX + w / 2, tableY + 31);
+        ctx.font = 'bold 11.5px Inter, sans-serif';
+        ctx.fillText(h.sub, curColX + w / 2, tableY + 32);
       } else {
         ctx.fillStyle = '#475569';
-        ctx.font = 'bold 14px Inter, sans-serif';
+        ctx.font = 'bold 16px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(h.top, curColX + w / 2, tableY + theadH / 2);
@@ -3537,13 +3616,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         ctx.fillStyle = r.textColor;
-        ctx.font = r.isMain ? 'bold 13.5px Inter, sans-serif' : '500 12.5px Inter, sans-serif';
         ctx.textBaseline = 'middle';
 
         if (cIdx === 0) {
+          ctx.font = r.isMain ? 'bold 15.5px Inter, sans-serif' : '600 13.5px Inter, sans-serif';
           ctx.textAlign = 'left';
-          ctx.fillText(val, curColX + (r.isMain ? 16 : 26), curRowY + rowH / 2);
+          ctx.fillText(val, curColX + (r.isMain ? 18 : 28), curRowY + rowH / 2);
         } else {
+          if (cIdx === r.cells.length - 1) {
+            ctx.font = '800 17px Inter, sans-serif';
+          } else {
+            ctx.font = r.isMain ? 'bold 16.5px Inter, sans-serif' : '600 14.5px Inter, sans-serif';
+          }
           ctx.textAlign = 'right';
           ctx.fillText(val, curColX + w - 12, curRowY + rowH / 2);
         }
@@ -3661,10 +3745,10 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const isSecos = prefix.toLowerCase() === 'secos';
       const cardW = 890;
-      const rowH = isSecos ? 25 : 30;
-      const headerH = isSecos ? 34 : 36;
-      const theadH = isSecos ? 30 : 32;
-      const footH = isSecos ? 28 : 32;
+      const rowH = isSecos ? 29 : 34;
+      const headerH = isSecos ? 36 : 38;
+      const theadH = isSecos ? 34 : 36;
+      const footH = isSecos ? 32 : 34;
 
       const opts = {
         targetWidth: cardW,
@@ -3678,38 +3762,40 @@ document.addEventListener('DOMContentLoaded', () => {
       const resDespacho = renderDivisionCardToCanvas(cardDespacho, opts);
       const resInventario = renderDivisionCardToCanvas(cardInventario, opts);
 
-      const scale = 2;
+      const scale = 2; // Retina 2x para máxima calidad de copiado
       const cardH = Math.round(resRecibo.canvas.height / scale);
       const resGlossary = renderSlideGlossaryToCanvas(cardGlossary, prefix);
 
       const W = 1920;
       const H = 1080;
       const offscreen = document.createElement('canvas');
-      offscreen.width = W;
-      offscreen.height = H;
+      offscreen.width = Math.round(W * scale);
+      offscreen.height = Math.round(H * scale);
       const ctx = offscreen.getContext('2d');
+      ctx.scale(scale, scale);
 
       // Fondo blanco puro
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
 
-      // Centrado vertical exacto
+      // Distribución vertical equilibrada
       const gapX = 30;
-      const gapY = isSecos ? 38 : 46;
+      const gapY = isSecos ? 32 : 40;
       const startX = (W - (cardW * 2 + gapX)) / 2; // 55px
-
-      const totalGridH = (cardH * 2) + gapY;
-      const topY = isSecos ? 175 : 235;
+      const topY = isSecos ? 125 : 180;
       const bottomY = topY + cardH + gapY;
 
-      // Título principal centrado verticalmente respecto a las tablas
+      // ── TÍTULO PRINCIPAL (THROUGHPUT – CD ...) Y SUBTÍTULO ──
       const currentYear = window._cdContext?.[prefix]?.currentYear || 2026;
-      const titleY = isSecos ? 85 : 115;
       ctx.fillStyle = '#0f172a';
       ctx.font = '800 34px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`MOVIMIENTO DE CAJAS POR DIVISIÓN – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, titleY);
+      ctx.fillText(`THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, 48);
+
+      ctx.fillStyle = '#475569';
+      ctx.font = '700 20px Inter, -apple-system, sans-serif';
+      ctx.fillText(`MOVIMIENTO DE CAJAS POR DIVISIÓN`, W / 2, 84);
 
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
@@ -3722,7 +3808,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.drawImage(resDespacho.canvas, startX + cardW + gapX, topY, cardW, cardH);
       }
 
-      // Fila 2: Inventario (izquierda) y Glosario Compacto (derecha, alineado)
+      // Fila 2: Inventario (izquierda) y Glosario Amplio (derecha, alineado)
       if (resInventario?.canvas) {
         ctx.drawImage(resInventario.canvas, startX, bottomY, cardW, cardH);
       }
@@ -3849,10 +3935,15 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.font = '700 13px Inter, -apple-system, sans-serif';
       ctx.fillText('Cajas / Semana', W - 42, 50);
 
-      // Dibujar gráfico con suavizado de alta calidad
+      // Dibujar gráfico con suavizado de alta calidad (sin estiramientos)
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(srcCanvas, 30, 75, W - 60, H - 95);
+      const chartCanvas = createSlideChartCanvas(charts[targetCanvasId], W - 60, H - 95, srcCanvas);
+      if (chartCanvas) {
+        ctx.drawImage(chartCanvas, 30, 75, W - 60, H - 95);
+      } else {
+        ctx.drawImage(srcCanvas, 30, 75, W - 60, H - 95);
+      }
 
       offscreen.toBlob(async (blob) => {
         await writeBlobToClipboard(blob, label);
