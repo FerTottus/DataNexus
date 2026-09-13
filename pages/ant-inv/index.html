@@ -11,6 +11,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="../../css/styles.css">
 
+  <!-- SheetJS para lectura y procesamiento automático de archivos Excel (.xlsx, .xlsm, .xlsb) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
   <!-- Chart.js, Datalabels & html2canvas -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
@@ -26,8 +29,6 @@
       --red-critical: #ef4444;
       --card-bg: #ffffff;
       --border-color: #e2e8f0;
-      --slide-ratio-w: 16;
-      --slide-ratio-h: 9;
     }
 
     body {
@@ -42,9 +43,79 @@
       color: #0f172a;
     }
 
+    /* Zona de Carga de Excel (Dropzone) */
+    .upload-section-card {
+      max-width: 1440px;
+      margin: 20px auto 10px;
+      padding: 0 20px;
+    }
+
+    .dropzone-box {
+      border: 2px dashed #93c5fd;
+      background: rgba(239, 246, 255, 0.7);
+      border-radius: 16px;
+      padding: 30px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .dropzone-box:hover, .dropzone-box.dragover {
+      border-color: #2563eb;
+      background: rgba(219, 234, 254, 0.9);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.15);
+    }
+
+    .dropzone-icon {
+      font-size: 2.5rem;
+      color: #2563eb;
+      margin-bottom: 10px;
+    }
+
+    .dropzone-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #1e3a8a;
+      margin: 0 0 4px;
+    }
+
+    .dropzone-subtitle {
+      font-size: 0.84rem;
+      color: #475569;
+      margin: 0 0 12px;
+    }
+
+    .dropzone-badge-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.76rem;
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+
+    /* Barra de Estado del Archivo Cargado */
+    .file-status-bar {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 18px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    }
+
     /* Sub-navbar de control */
     .control-bar {
-      background: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--border-color);
       padding: 10px 24px;
@@ -96,10 +167,33 @@
       color: #ffffff;
     }
 
+    /* Botón de Captura 16:9 Destacado */
+    .btn-capture-ppt {
+      background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+      color: #ffffff;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
+      transition: all 0.2s ease;
+    }
+
+    .btn-capture-ppt:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(217, 119, 6, 0.35);
+      background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+    }
+
     /* Slide Frame - Proporción 16:9 lista para presentación */
     .slide-wrapper {
       max-width: 1440px;
-      margin: 20px auto;
+      margin: 15px auto;
       padding: 0 20px 40px;
     }
 
@@ -114,7 +208,6 @@
       margin-bottom: 24px;
     }
 
-    /* Cabecera de la diapositiva */
     .slide-header {
       display: flex;
       justify-content: space-between;
@@ -165,29 +258,6 @@
       font-size: 0.75rem;
       padding: 4px 10px;
       border-radius: 6px;
-    }
-
-    /* Botón de Captura 16:9 Destacado */
-    .btn-capture-ppt {
-      background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-      color: #ffffff;
-      border: none;
-      padding: 7px 16px;
-      border-radius: 8px;
-      font-size: 0.82rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
-      transition: all 0.2s ease;
-    }
-
-    .btn-capture-ppt:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(217, 119, 6, 0.35);
-      background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
     }
 
     /* KPI Cards */
@@ -275,25 +345,6 @@
       color: #0f172a;
     }
 
-    .data-bar-cell {
-      position: relative;
-      z-index: 1;
-    }
-
-    .data-bar-fill {
-      position: absolute;
-      top: 4px;
-      bottom: 4px;
-      right: 0;
-      background: rgba(37, 99, 235, 0.12);
-      border-radius: 4px;
-      z-index: -1;
-    }
-
-    .data-bar-red {
-      background: rgba(239, 68, 68, 0.16);
-    }
-
     /* Toast Notification */
     #toastMessage {
       position: fixed;
@@ -321,8 +372,8 @@
       transform: translateY(0);
     }
 
-    /* Modal para Datos */
-    .modal-backdrop {
+    /* Loading Spinner */
+    .loading-overlay {
       position: fixed;
       inset: 0;
       background: rgba(15, 23, 42, 0.6);
@@ -330,33 +381,24 @@
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 999;
-      padding: 20px;
+      flex-direction: column;
+      gap: 14px;
+      z-index: 9999;
+      color: #ffffff;
+      font-weight: 600;
     }
 
-    .modal-box {
-      background: #ffffff;
-      border-radius: 16px;
-      max-width: 650px;
-      width: 100%;
-      box-shadow: 0 20px 40px -10px rgba(0,0,0,0.25);
-      overflow: hidden;
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
     }
 
-    .modal-header {
-      padding: 16px 20px;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .modal-body {
-      padding: 20px;
-      font-size: 0.85rem;
-      max-height: 70vh;
-      overflow-y: auto;
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     @media (max-width: 1024px) {
@@ -377,7 +419,7 @@
       </div>
       <div>
         <h1 class="logo-title">DataNexus</h1>
-        <span class="logo-subtitle">Antigüedad de Inventario Semanal (CD Secos & Frescos)</span>
+        <span class="logo-subtitle">Antigüedad de Inventario Semanal (CD Secos 655 & Frescos 676)</span>
       </div>
     </div>
 
@@ -396,11 +438,67 @@
         </div>
       </div>
 
-      <button onclick="openDataModal()" class="btn btn-outline-primary btn-sm">
-        <i class="fa-solid fa-database"></i> Datos / Actualizar
+      <button onclick="document.getElementById('excelFileInput').click()" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-file-excel"></i> Cargar Excel
       </button>
     </div>
   </header>
+
+  <!-- Input oculto para carga de archivos Excel -->
+  <input type="file" id="excelFileInput" accept=".xlsx, .xlsm, .xls, .xlsb" style="display: none;" onchange="handleExcelUpload(event)">
+
+  <!-- SECCIÓN DE CARGA DE ARCHIVO EXCEL -->
+  <div class="upload-section-card">
+    
+    <!-- Zona de arrastre y selección de archivo -->
+    <div id="dropzoneBox" class="dropzone-box" onclick="document.getElementById('excelFileInput').click()">
+      <div class="dropzone-icon">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+      </div>
+      <h3 class="dropzone-title">Carga tu archivo Excel Semanal para alimentar el Dashboard</h3>
+      <p class="dropzone-subtitle">Arrastra tu archivo aquí o haz clic para seleccionarlo (formatos compatibles: <strong>.xlsx, .xlsm, .xlsb</strong>)</p>
+      
+      <div class="flex items-center justify-center gap-2 flex-wrap">
+        <span class="dropzone-badge-info">
+          <i class="fa-solid fa-check"></i> Hoja <strong>"BD"</strong> (Tabla <code>tbBD</code> con WHSE 655 y 676)
+        </span>
+        <span class="dropzone-badge-info">
+          <i class="fa-solid fa-check"></i> Hoja <strong>"EVOLUTIVO"</strong> (Secos: <code>C5:BC9</code> | Frescos: <code>C14:BC18</code>)
+        </span>
+        <span class="dropzone-badge-info">
+          <i class="fa-solid fa-check"></i> Tablas de Apoyo: <code>tabla3</code> y <code>tabla4</code>
+        </span>
+      </div>
+
+      <div style="margin-top: 14px;">
+        <button type="button" onclick="event.stopPropagation(); loadSampleData();" class="btn btn-sm btn-outline-secondary" style="font-size: 0.78rem;">
+          <i class="fa-solid fa-eye"></i> O ver con datos de ejemplo (Semana 36)
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Estado cuando el archivo ya está cargado -->
+    <div id="fileStatusBar" class="file-status-bar">
+      <div class="flex items-center gap-3">
+        <div style="width: 36px; height: 36px; background: #ecfdf5; color: #059669; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+          <i class="fa-solid fa-file-excel"></i>
+        </div>
+        <div>
+          <div style="font-weight: 700; color: #0f172a; font-size: 0.88rem;" id="loadedFileName">Archivo: datos_semanales.xlsx</div>
+          <div style="font-size: 0.74rem; color: #64748b;" id="loadedFileMeta">Procesadas 33,265 filas de tbBD | Hoja EVOLUTIVO detectada</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="badge badge-success" style="font-size: 0.75rem; padding: 4px 10px; background: #dcfce7; color: #15803d; border-radius: 6px; font-weight: 700;">
+          <i class="fa-solid fa-circle-check"></i> Alimentado desde Excel
+        </span>
+        <button onclick="document.getElementById('excelFileInput').click()" class="btn btn-sm btn-outline-primary" style="font-size: 0.78rem;">
+          <i class="fa-solid fa-arrows-rotate"></i> Cambiar Archivo
+        </button>
+      </div>
+    </div>
+
+  </div>
 
   <!-- Barra de Controles: Selector de CD (655 vs 676) y Pestañas de Diapositiva -->
   <div class="control-bar">
@@ -458,7 +556,7 @@
           <div class="subtitle">Estructura de Capital Inmovilizado por Rango de Semanas y Concentración Crítica</div>
         </div>
         <div class="slide-badges">
-          <span class="badge-week"><i class="fa-regular fa-calendar"></i> Semana 36</span>
+          <span class="badge-week" id="slide1-week-badge"><i class="fa-regular fa-calendar"></i> Semana 36</span>
           <span class="text-xs font-bold text-slate-400">16:9 Widescreen</span>
         </div>
       </div>
@@ -467,10 +565,10 @@
       <div class="kpi-row">
         <div class="kpi-box kpi-navy">
           <div class="kpi-label">Costo Total Inventario</div>
-          <div class="kpi-number" id="s1-kpi-total">S/ 112,812,540</div>
+          <div class="kpi-number" id="s1-kpi-total">S/ 0</div>
           <div class="kpi-sub">
-            <span id="s1-kpi-lpns">33,265 LPNs</span>
-            <span id="s1-kpi-bultos">1,345,343 Bultos</span>
+            <span id="s1-kpi-lpns">0 LPNs</span>
+            <span id="s1-kpi-bultos">0 Bultos</span>
           </div>
         </div>
 
@@ -479,10 +577,10 @@
             <span>Saludable (0 a 10 Sem)</span>
             <span class="text-emerald-700 font-bold">ÓPTIMO</span>
           </div>
-          <div class="kpi-number text-emerald-600" id="s1-kpi-healthy-pct">86.8%</div>
+          <div class="kpi-number text-emerald-600" id="s1-kpi-healthy-pct">0.0%</div>
           <div class="kpi-sub">
-            <span id="s1-kpi-healthy-cost">S/ 97,924,406</span>
-            <span id="s1-kpi-healthy-bultos">87.96% Bultos</span>
+            <span id="s1-kpi-healthy-cost">S/ 0</span>
+            <span id="s1-kpi-healthy-bultos">0.0% Bultos</span>
           </div>
         </div>
 
@@ -491,10 +589,10 @@
             <span>En Seguimiento (10 a 25 Sem)</span>
             <span class="text-amber-700 font-bold">ALERTA</span>
           </div>
-          <div class="kpi-number text-amber-600" id="s1-kpi-warn-pct">11.1%</div>
+          <div class="kpi-number text-amber-600" id="s1-kpi-warn-pct">0.0%</div>
           <div class="kpi-sub">
-            <span id="s1-kpi-warn-cost">S/ 12,502,561</span>
-            <span id="s1-kpi-warn-lpns">4,471 LPNs</span>
+            <span id="s1-kpi-warn-cost">S/ 0</span>
+            <span id="s1-kpi-warn-lpns">0 LPNs</span>
           </div>
         </div>
 
@@ -503,10 +601,10 @@
             <span class="text-red-700">Crítico (&gt;25 Semanas)</span>
             <span class="bg-red-200 text-red-800 text-[10px] px-1.5 py-0.5 rounded font-bold">ACCIONAR</span>
           </div>
-          <div class="kpi-number text-red-600" id="s1-kpi-crit-cost">S/ 2,385,573</div>
+          <div class="kpi-number text-red-600" id="s1-kpi-crit-cost">S/ 0</div>
           <div class="kpi-sub text-red-700 font-medium">
-            <span id="s1-kpi-crit-pct">2.1% del Capital</span>
-            <span id="s1-kpi-over52">&gt;52s: S/ 288.8K (78 LPNs)</span>
+            <span id="s1-kpi-crit-pct">0.0% del Capital</span>
+            <span id="s1-kpi-over52">&gt;52s: S/ 0</span>
           </div>
         </div>
       </div>
@@ -523,7 +621,7 @@
           <div style="height: 180px; position: relative;">
             <canvas id="chartS1Ranges"></canvas>
           </div>
-          <div style="font-size: 0.72rem; color: #475569; margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
+          <div style="font-size: 0.72rem; color: #475569; margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px;" id="s1-chart-footnote">
             📌 <strong>97.9%</strong> del capital está dentro del periodo operativo (&lt;25 sem).
           </div>
         </div>
@@ -564,7 +662,7 @@
               <span style="background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem;">TOP 10 CRÍTICOS</span>
               Top 10 SKUs en Mayor Riesgo (&gt;52 Semanas de Antigüedad)
             </h3>
-            <span style="font-size: 0.74rem; color: #64748b;" id="s1-top10-caption">Concentran el 84% de todo el costo mayor a 1 año (S/ 242,463) | 55 LPNs | 3,097 Bultos</span>
+            <span style="font-size: 0.74rem; color: #64748b;" id="s1-top10-caption">Concentran el capital con más de 1 año en bodega</span>
           </div>
           <span style="font-size: 0.72rem; color: #b91c1c; font-weight: 700; background: #fef2f2; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 6px;">
             ⚠️ Plan de Acción Comercial Inmediato
@@ -620,9 +718,9 @@
       <!-- Banner de Alerta Operativa Clave -->
       <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 16px; margin-bottom: 18px; display: flex; align-items: center; gap: 12px;">
         <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem; color: #d97706;"></i>
-        <div style="font-size: 0.78rem; color: #92400e;">
-          <strong style="font-size: 0.82rem; color: #78350f;">Hallazgo Logístico Crítico: Congestión en Racks de Picking (RCK)</strong><br>
-          Aunque el <strong>Highbay (RHB)</strong> concentra el <strong>69.5%</strong> del costo total del CD, la zona de <strong>Racks (RCK)</strong> concentra el <strong style="color: #b91c1c;">62.4% del stock obsoleto (&gt;52 sem)</strong> con S/ 180,353 y 40 LPNs inmovilizados ocupando posiciones bajas de alta demanda.
+        <div style="font-size: 0.78rem; color: #92400e;" id="s2-alert-banner">
+          <strong style="font-size: 0.82rem; color: #78350f;">Hallazgo Logístico Clave: Concentración en Racks de Picking (RCK)</strong><br>
+          La zona de <strong>Racks (RCK)</strong> concentra el <strong style="color: #b91c1c;">62.4% del stock obsoleto (&gt;52 sem)</strong> ocupando posiciones bajas de alta demanda de picking.
         </div>
       </div>
 
@@ -637,31 +735,31 @@
               <strong style="font-size: 0.9rem; color: #0f172a;">Racks Convencionales / Picking</strong>
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 1rem; font-weight: 800; color: #0f172a;" id="s2-rck-cost">S/ 34,441,661</div>
-              <div style="font-size: 0.7rem; color: #64748b;">30.5% del CD | 7,219 LPNs</div>
+              <div style="font-size: 1rem; font-weight: 800; color: #0f172a;" id="s2-rck-cost">S/ 0</div>
+              <div style="font-size: 0.7rem; color: #64748b;" id="s2-rck-sub">0 LPNs</div>
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 0.72rem; text-align: center;">
             <div style="background: #f8fafc; padding: 6px; border-radius: 6px;">
               <div style="color: #64748b; font-size: 0.68rem;">0 a 10s</div>
-              <strong style="color: #059669;" id="s2-rck-010">S/ 29.27M</strong>
+              <strong style="color: #059669;" id="s2-rck-010">S/ 0</strong>
             </div>
             <div style="background: #f8fafc; padding: 6px; border-radius: 6px;">
               <div style="color: #64748b; font-size: 0.68rem;">10 a 25s</div>
-              <strong style="color: #d97706;" id="s2-rck-1025">S/ 4.47M</strong>
+              <strong style="color: #d97706;" id="s2-rck-1025">S/ 0</strong>
             </div>
             <div style="background: #f8fafc; padding: 6px; border-radius: 6px;">
               <div style="color: #64748b; font-size: 0.68rem;">25 a 52s</div>
-              <strong style="color: #ea580c;" id="s2-rck-2552">S/ 522.7K</strong>
+              <strong style="color: #ea580c;" id="s2-rck-2552">S/ 0</strong>
             </div>
             <div style="background: #fee2e2; padding: 6px; border-radius: 6px; border: 1px solid #fecaca;">
               <div style="color: #dc2626; font-size: 0.68rem; font-weight: 700;">&gt;52 Sem</div>
-              <strong style="color: #dc2626;" id="s2-rck-52">S/ 180,353</strong>
+              <strong style="color: #dc2626;" id="s2-rck-52">S/ 0</strong>
             </div>
           </div>
-          <div style="font-size: 0.7rem; color: #b91c1c; font-weight: 600; margin-top: 8px; text-align: right;">
-            🚨 40 LPNs inmovilizados en estantería baja
+          <div style="font-size: 0.7rem; color: #b91c1c; font-weight: 600; margin-top: 8px; text-align: right;" id="s2-rck-footnote">
+            🚨 Posiciones inmovilizadas en estantería baja
           </div>
         </div>
 
@@ -673,31 +771,31 @@
               <strong style="font-size: 0.9rem; color: #0f172a;">Highbay (Automatizado / Pulmón)</strong>
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 1rem; font-weight: 800; color: #0f172a;" id="s2-rhb-cost">S/ 78,367,955</div>
-              <div style="font-size: 0.7rem; color: #64748b;">69.5% del CD | 26,043 LPNs</div>
+              <div style="font-size: 1rem; font-weight: 800; color: #0f172a;" id="s2-rhb-cost">S/ 0</div>
+              <div style="font-size: 0.7rem; color: #64748b;" id="s2-rhb-sub">0 LPNs</div>
             </div>
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 0.72rem; text-align: center;">
             <div style="background: #f8fafc; padding: 6px; border-radius: 6px;">
               <div style="color: #64748b; font-size: 0.68rem;">0 a 10s</div>
-              <strong style="color: #059669;" id="s2-rhb-010">S/ 68.65M</strong>
+              <strong style="color: #059669;" id="s2-rhb-010">S/ 0</strong>
             </div>
             <div style="background: #f8fafc; padding: 6px; border-radius: 6px;">
               <div style="color: #64748b; font-size: 0.68rem;">10 a 25s</div>
-              <strong style="color: #d97706;" id="s2-rhb-1025">S/ 8.03M</strong>
+              <strong style="color: #d97706;" id="s2-rhb-1025">S/ 0</strong>
             </div>
             <div style="background: #f8fafc; padding: 6px; border-radius: 6px;">
               <div style="color: #64748b; font-size: 0.68rem;">25 a 52s</div>
-              <strong style="color: #ea580c;" id="s2-rhb-2552">S/ 1.57M</strong>
+              <strong style="color: #ea580c;" id="s2-rhb-2552">S/ 0</strong>
             </div>
             <div style="background: #f1f5f9; padding: 6px; border-radius: 6px;">
               <div style="color: #64748b; font-size: 0.68rem; font-weight: 700;">&gt;52 Sem</div>
-              <strong style="color: #475569;" id="s2-rhb-52">S/ 108,486</strong>
+              <strong style="color: #475569;" id="s2-rhb-52">S/ 0</strong>
             </div>
           </div>
-          <div style="font-size: 0.7rem; color: #2563eb; font-weight: 600; margin-top: 8px; text-align: right;">
-            📦 38 LPNs en pulmón vertical de alta densidad
+          <div style="font-size: 0.7rem; color: #2563eb; font-weight: 600; margin-top: 8px; text-align: right;" id="s2-rhb-footnote">
+            📦 Pulmón vertical de almacenamiento
           </div>
         </div>
 
@@ -789,10 +887,10 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <div>
             <h3 style="font-size: 0.88rem; font-weight: 800; color: #0f172a; margin: 0;">Evolutivo Semanal - % Participación por Bulto (Últimas 7 Semanas)</h3>
-            <span style="font-size: 0.74rem; color: #64748b;">Monitoreo dinámico del inventario sano vs añejamiento (S-30 a S-36)</span>
+            <span style="font-size: 0.74rem; color: #64748b;">Monitoreo dinámico del inventario sano vs añejamiento</span>
           </div>
-          <span style="font-size: 0.72rem; font-weight: 700; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 6px;">
-            ▲ Recuperación Sano: +2.13% (S-33 a S-36)
+          <span style="font-size: 0.72rem; font-weight: 700; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 6px;" id="s3-evol-badge">
+            Tendencia de Rotación
           </span>
         </div>
 
@@ -805,14 +903,7 @@
           <thead>
             <tr id="theadS3EvolRow">
               <th style="text-align: left;">Rango Semanas</th>
-              <th>S-30</th>
-              <th>S-31</th>
-              <th>S-32</th>
-              <th>S-33</th>
-              <th>S-34</th>
-              <th>S-35</th>
-              <th style="background: #eff6ff; color: #1e3a8a;">S-36 (Actual)</th>
-              <th>Var. WoW</th>
+              <!-- Dinámico -->
             </tr>
           </thead>
           <tbody id="tbodyS3Evolution">
@@ -826,10 +917,10 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
           <div>
             <h3 style="font-size: 0.88rem; font-weight: 800; color: #0f172a; margin: 0;">Distribución de Ubicaciones Físicas por Antigüedad y División</h3>
-            <span style="font-size: 0.74rem; color: #64748b;">Capacidad total ocupada: <strong style="color: #0f172a;" id="s3-total-ubic">22,872 ubicaciones</strong></span>
+            <span style="font-size: 0.74rem; color: #64748b;">Capacidad total ocupada: <strong style="color: #0f172a;" id="s3-total-ubic">0 ubicaciones</strong></span>
           </div>
-          <div style="font-size: 0.72rem; color: #b91c1c; font-weight: 700; background: #fef2f2; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 6px;">
-            ⚠️ 955 posiciones secuestradas por stock &gt;25 semanas (508 en J09-HOGAR)
+          <div style="font-size: 0.72rem; color: #b91c1c; font-weight: 700; background: #fef2f2; border: 1px solid #fecaca; padding: 3px 8px; border-radius: 6px;" id="s3-locations-alert">
+            ⚠️ Ocupación de espacio por mercadería de baja rotación
           </div>
         </div>
 
@@ -859,47 +950,16 @@
 
   </main>
 
-  <!-- Modal para Configurar o Pegar Datos Nuevos -->
-  <div id="dataModal" class="modal-backdrop">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 style="font-size: 1rem; font-weight: 700; margin: 0; color: #0f172a;">
-          <i class="fa-solid fa-file-excel text-primary"></i> Actualizar Datos Semanales
-        </h3>
-        <button onclick="closeDataModal()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #64748b;">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p style="color: #475569; margin-top: 0;">
-          Selecciona el CD que deseas actualizar y pega la información directamente desde Excel o carga los valores por defecto:
-        </p>
-        <div style="margin-bottom: 12px;">
-          <label style="font-weight: 600; display: block; margin-bottom: 4px;">Almacén a Actualizar:</label>
-          <select id="modalWhseSelect" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1;">
-            <option value="655">CD Secos (WHSE 655)</option>
-            <option value="676">CD Frescos (WHSE 676)</option>
-          </select>
-        </div>
-        <div style="margin-bottom: 16px;">
-          <label style="font-weight: 600; display: block; margin-bottom: 4px;">Pegar Fila de 7 Semanas de Evolutivo (separado por tabulaciones):</label>
-          <textarea id="modalPasteEvol" rows="4" style="width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;" placeholder="0 a 10 Semanas	88.61%	89.14%	87.07%	85.83%	86.07%	87.09%	87.96%&#10;10 a 25 Semanas	9.47%	8.73%	10.68%	11.83%	11.71%	10.74%	10.18%"></textarea>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 14px;">
-          <button onclick="loadSampleData()" class="btn btn-sm btn-outline-secondary">
-            Restaurar Datos Oficiales Semana 36
-          </button>
-          <div style="display: flex; gap: 8px;">
-            <button onclick="closeDataModal()" class="btn btn-sm btn-secondary">Cancelar</button>
-            <button onclick="saveModalData()" class="btn btn-sm btn-primary">Aplicar Cambios</button>
-          </div>
-        </div>
-      </div>
-    </div>
+  <!-- Overlay de Procesamiento -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div id="loadingText" style="font-size: 1.05rem;">Procesando archivo Excel y calculando tablas...</div>
   </div>
 
   <!-- Toast Notification -->
   <div id="toastMessage">
     <i class="fa-solid fa-circle-check text-emerald-400"></i>
-    <span id="toastText">Diapositiva copiada con éxito</span>
+    <span id="toastText">Acción completada con éxito</span>
   </div>
 
   <!-- Script Principal de la Aplicación -->
