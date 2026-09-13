@@ -851,16 +851,16 @@
 
 
     <!-- ======================================================================= -->
-    <!-- DIAPOSITIVA 2: ANTIGÜEDAD POR ZONAS (RCK vs RHB) Y TOP SKUS              -->
+    <!-- DIAPOSITIVA 2: ANTIGÜEDAD POR ZONAS (PIVOT COMPLETO) Y TOP 10 SKUS      -->
     <!-- ======================================================================= -->
     <div id="slide2-container" class="slide-canvas-container" style="display: none;">
-      <div class="slide-header">
+      <div class="slide-header" style="margin-bottom: 8px;">
         <div>
           <h2>
-            <span>DISTRIBUCIÓN POR ZONAS OPERATIVAS</span>
+            <span id="slide2-title-prefix">ANTIGÜEDAD</span>
             <span class="badge-cd" id="slide2-whse-badge">CD SECOS 655</span>
           </h2>
-          <div class="subtitle">Análisis de Almacenamiento: Racks Convencionales (RCK) vs Highbay Automatizado (RHB)</div>
+          <div class="subtitle">Antigüedad por zonas</div>
         </div>
         <div class="slide-badges">
           <span class="badge-week" id="slide2-week-badge"><i class="fa-regular fa-calendar"></i> Semana 37</span>
@@ -868,112 +868,53 @@
         </div>
       </div>
 
-      <!-- Banner de Alerta Operativa Clave -->
-      <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 12px;">
-        <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.5rem; color: #d97706;"></i>
-        <div style="font-size: 0.84rem; color: #92400e;" id="s2-alert-banner">
-          <strong style="font-size: 0.90rem; color: #78350f;">Hallazgo Logístico Clave: Concentración en Racks de Picking (RCK)</strong><br>
-          La zona de <strong>Racks (RCK)</strong> concentra el <strong style="color: #b91c1c;">62.4% del stock obsoleto (&gt;52 sem)</strong> ocupando posiciones bajas de alta demanda de picking.
-        </div>
+      <!-- Tabla Principal: Antigüedad por Zonas (Pivot Completo idéntico a PPT) -->
+      <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <table class="exec-table exec-table-sm" id="tableS2Zones" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #2d6a4f; color: #ffffff;">
+              <th style="text-align: center; vertical-align: middle; width: 90px; background: #1e4620; color: #ffffff; font-weight: 800; font-size: 0.80rem;">ZONA</th>
+              <th style="text-align: left; vertical-align: middle; width: 85px; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">Valores</th>
+              <th style="text-align: right; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">0 a 10 Sem</th>
+              <th style="text-align: right; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">10 a 25 Sem</th>
+              <th style="text-align: right; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">25 a 52 Sem</th>
+              <th style="text-align: right; background: #2d6a4f; color: #ffffff; font-weight: 800; font-size: 0.80rem;">mayor a 52 Sem</th>
+              <th style="text-align: right; background: #1e4620; color: #ffffff; font-weight: 900; font-size: 0.82rem;">Total general</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyS2Zones">
+            <!-- Renderizado dinámico de 3 filas por zona (COSTOS, LPN, BULTOS) -->
+          </tbody>
+          <tfoot id="tfootS2Zones">
+            <!-- Renderizado dinámico de totales (Total COSTOS, Total LPN, Total BULTOS) -->
+          </tfoot>
+        </table>
       </div>
 
-      <!-- Tarjetas Comparativas de Zona -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-        
-        <!-- Tarjeta RCK -->
-        <div style="background: #ffffff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; position: relative;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="background: #0f172a; color: #ffffff; font-weight: 900; font-size: 0.78rem; padding: 3px 8px; border-radius: 5px;">ZONA RCK</span>
-              <strong style="font-size: 0.96rem; color: #0f172a;">Racks Convencionales / Picking</strong>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-size: 1.15rem; font-weight: 900; color: #0f172a;" id="s2-rck-cost">S/ 0</div>
-              <div style="font-size: 0.76rem; font-weight: 600; color: #64748b;" id="s2-rck-sub">0 LPNs</div>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 0.82rem; text-align: center;">
-            <div style="background: #f8fafc; padding: 8px 6px; border-radius: 7px;">
-              <div style="color: #64748b; font-size: 0.74rem; font-weight: 700;">0 a 10s</div>
-              <strong style="color: #059669; font-size: 0.90rem;" id="s2-rck-010">S/ 0</strong>
-            </div>
-            <div style="background: #f8fafc; padding: 8px 6px; border-radius: 7px;">
-              <div style="color: #64748b; font-size: 0.74rem; font-weight: 700;">10 a 25s</div>
-              <strong style="color: #d97706; font-size: 0.90rem;" id="s2-rck-1025">S/ 0</strong>
-            </div>
-            <div style="background: #f8fafc; padding: 8px 6px; border-radius: 7px;">
-              <div style="color: #64748b; font-size: 0.74rem; font-weight: 700;">25 a 52s</div>
-              <strong style="color: #ea580c; font-size: 0.90rem;" id="s2-rck-2552">S/ 0</strong>
-            </div>
-            <div style="background: #fee2e2; padding: 8px 6px; border-radius: 7px; border: 1px solid #fecaca;">
-              <div style="color: #dc2626; font-size: 0.74rem; font-weight: 800;">&gt;52 Sem</div>
-              <strong style="color: #dc2626; font-size: 0.90rem;" id="s2-rck-52">S/ 0</strong>
-            </div>
-          </div>
-          <div style="font-size: 0.76rem; color: #b91c1c; font-weight: 700; margin-top: 8px; text-align: right;" id="s2-rck-footnote">
-            🚨 Posiciones inmovilizadas en estantería baja
-          </div>
-        </div>
-
-        <!-- Tarjeta RHB -->
-        <div style="background: #ffffff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; position: relative;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="background: #2563eb; color: #ffffff; font-weight: 900; font-size: 0.78rem; padding: 3px 8px; border-radius: 5px;">ZONA RHB</span>
-              <strong style="font-size: 0.96rem; color: #0f172a;">Highbay (Automatizado / Pulmón)</strong>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-size: 1.15rem; font-weight: 900; color: #0f172a;" id="s2-rhb-cost">S/ 0</div>
-              <div style="font-size: 0.76rem; font-weight: 600; color: #64748b;" id="s2-rhb-sub">0 LPNs</div>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; font-size: 0.82rem; text-align: center;">
-            <div style="background: #f8fafc; padding: 8px 6px; border-radius: 7px;">
-              <div style="color: #64748b; font-size: 0.74rem; font-weight: 700;">0 a 10s</div>
-              <strong style="color: #059669; font-size: 0.90rem;" id="s2-rhb-010">S/ 0</strong>
-            </div>
-            <div style="background: #f8fafc; padding: 8px 6px; border-radius: 7px;">
-              <div style="color: #64748b; font-size: 0.74rem; font-weight: 700;">10 a 25s</div>
-              <strong style="color: #d97706; font-size: 0.90rem;" id="s2-rhb-1025">S/ 0</strong>
-            </div>
-            <div style="background: #f8fafc; padding: 8px 6px; border-radius: 7px;">
-              <div style="color: #64748b; font-size: 0.74rem; font-weight: 700;">25 a 52s</div>
-              <strong style="color: #ea580c; font-size: 0.90rem;" id="s2-rhb-2552">S/ 0</strong>
-            </div>
-            <div style="background: #f1f5f9; padding: 8px 6px; border-radius: 7px;">
-              <div style="color: #64748b; font-size: 0.74rem; font-weight: 800;">&gt;52 Sem</div>
-              <strong style="color: #475569; font-size: 0.90rem;" id="s2-rhb-52">S/ 0</strong>
-            </div>
-          </div>
-          <div style="font-size: 0.76rem; color: #2563eb; font-weight: 700; margin-top: 8px; text-align: right;" id="s2-rhb-footnote">
-            📦 Pulmón vertical de almacenamiento
-          </div>
-        </div>
-
+      <!-- Título de Sección Top 10 SKUs por Zona -->
+      <div style="text-align: center; margin-bottom: 6px;">
+        <h3 style="font-size: 0.95rem; font-weight: 800; color: #1e293b; margin: 0;">
+          Top 10 SKU – Costo de Inventario - Mayor 52 Semanas por Zona
+        </h3>
       </div>
 
       <!-- Tablas Gemelas de Top SKUs >52 Semanas por Zona -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
         
         <!-- Top RCK -->
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <strong style="font-size: 0.90rem; color: #b91c1c; display: flex; align-items: center; gap: 6px;">
-              <i class="fa-solid fa-box-archive"></i> Top SKUs Críticos en RCK (&gt;52s)
-            </strong>
-            <span style="font-size: 0.74rem; font-weight: 800; color: #b91c1c; background: #fee2e2; padding: 2px 8px; border-radius: 5px;">Liberar Picking</span>
+        <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <div style="background: #2d6a4f; color: #ffffff; text-align: center; font-weight: 900; font-size: 0.86rem; padding: 4px; border-radius: 5px 5px 0 0; margin-bottom: 4px; letter-spacing: 0.5px;">
+            RCK
           </div>
-          <table class="exec-table exec-table-sm" id="tableS2Rck">
+          <table class="exec-table exec-table-sm" id="tableS2Rck" style="width: 100%;">
             <thead>
-              <tr>
-                <th>SKU</th>
-                <th style="text-align: left;">Descripción</th>
-                <th style="text-align: center;">F. Venc</th>
-                <th style="color: #b91c1c;">LPN (Suma)</th>
-                <th>Costo (S/)</th>
-                <th>Bultos</th>
+              <tr style="background: #2d6a4f; color: #ffffff;">
+                <th style="width: 75px; color: #ffffff; font-weight: 800;">SKU</th>
+                <th style="text-align: left; color: #ffffff; font-weight: 800;">DESCRIPCION</th>
+                <th style="text-align: center; font-size: 0.70rem; color: #ffffff; font-weight: 800;">RNG-FV</th>
+                <th style="color: #ffffff; text-align: right; font-weight: 800;">LPN's</th>
+                <th style="text-align: right; color: #ffffff; font-weight: 800;">COSTOS</th>
+                <th style="text-align: right; color: #ffffff; font-weight: 800;">BULTOS</th>
               </tr>
             </thead>
             <tbody id="tbodyS2Rck">
@@ -986,22 +927,19 @@
         </div>
 
         <!-- Top RHB -->
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <strong style="font-size: 0.90rem; color: #1d4ed8; display: flex; align-items: center; gap: 6px;">
-              <i class="fa-solid fa-boxes-stacked"></i> Top SKUs Críticos en RHB (&gt;52s)
-            </strong>
-            <span style="font-size: 0.74rem; font-weight: 800; color: #1d4ed8; background: #eff6ff; padding: 2px 8px; border-radius: 5px;">Reubicar / Despachar</span>
+        <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+          <div style="background: #2d6a4f; color: #ffffff; text-align: center; font-weight: 900; font-size: 0.86rem; padding: 4px; border-radius: 5px 5px 0 0; margin-bottom: 4px; letter-spacing: 0.5px;">
+            RHB
           </div>
-          <table class="exec-table exec-table-sm" id="tableS2Rhb">
+          <table class="exec-table exec-table-sm" id="tableS2Rhb" style="width: 100%;">
             <thead>
-              <tr>
-                <th>SKU</th>
-                <th style="text-align: left;">Descripción</th>
-                <th style="text-align: center;">F. Venc</th>
-                <th style="color: #1d4ed8;">LPN (Suma)</th>
-                <th>Costo (S/)</th>
-                <th>Bultos</th>
+              <tr style="background: #2d6a4f; color: #ffffff;">
+                <th style="width: 75px; color: #ffffff; font-weight: 800;">SKU</th>
+                <th style="text-align: left; color: #ffffff; font-weight: 800;">DESCRIPCION</th>
+                <th style="text-align: center; font-size: 0.70rem; color: #ffffff; font-weight: 800;">RNG-FV</th>
+                <th style="color: #ffffff; text-align: right; font-weight: 800;">LPN's</th>
+                <th style="text-align: right; color: #ffffff; font-weight: 800;">COSTOS</th>
+                <th style="text-align: right; color: #ffffff; font-weight: 800;">BULTOS</th>
               </tr>
             </thead>
             <tbody id="tbodyS2Rhb">

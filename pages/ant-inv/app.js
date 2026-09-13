@@ -459,10 +459,7 @@ function initAccumulator(whseCode, whseLabel) {
       'mayor a 52 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#ef4444', status: 'Crítico >1 año' }
     },
     divisionAgg: {},
-    zoneAgg: {
-      rck: { totalCost: 0, lpns: 0, bultos: 0, r010: 0, r1025: 0, r2552: 0, r52: 0, skus52: {} },
-      rhb: { totalCost: 0, lpns: 0, bultos: 0, r010: 0, r1025: 0, r2552: 0, r52: 0, skus52: {} }
-    },
+    zoneTableAgg: {},
     skusOver52: {},
     locationsAgg: {}
   };
@@ -504,29 +501,56 @@ function accumulateRow(row, colMap, acc) {
   else if (rng === '25 a 52 Semanas') acc.divisionAgg[div].r2552 += cost;
   else if (rng === 'mayor a 52 Semanas') acc.divisionAgg[div].r52 += cost;
 
-  // 3. Zonas
-  const isRck = zona.includes('RCK') || zona.includes('RACK');
-  const isRhb = zona.includes('RHB') || zona.includes('HIGHBAY') || (!isRck && zona.length > 0);
-  const targetZ = isRck ? acc.zoneAgg.rck : (isRhb ? acc.zoneAgg.rhb : null);
+  // 3. Zonas (Matriz Completa para Pivot Table)
+  let zoneCode = zona;
+  if (!zoneCode) {
+    zoneCode = 'OTROS';
+  } else if (zoneCode.includes('RCK') || zoneCode.includes('RACK')) {
+    zoneCode = 'RCK';
+  } else if (zoneCode.includes('RHB') || zoneCode.includes('HIGHBAY')) {
+    zoneCode = 'RHB';
+  } else if (zoneCode.includes('TOL')) {
+    zoneCode = 'TOL';
+  }
 
-  if (targetZ) {
-    targetZ.totalCost += cost;
-    targetZ.bultos += bultos;
-    targetZ.lpns += lpnVal;
-    if (rng === '0 a 10 Semanas') targetZ.r010 += cost;
-    else if (rng === '10 a 25 Semanas') targetZ.r1025 += cost;
-    else if (rng === '25 a 52 Semanas') targetZ.r2552 += cost;
-    else if (rng === 'mayor a 52 Semanas') {
-      targetZ.r52 += cost;
-      if (sku) {
-        if (!targetZ.skus52[sku]) {
-          targetZ.skus52[sku] = { sku, desc, fv: rngFv, lpns: 0, cost: 0, bultos: 0 };
-        }
-        targetZ.skus52[sku].cost += cost;
-        targetZ.skus52[sku].bultos += bultos;
-        targetZ.skus52[sku].lpns += lpnVal;
-      }
+  if (!acc.zoneTableAgg[zoneCode]) {
+    acc.zoneTableAgg[zoneCode] = {
+      name: zoneCode,
+      r010: { cost: 0, lpns: 0, bultos: 0 },
+      r1025: { cost: 0, lpns: 0, bultos: 0 },
+      r2552: { cost: 0, lpns: 0, bultos: 0 },
+      r52: { cost: 0, lpns: 0, bultos: 0 },
+      totalCost: 0,
+      totalLpns: 0,
+      totalBultos: 0,
+      skus52: {}
+    };
+  }
+
+  const zItem = acc.zoneTableAgg[zoneCode];
+  zItem.totalCost += cost;
+  zItem.totalLpns += lpnVal;
+  zItem.totalBultos += bultos;
+
+  let rTarget = null;
+  if (rng === '0 a 10 Semanas') rTarget = zItem.r010;
+  else if (rng === '10 a 25 Semanas') rTarget = zItem.r1025;
+  else if (rng === '25 a 52 Semanas') rTarget = zItem.r2552;
+  else if (rng === 'mayor a 52 Semanas') rTarget = zItem.r52;
+
+  if (rTarget) {
+    rTarget.cost += cost;
+    rTarget.lpns += lpnVal;
+    rTarget.bultos += bultos;
+  }
+
+  if (rng === 'mayor a 52 Semanas' && sku) {
+    if (!zItem.skus52[sku]) {
+      zItem.skus52[sku] = { sku, desc, fv: rngFv, lpns: 0, cost: 0, bultos: 0 };
     }
+    zItem.skus52[sku].cost += cost;
+    zItem.skus52[sku].bultos += bultos;
+    zItem.skus52[sku].lpns += lpnVal;
   }
 
   // 4. Top SKUs >52 Semanas
@@ -646,37 +670,83 @@ function finalizeWarehouseData(acc, evolObj, activeWeekTag) {
       badge: idx === 0 ? 'CRÍTICO #1' : (idx === 1 ? 'CRÍTICO #2' : (idx < 5 ? 'PRIORIDAD' : 'SALDO'))
     }));
 
-  // Zonas RCK vs RHB con Suma de LPNs
+  // 1. Matriz Completa de Zonas para el Pivot de la Diapositiva 2
+  const zoneList = Object.values(acc.zoneTableAgg || {}).sort((a, b) => {
+    const order = { 'RCK': 1, 'RHB': 2, 'TOL': 3 };
+    const ordA = order[a.name] || 99;
+    const ordB = order[b.name] || 99;
+    if (ordA !== ordB) return ordA - ordB;
+    return b.totalCost - a.totalCost;
+  });
+
+  const zoneTable = zoneList.map(z => ({
+    name: z.name,
+    costos: [Math.round(z.r010.cost), Math.round(z.r1025.cost), Math.round(z.r2552.cost), Math.round(z.r52.cost), Math.round(z.totalCost)],
+    lpn: [z.r010.lpns, z.r1025.lpns, z.r2552.lpns, z.r52.lpns, z.totalLpns],
+    bultos: [Math.round(z.r010.bultos), Math.round(z.r1025.bultos), Math.round(z.r2552.bultos), Math.round(z.r52.bultos), Math.round(z.totalBultos)]
+  }));
+
+  const zoneTotals = {
+    costos: [
+      Math.round(zoneList.reduce((sum, z) => sum + z.r010.cost, 0)),
+      Math.round(zoneList.reduce((sum, z) => sum + z.r1025.cost, 0)),
+      Math.round(zoneList.reduce((sum, z) => sum + z.r2552.cost, 0)),
+      Math.round(zoneList.reduce((sum, z) => sum + z.r52.cost, 0)),
+      Math.round(zoneList.reduce((sum, z) => sum + z.totalCost, 0))
+    ],
+    lpn: [
+      zoneList.reduce((sum, z) => sum + z.r010.lpns, 0),
+      zoneList.reduce((sum, z) => sum + z.r1025.lpns, 0),
+      zoneList.reduce((sum, z) => sum + z.r2552.lpns, 0),
+      zoneList.reduce((sum, z) => sum + z.r52.lpns, 0),
+      zoneList.reduce((sum, z) => sum + z.totalLpns, 0)
+    ],
+    bultos: [
+      Math.round(zoneList.reduce((sum, z) => sum + z.r010.bultos, 0)),
+      Math.round(zoneList.reduce((sum, z) => sum + z.r1025.bultos, 0)),
+      Math.round(zoneList.reduce((sum, z) => sum + z.r2552.bultos, 0)),
+      Math.round(zoneList.reduce((sum, z) => sum + z.r52.bultos, 0)),
+      Math.round(zoneList.reduce((sum, z) => sum + z.totalBultos, 0))
+    ]
+  };
+
+  const rckItem = acc.zoneTableAgg['RCK'] || { skus52: {}, totalCost: 0, totalLpns: 0, totalBultos: 0, r010: { cost: 0 }, r1025: { cost: 0 }, r2552: { cost: 0 }, r52: { cost: 0 } };
+  const rhbItem = acc.zoneTableAgg['RHB'] || { skus52: {}, totalCost: 0, totalLpns: 0, totalBultos: 0, r010: { cost: 0 }, r1025: { cost: 0 }, r2552: { cost: 0 }, r52: { cost: 0 } };
+
+  const topSkusRck = Object.values(rckItem.skus52 || {})
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 10)
+    .map(s => ({ sku: s.sku, desc: s.desc, fv: s.fv, lpns: s.lpns, cost: Math.round(s.cost), bultos: s.bultos }));
+
+  const topSkusRhb = Object.values(rhbItem.skus52 || {})
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 10)
+    .map(s => ({ sku: s.sku, desc: s.desc, fv: s.fv, lpns: s.lpns, cost: Math.round(s.cost), bultos: s.bultos }));
+
   const zones = {
     rck: {
-      totalCost: zoneAgg.rck.totalCost,
-      lpns: zoneAgg.rck.lpns,
-      bultos: zoneAgg.rck.bultos,
-      pct: totalCost > 0 ? parseFloat(((zoneAgg.rck.totalCost / totalCost) * 100).toFixed(1)) : 0,
-      r010: zoneAgg.rck.r010,
-      r1025: zoneAgg.rck.r1025,
-      r2552: zoneAgg.rck.r2552,
-      r52: zoneAgg.rck.r52,
-      lpns52: Object.values(zoneAgg.rck.skus52).reduce((sum, item) => sum + item.lpns, 0),
-      topSkus: Object.values(zoneAgg.rck.skus52)
-        .sort((a, b) => b.cost - a.cost)
-        .slice(0, 10)
-        .map(s => ({ sku: s.sku, desc: s.desc, fv: s.fv, lpns: s.lpns, cost: Math.round(s.cost), bultos: s.bultos }))
+      totalCost: rckItem.totalCost || 0,
+      lpns: rckItem.totalLpns || 0,
+      bultos: rckItem.totalBultos || 0,
+      pct: totalCost > 0 ? parseFloat((((rckItem.totalCost || 0) / totalCost) * 100).toFixed(1)) : 0,
+      r010: rckItem.r010?.cost || 0,
+      r1025: rckItem.r1025?.cost || 0,
+      r2552: rckItem.r2552?.cost || 0,
+      r52: rckItem.r52?.cost || 0,
+      lpns52: Object.values(rckItem.skus52 || {}).reduce((sum, item) => sum + item.lpns, 0),
+      topSkus: topSkusRck
     },
     rhb: {
-      totalCost: zoneAgg.rhb.totalCost,
-      lpns: zoneAgg.rhb.lpns,
-      bultos: zoneAgg.rhb.bultos,
-      pct: totalCost > 0 ? parseFloat(((zoneAgg.rhb.totalCost / totalCost) * 100).toFixed(1)) : 0,
-      r010: zoneAgg.rhb.r010,
-      r1025: zoneAgg.rhb.r1025,
-      r2552: zoneAgg.rhb.r2552,
-      r52: zoneAgg.rhb.r52,
-      lpns52: Object.values(zoneAgg.rhb.skus52).reduce((sum, item) => sum + item.lpns, 0),
-      topSkus: Object.values(zoneAgg.rhb.skus52)
-        .sort((a, b) => b.cost - a.cost)
-        .slice(0, 10)
-        .map(s => ({ sku: s.sku, desc: s.desc, fv: s.fv, lpns: s.lpns, cost: Math.round(s.cost), bultos: s.bultos }))
+      totalCost: rhbItem.totalCost || 0,
+      lpns: rhbItem.totalLpns || 0,
+      bultos: rhbItem.totalBultos || 0,
+      pct: totalCost > 0 ? parseFloat((((rhbItem.totalCost || 0) / totalCost) * 100).toFixed(1)) : 0,
+      r010: rhbItem.r010?.cost || 0,
+      r1025: rhbItem.r1025?.cost || 0,
+      r2552: rhbItem.r2552?.cost || 0,
+      r52: rhbItem.r52?.cost || 0,
+      lpns52: Object.values(rhbItem.skus52 || {}).reduce((sum, item) => sum + item.lpns, 0),
+      topSkus: topSkusRhb
     }
   };
 
@@ -766,6 +836,10 @@ function finalizeWarehouseData(acc, evolObj, activeWeekTag) {
     ranges,
     divisions,
     top10Skus,
+    zoneTable,
+    zoneTotals,
+    topSkusRck,
+    topSkusRhb,
     zones,
     weeks: finalWeeks,
     evolution: finalEvolution,
@@ -798,6 +872,10 @@ function createEmptyWarehouseData(whseTarget, whseLabel, evolObj, activeWeekTag 
     ],
     divisions: [],
     top10Skus: [],
+    zoneTable: [],
+    zoneTotals: { costos: [0, 0, 0, 0, 0], lpn: [0, 0, 0, 0, 0], bultos: [0, 0, 0, 0, 0] },
+    topSkusRck: [],
+    topSkusRhb: [],
     zones: {
       rck: { totalCost: 0, lpns: 0, bultos: 0, pct: 0, r010: 0, r1025: 0, r2552: 0, r52: 0, lpns52: 0, topSkus: [] },
       rhb: { totalCost: 0, lpns: 0, bultos: 0, pct: 0, r010: 0, r1025: 0, r2552: 0, r52: 0, lpns52: 0, topSkus: [] }
@@ -855,6 +933,55 @@ function loadSampleData() {
       { sku: '43438965', desc: 'VINO TINTO ALBACORA X750ML', div: 'J01-PGC COMESTIBLE', rngFv: '10/10/2028', lpns: 4, cost: 54671, bultos: 323, onHand: 1938, days: 550, badge: 'CRÍTICO #2' },
       { sku: '43439250', desc: 'LAMINA DE AJI S IMPRES 170MM PET PE 60U', div: 'J07-PLATOS PREPARADOS', rngFv: '05/08/2026', lpns: 1, cost: 10792, bultos: 73, onHand: 73, days: 395, badge: 'SALDO' }
     ],
+    zoneTable: [
+      {
+        name: 'RCK',
+        costos: [29270343, 4468255, 522709, 180353, 34441661],
+        lpn: [5929, 1085, 165, 40, 7219],
+        bultos: [307081, 46506, 4450, 2537, 360574]
+      },
+      {
+        name: 'RHB',
+        costos: [68654062, 8034306, 1571100, 108486, 78367955],
+        lpn: [21888, 3386, 731, 38, 26043],
+        bultos: [876235, 90452, 17006, 1072, 984765]
+      },
+      {
+        name: 'TOL',
+        costos: [0, 0, 2925, 0, 2925],
+        lpn: [0, 0, 3, 0, 3],
+        bultos: [0, 0, 4, 0, 4]
+      }
+    ],
+    zoneTotals: {
+      costos: [97924406, 12502561, 2096734, 288839, 112812540],
+      lpn: [27817, 4471, 899, 78, 33265],
+      bultos: [1183316, 136958, 21460, 3609, 1345343]
+    },
+    topSkusRck: [
+      { sku: '43111173', desc: 'DURAZNO EN MITADES PRECIO UNO 415G', fv: '19/07/2027 - 20/07/2027', lpns: 20, cost: 61831, bultos: 1110 },
+      { sku: '43438965', desc: 'VINO TINTO ALBACORA X750ML', fv: '12/12/2026 - 10/10/2028', lpns: 4, cost: 54671, bultos: 323 },
+      { sku: '42464523', desc: 'PULPA FINAL DE TOMATE TOTTUS X 400 G', fv: '30/09/2027 - 30/09/2027', lpns: 6, cost: 26206, bultos: 785 },
+      { sku: '43439251', desc: 'LAMINA DE AJI S IMPRES 280MM PET PE 60U', fv: '05/08/2026 - 05/08/2026', lpns: 1, cost: 11671, bultos: 55 },
+      { sku: '43439250', desc: 'LAMINA DE AJI S IMPRES 170MM PET PE 60U', fv: '05/08/2026 - 05/08/2026', lpns: 1, cost: 10792, bultos: 73 },
+      { sku: '42261627', desc: 'GANCHOS HORQ NEGRO TOTTUS X 40 UN', fv: '-', lpns: 1, cost: 5567, bultos: 81 },
+      { sku: '43214510', desc: 'CUCHARA PARA FIDEOS MANGO PLAST', fv: '-', lpns: 1, cost: 2704, bultos: 43 },
+      { sku: '42261622', desc: 'LIGAS PEQ MIX TOTTUS X 300 UN', fv: '-', lpns: 1, cost: 2212, bultos: 46 },
+      { sku: '41880323', desc: 'CAJA KEKE PREMIUM', fv: '-', lpns: 1, cost: 1405, bultos: 6 },
+      { sku: '43121313', desc: 'JUEGO COMEDOR VIDRIO + 4 SILLAS SUEDE', fv: '-', lpns: 1, cost: 1207, bultos: 4 }
+    ],
+    topSkusRhb: [
+      { sku: '43491112', desc: 'COMBO MUG APILABLE VERANO PU', fv: '-', lpns: 7, cost: 26720, bultos: 213 },
+      { sku: '43488563', desc: 'COMBO GUANTE CON SILIC Y TELA 2025', fv: '-', lpns: 5, cost: 17027, bultos: 117 },
+      { sku: '41843146', desc: 'KETCHUP AMERICANO TOTTUS X 425GR', fv: '03/03/2027 - 19/05/2027', lpns: 3, cost: 12653, bultos: 198 },
+      { sku: '43491111', desc: 'COMBO MUG APILABLE VERANO CJ', fv: '-', lpns: 3, cost: 10663, bultos: 85 },
+      { sku: '43314915', desc: 'SET X 2 ESPECIERO TAPA CORCHO 90ML', fv: '-', lpns: 5, cost: 10227, bultos: 138 },
+      { sku: '43278081', desc: 'JUEGO DE SABANAS MICROFIBRA 1.5PLZ BLA', fv: '-', lpns: 3, cost: 7163, bultos: 67 },
+      { sku: '42039096', desc: 'VINO MARQUES VITORIA TOTTUS BLANCO 750ML', fv: '-', lpns: 1, cost: 7016, bultos: 93 },
+      { sku: '42039097', desc: 'VINO MARQUES VITORIA TOTTUS JOVEN 750ML', fv: '-', lpns: 1, cost: 4877, bultos: 53 },
+      { sku: '43324607', desc: 'GARDEN PLAYHOUSE CON REJA', fv: '-', lpns: 3, cost: 3878, bultos: 18 },
+      { sku: '43497327', desc: 'ALCANCIA CUPCAKE', fv: '-', lpns: 2, cost: 3020, bultos: 32 }
+    ],
     zones: {
       rck: {
         totalCost: 34441661,
@@ -866,13 +993,7 @@ function loadSampleData() {
         r2552: 522709,
         r52: 180353,
         lpns52: 40,
-        topSkus: [
-          { sku: '43111173', desc: 'DURAZNO EN MITADES PRECIO UNO 415G', fv: '20/07/2027', lpns: 20, cost: 61831, bultos: 1110 },
-          { sku: '43438965', desc: 'VINO TINTO ALBACORA X750ML', fv: '10/10/2028', lpns: 4, cost: 54671, bultos: 323 },
-          { sku: '42464523', desc: 'PULPA FINAL DE TOMATE TOTTUS X 400 G', fv: '30/09/2027', lpns: 6, cost: 26206, bultos: 785 },
-          { sku: '43439251', desc: 'LAMINA DE AJI S IMPRES 280MM PET PE 60U', fv: '05/08/2026', lpns: 1, cost: 11671, bultos: 55 },
-          { sku: '43439250', desc: 'LAMINA DE AJI S IMPRES 170MM PET PE 60U', fv: '05/08/2026', lpns: 1, cost: 10792, bultos: 73 }
-        ]
+        topSkus: []
       },
       rhb: {
         totalCost: 78367955,
@@ -884,13 +1005,7 @@ function loadSampleData() {
         r2552: 1571100,
         r52: 108486,
         lpns52: 38,
-        topSkus: [
-          { sku: '43491112', desc: 'COMBO MUG APILABLE VERANO PU', fv: '-', lpns: 7, cost: 26720, bultos: 213 },
-          { sku: '43488563', desc: 'COMBO GUANTE CON SILIC Y TELA 2025', fv: '-', lpns: 5, cost: 17027, bultos: 117 },
-          { sku: '41843146', desc: 'KETCHUP AMERICANO TOTTUS X 425GR', fv: '19/05/2027', lpns: 3, cost: 12653, bultos: 198 },
-          { sku: '43491111', desc: 'COMBO MUG APILABLE VERANO CJ', fv: '-', lpns: 3, cost: 10663, bultos: 85 },
-          { sku: '43314915', desc: 'SET X 2 ESPECIERO TAPA CORCHO 90ML', fv: '-', lpns: 5, cost: 10227, bultos: 138 }
-        ]
+        topSkus: []
       }
     },
     weeks: ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', 'S-37'],
@@ -940,6 +1055,32 @@ function loadSampleData() {
       { sku: '42794726', desc: 'ESTUCHE MULTIUSO 46 H60 D100 TR PET', div: 'J06-PANADERIA Y PASTELERIA', rngFv: '-', lpns: 2, cost: 2134, bultos: 14, onHand: 3360, days: 1440, badge: 'PRIORIDAD' },
       { sku: '48866028', desc: 'PIERNITAS DE POLLO IMP TT X KG', div: 'J03-CARNES Y PESCADOS', rngFv: '13/03/2027 - 18/06/2028', lpns: 3, cost: 584, bultos: 126, onHand: 126, days: 488, badge: 'PRIORIDAD' }
     ],
+    zoneTable: [
+      {
+        name: 'RCK',
+        costos: [2987197, 133765, 22547, 4140, 3147650],
+        lpn: [957, 35, 10, 4, 1005],
+        bultos: [46802, 1865, 257, 84, 49008]
+      },
+      {
+        name: 'RHB',
+        costos: [4480797, 200648, 33821, 6210, 4721475],
+        lpn: [1436, 52, 14, 6, 1509],
+        bultos: [70207, 2797, 385, 125, 73514]
+      }
+    ],
+    zoneTotals: {
+      costos: [7467994, 334413, 56368, 10350, 7869125],
+      lpn: [2393, 87, 24, 10, 2514],
+      bultos: [117009, 4662, 642, 209, 122522]
+    },
+    topSkusRck: [
+      { sku: '43829328', desc: 'ENVASE BISAGRA 121 TR PET', fv: '-', lpns: 4, cost: 5194, bultos: 53 }
+    ],
+    topSkusRhb: [
+      { sku: '42583778', desc: 'ESTUCHE MULTIUSO 46 H60 D100 TR PET', fv: '-', lpns: 3, cost: 2438, bultos: 16 },
+      { sku: '42794726', desc: 'ESTUCHE MULTIUSO 46 H60 D100 TR PET', fv: '-', lpns: 2, cost: 2134, bultos: 14 }
+    ],
     zones: {
       rck: {
         totalCost: 3147650,
@@ -951,9 +1092,7 @@ function loadSampleData() {
         r2552: 22547,
         r52: 4140,
         lpns52: 4,
-        topSkus: [
-          { sku: '43829328', desc: 'ENVASE BISAGRA 121 TR PET', fv: '-', lpns: 4, cost: 5194, bultos: 53 }
-        ]
+        topSkus: []
       },
       rhb: {
         totalCost: 4721475,
@@ -965,10 +1104,7 @@ function loadSampleData() {
         r2552: 33821,
         r52: 6210,
         lpns52: 6,
-        topSkus: [
-          { sku: '42583778', desc: 'ESTUCHE MULTIUSO 46 H60 D100 TR PET', fv: '-', lpns: 3, cost: 2438, bultos: 16 },
-          { sku: '42794726', desc: 'ESTUCHE MULTIUSO 46 H60 D100 TR PET', fv: '-', lpns: 2, cost: 2134, bultos: 14 }
-        ]
+        topSkus: []
       }
     },
     weeks: ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', 'S-37'],
@@ -1380,91 +1516,174 @@ function renderChartS1(ranges) {
 }
 
 function renderSlide2(data) {
-  const z = data.zones || { rck: {}, rhb: {} };
+  // 1. Renderizar Tabla Principal de Antigüedad por Zonas (Pivot Completo)
+  const tbodyZones = document.getElementById('tbodyS2Zones');
+  const tfootZones = document.getElementById('tfootS2Zones');
+  if (tbodyZones && tfootZones) {
+    tbodyZones.innerHTML = '';
+    tfootZones.innerHTML = '';
+
+    const zTable = data.zoneTable || [];
+    if (zTable.length === 0) {
+      tbodyZones.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:14px; color:#64748b;">No se encontraron registros de zonas operativas</td></tr>`;
+    } else {
+      zTable.forEach((z) => {
+        // Fila 1: COSTOS (con celda ZONA con rowspan=3)
+        const trCost = document.createElement('tr');
+        trCost.innerHTML = `
+          <td rowspan="3" style="text-align:center; vertical-align:middle; font-weight:900; background:#f0fdf4; color:#166534; border-right:2px solid #bbf7d0; font-size:0.92rem;">
+            ${z.name}
+          </td>
+          <td style="font-weight:800; color:#0f172a; text-align:left; background:#f8fafc;">COSTOS</td>
+          <td style="text-align:right; font-weight:700;">${z.costos[0] > 0 ? formatNumber(z.costos[0]) : '-'}</td>
+          <td style="text-align:right; font-weight:700;">${z.costos[1] > 0 ? formatNumber(z.costos[1]) : '-'}</td>
+          <td style="text-align:right; font-weight:700; ${z.costos[2] > 50000 ? 'background:#fffbeb; color:#b45309;' : ''}">${z.costos[2] > 0 ? formatNumber(z.costos[2]) : '-'}</td>
+          <td style="text-align:right; font-weight:800; ${z.costos[3] > 10000 ? 'background:#fee2e2; color:#dc2626;' : ''}">${z.costos[3] > 0 ? formatNumber(z.costos[3]) : '-'}</td>
+          <td style="text-align:right; font-weight:900; background:#f8fafc; color:#0f172a;">${formatNumber(z.costos[4])}</td>
+        `;
+        tbodyZones.appendChild(trCost);
+
+        // Fila 2: LPN
+        const trLpn = document.createElement('tr');
+        trLpn.innerHTML = `
+          <td style="font-weight:700; color:#2563eb; text-align:left; background:#f8fafc;">LPN</td>
+          <td style="text-align:right; color:#2563eb; font-weight:600;">${z.lpn[0] > 0 ? formatNumber(z.lpn[0]) : '-'}</td>
+          <td style="text-align:right; color:#2563eb; font-weight:600;">${z.lpn[1] > 0 ? formatNumber(z.lpn[1]) : '-'}</td>
+          <td style="text-align:right; color:#2563eb; font-weight:600;">${z.lpn[2] > 0 ? formatNumber(z.lpn[2]) : '-'}</td>
+          <td style="text-align:right; color:#dc2626; font-weight:800;">${z.lpn[3] > 0 ? formatNumber(z.lpn[3]) : '-'}</td>
+          <td style="text-align:right; font-weight:900; color:#2563eb; background:#f8fafc;">${formatNumber(z.lpn[4])}</td>
+        `;
+        tbodyZones.appendChild(trLpn);
+
+        // Fila 3: BULTOS (con borde inferior más marcado para separar zonas)
+        const trBultos = document.createElement('tr');
+        trBultos.style.borderBottom = '2px solid #cbd5e1';
+        trBultos.innerHTML = `
+          <td style="font-weight:700; color:#475569; text-align:left; background:#f8fafc;">BULTOS</td>
+          <td style="text-align:right; font-weight:600;">${z.bultos[0] > 0 ? formatNumber(z.bultos[0]) : '-'}</td>
+          <td style="text-align:right; font-weight:600;">${z.bultos[1] > 0 ? formatNumber(z.bultos[1]) : '-'}</td>
+          <td style="text-align:right; font-weight:600;">${z.bultos[2] > 0 ? formatNumber(z.bultos[2]) : '-'}</td>
+          <td style="text-align:right; font-weight:700; color:#dc2626;">${z.bultos[3] > 0 ? formatNumber(z.bultos[3]) : '-'}</td>
+          <td style="text-align:right; font-weight:900; color:#0f172a; background:#f8fafc;">${formatNumber(z.bultos[4])}</td>
+        `;
+        tbodyZones.appendChild(trBultos);
+      });
+    }
+
+    // Pie de la Tabla de Zonas (Totales generales exactos)
+    const zTot = data.zoneTotals || {
+      costos: [0, 0, 0, 0, 0],
+      lpn: [0, 0, 0, 0, 0],
+      bultos: [0, 0, 0, 0, 0]
+    };
+
+    tfootZones.innerHTML = `
+      <tr style="background:#f1f5f9; font-weight:900; border-top:2px solid #94a3b8;">
+        <td colspan="2" style="text-align:left; font-weight:900; color:#0f172a;">Total COSTOS</td>
+        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.costos[0])}</td>
+        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.costos[1])}</td>
+        <td style="text-align:right; font-weight:900; color:#ea580c;">${formatNumber(zTot.costos[2])}</td>
+        <td style="text-align:right; font-weight:900; color:#dc2626;">${formatNumber(zTot.costos[3])}</td>
+        <td style="text-align:right; font-weight:900; color:#0f172a; background:#e2e8f0;">${formatNumber(zTot.costos[4])}</td>
+      </tr>
+      <tr style="background:#f1f5f9; font-weight:900;">
+        <td colspan="2" style="text-align:left; font-weight:900; color:#2563eb;">Total LPN</td>
+        <td style="text-align:right; font-weight:900; color:#2563eb;">${formatNumber(zTot.lpn[0])}</td>
+        <td style="text-align:right; font-weight:900; color:#2563eb;">${formatNumber(zTot.lpn[1])}</td>
+        <td style="text-align:right; font-weight:900; color:#2563eb;">${formatNumber(zTot.lpn[2])}</td>
+        <td style="text-align:right; font-weight:900; color:#dc2626;">${formatNumber(zTot.lpn[3])}</td>
+        <td style="text-align:right; font-weight:900; color:#2563eb; background:#e2e8f0;">${formatNumber(zTot.lpn[4])}</td>
+      </tr>
+      <tr style="background:#f1f5f9; font-weight:900;">
+        <td colspan="2" style="text-align:left; font-weight:900; color:#475569;">Total BULTOS</td>
+        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.bultos[0])}</td>
+        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.bultos[1])}</td>
+        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.bultos[2])}</td>
+        <td style="text-align:right; font-weight:900; color:#dc2626;">${formatNumber(zTot.bultos[3])}</td>
+        <td style="text-align:right; font-weight:900; color:#0f172a; background:#e2e8f0;">${formatNumber(zTot.bultos[4])}</td>
+      </tr>
+    `;
+  }
+
+  // 2. Tablas Gemelas: Top 10 SKUs en RCK y RHB (>52 semanas)
+  const topRck = data.topSkusRck || data.zones?.rck?.topSkus || [];
+  const topRhb = data.topSkusRhb || data.zones?.rhb?.topSkus || [];
 
   // RCK
-  document.getElementById('s2-rck-cost').textContent = formatCurrency(z.rck?.totalCost);
-  document.getElementById('s2-rck-sub').textContent = `${safeFixed(z.rck?.pct, 1, '% del CD')} | ${formatNumber(z.rck?.lpns)} LPNs`;
-  document.getElementById('s2-rck-010').textContent = formatCompact(z.rck?.r010);
-  document.getElementById('s2-rck-1025').textContent = formatCompact(z.rck?.r1025);
-  document.getElementById('s2-rck-2552').textContent = formatCompact(z.rck?.r2552);
-  document.getElementById('s2-rck-52').textContent = formatNumber(z.rck?.r52);
+  const tbodyRck = document.getElementById('tbodyS2Rck');
+  const tfootRck = document.getElementById('tfootS2Rck');
+  if (tbodyRck && tfootRck) {
+    tbodyRck.innerHTML = '';
+    let sumCostRck = 0, sumLpnRck = 0, sumBultosRck = 0;
+
+    if (topRck.length === 0) {
+      tbodyRck.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:12px; color:#64748b;">No hay SKUs >52s en RCK</td></tr>`;
+    } else {
+      topRck.forEach(s => {
+        sumCostRck += (s.cost || 0);
+        sumLpnRck += (s.lpns || 0);
+        sumBultosRck += (s.bultos || 0);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-family:'JetBrains Mono',monospace; font-weight:800; color:#0f172a;">${s.sku}</td>
+          <td style="text-align:left; font-weight:700; color:#1e293b; max-width:210px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${s.desc}">${s.desc}</td>
+          <td style="text-align:center; color:#64748b; font-size:0.70rem;">${s.fv || '-'}</td>
+          <td style="text-align:right; font-weight:800; color:#0f172a;">${formatNumber(s.lpns)}</td>
+          <td style="text-align:right; font-weight:800; color:${s.cost > 20000 ? '#dc2626' : '#0f172a'};">${formatNumber(s.cost)}</td>
+          <td style="text-align:right; font-weight:600;">${formatNumber(s.bultos)}</td>
+        `;
+        tbodyRck.appendChild(tr);
+      });
+    }
+
+    tfootRck.innerHTML = `
+      <tr style="background:#f8fafc; font-weight:900;">
+        <td colspan="3" style="text-align:left; font-weight:900;">Total general</td>
+        <td style="text-align:right; color:#0f172a; font-weight:900;">${formatNumber(sumLpnRck)}</td>
+        <td style="text-align:right; color:#dc2626; font-weight:900;">${formatNumber(sumCostRck)}</td>
+        <td style="text-align:right; font-weight:900;">${formatNumber(sumBultosRck)}</td>
+      </tr>
+    `;
+  }
 
   // RHB
-  document.getElementById('s2-rhb-cost').textContent = formatCurrency(z.rhb?.totalCost);
-  document.getElementById('s2-rhb-sub').textContent = `${safeFixed(z.rhb?.pct, 1, '% del CD')} | ${formatNumber(z.rhb?.lpns)} LPNs`;
-  document.getElementById('s2-rhb-010').textContent = formatCompact(z.rhb?.r010);
-  document.getElementById('s2-rhb-1025').textContent = formatCompact(z.rhb?.r1025);
-  document.getElementById('s2-rhb-2552').textContent = formatCompact(z.rhb?.r2552);
-  document.getElementById('s2-rhb-52').textContent = formatNumber(z.rhb?.r52);
-
-  // RCK Tablas (Suma de LPNs)
-  const tbodyRck = document.getElementById('tbodyS2Rck');
-  tbodyRck.innerHTML = '';
-  let sumRckCost = 0, sumRckLpns = 0, sumRckBultos = 0;
-
-  if (!z.rck?.topSkus || z.rck.topSkus.length === 0) {
-    tbodyRck.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:12px; color:#64748b; font-weight:600;">No hay SKUs >52s en RCK</td></tr>`;
-  } else {
-    z.rck.topSkus.forEach(s => {
-      sumRckCost += (s.cost || 0);
-      sumRckLpns += (s.lpns || 0);
-      sumRckBultos += (s.bultos || 0);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td style="font-family:'JetBrains Mono',monospace; font-weight:800;">${s.sku}</td>
-        <td style="text-align:left; font-weight:700; color:#0f172a;">${s.desc}</td>
-        <td style="text-align:center; color:#64748b; font-size:0.75rem;">${s.fv}</td>
-        <td style="font-weight:800; color:#dc2626;">${formatNumber(s.lpns)}</td>
-        <td style="font-weight:800; color:#dc2626;">${formatNumber(s.cost)}</td>
-        <td style="font-weight:600;">${formatNumber(s.bultos)}</td>
-      `;
-      tbodyRck.appendChild(tr);
-    });
-  }
-
-  document.getElementById('tfootS2Rck').innerHTML = `
-    <tr>
-      <td colspan="3" style="text-align:left; font-weight:900;">Total RCK Top SKUs</td>
-      <td style="color:#dc2626; font-weight:900;">${formatNumber(sumRckLpns)}</td>
-      <td style="color:#dc2626; font-size:0.90rem; font-weight:900;">S/ ${formatNumber(sumRckCost)}</td>
-      <td style="font-weight:800;">${formatNumber(sumRckBultos)}</td>
-    </tr>
-  `;
-
-  // RHB Tablas (Suma de LPNs)
   const tbodyRhb = document.getElementById('tbodyS2Rhb');
-  tbodyRhb.innerHTML = '';
-  let sumRhbCost = 0, sumRhbLpns = 0, sumRhbBultos = 0;
+  const tfootRhb = document.getElementById('tfootS2Rhb');
+  if (tbodyRhb && tfootRhb) {
+    tbodyRhb.innerHTML = '';
+    let sumCostRhb = 0, sumLpnRhb = 0, sumBultosRhb = 0;
 
-  if (!z.rhb?.topSkus || z.rhb.topSkus.length === 0) {
-    tbodyRhb.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:12px; color:#64748b; font-weight:600;">No hay SKUs >52s en RHB</td></tr>`;
-  } else {
-    z.rhb.topSkus.forEach(s => {
-      sumRhbCost += (s.cost || 0);
-      sumRhbLpns += (s.lpns || 0);
-      sumRhbBultos += (s.bultos || 0);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td style="font-family:'JetBrains Mono',monospace; font-weight:800;">${s.sku}</td>
-        <td style="text-align:left; font-weight:700; color:#0f172a;">${s.desc}</td>
-        <td style="text-align:center; color:#64748b; font-size:0.75rem;">${s.fv}</td>
-        <td style="font-weight:800; color:#2563eb;">${formatNumber(s.lpns)}</td>
-        <td style="font-weight:800; color:#1e293b;">${formatNumber(s.cost)}</td>
-        <td style="font-weight:600;">${formatNumber(s.bultos)}</td>
-      `;
-      tbodyRhb.appendChild(tr);
-    });
+    if (topRhb.length === 0) {
+      tbodyRhb.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:12px; color:#64748b;">No hay SKUs >52s en RHB</td></tr>`;
+    } else {
+      topRhb.forEach(s => {
+        sumCostRhb += (s.cost || 0);
+        sumLpnRhb += (s.lpns || 0);
+        sumBultosRhb += (s.bultos || 0);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-family:'JetBrains Mono',monospace; font-weight:800; color:#0f172a;">${s.sku}</td>
+          <td style="text-align:left; font-weight:700; color:#1e293b; max-width:210px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${s.desc}">${s.desc}</td>
+          <td style="text-align:center; color:#64748b; font-size:0.70rem;">${s.fv || '-'}</td>
+          <td style="text-align:right; font-weight:800; color:#0f172a;">${formatNumber(s.lpns)}</td>
+          <td style="text-align:right; font-weight:800; color:${s.cost > 20000 ? '#dc2626' : '#0f172a'};">${formatNumber(s.cost)}</td>
+          <td style="text-align:right; font-weight:600;">${formatNumber(s.bultos)}</td>
+        `;
+        tbodyRhb.appendChild(tr);
+      });
+    }
+
+    tfootRhb.innerHTML = `
+      <tr style="background:#f8fafc; font-weight:900;">
+        <td colspan="3" style="text-align:left; font-weight:900;">Total general</td>
+        <td style="text-align:right; color:#0f172a; font-weight:900;">${formatNumber(sumLpnRhb)}</td>
+        <td style="text-align:right; color:#dc2626; font-weight:900;">${formatNumber(sumCostRhb)}</td>
+        <td style="text-align:right; font-weight:900;">${formatNumber(sumBultosRhb)}</td>
+      </tr>
+    `;
   }
-
-  document.getElementById('tfootS2Rhb').innerHTML = `
-    <tr>
-      <td colspan="3" style="text-align:left; font-weight:900;">Total RHB Top SKUs</td>
-      <td style="color:#2563eb; font-weight:900;">${formatNumber(sumRhbLpns)}</td>
-      <td style="color:#0f172a; font-size:0.90rem; font-weight:900;">S/ ${formatNumber(sumRhbCost)}</td>
-      <td style="font-weight:800;">${formatNumber(sumRhbBultos)}</td>
-    </tr>
-  `;
 }
 
 function renderSlide3(data) {
