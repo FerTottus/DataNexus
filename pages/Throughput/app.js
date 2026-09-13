@@ -1052,6 +1052,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Guardar contexto activo para exportación de diapositivas
     window._cdContext = window._cdContext || {};
     window._cdContext[prefix] = {
+      filterValue,
+      baseFilter,
       weekNumbers,
       closedWeeks,
       tableWeeks,
@@ -2317,7 +2319,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 1. Copiar Slide Completo 3 en 1 Panorámico 16:9 (Widescreen 1920x1080) Ultrarrápido (<20ms, sin esperas ni errores de foco)
-  // Renderiza un gráfico Chart.js a un canvas estático del tamaño exacto de destino (sin estiramientos ni distorsión)
+  // Renderiza un gráfico Chart.js a un canvas estático del tamaño exacto de destino con barras sólidas y números grandes legibles
   function createSlideChartCanvas(srcChart, targetW, targetH, fallbackCanvas) {
     if (!srcChart || !srcChart.data) {
       return fallbackCanvas || null;
@@ -2327,13 +2329,101 @@ document.addEventListener('DOMContentLoaded', () => {
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = Math.round(targetW * scale);
       tempCanvas.height = Math.round(targetH * scale);
+      tempCanvas.style.width = targetW + 'px';
+      tempCanvas.style.height = targetH + 'px';
 
-      // Datasets calibrados con grosor armónico (evita barras desproporcionadas tipo bloque)
-      const slideDatasets = srcChart.data.datasets.map(ds => {
+      const labelCount = srcChart.data?.labels?.length || 12;
+      const pxPerCategory = (targetW - 90) / Math.max(1, labelCount);
+      const optimalBarThickness = Math.min(95, Math.max(50, Math.floor(pxPerCategory * 0.42)));
+
+      // Tamaños de fuentes calibrados para máxima legibilidad en diapositivas 16:9
+      let barFontSize = 13.5;
+      let planFontSize = 12;
+      if (labelCount <= 6) {
+        barFontSize = 16;
+        planFontSize = 14;
+      } else if (labelCount <= 10) {
+        barFontSize = 15;
+        planFontSize = 13;
+      } else if (labelCount <= 14) {
+        barFontSize = 14;
+        planFontSize = 12;
+      } else {
+        barFontSize = 12.5;
+        planFontSize = 11;
+      }
+
+      // Datasets calibrados con grosor armónico y números grandes y claros
+      const slideDatasets = srcChart.data.datasets.map((ds, dsIdx) => {
         const copy = { ...ds };
-        if (ds.type === 'bar' || !ds.type) {
-          copy.maxBarThickness = 42;
+        const isBar = ds.type === 'bar' || !ds.type;
+        const isLine = ds.type === 'line';
+
+        if (isBar) {
+          copy.maxBarThickness = optimalBarThickness;
+          copy.barPercentage = 0.92;
+          copy.categoryPercentage = 0.88;
           copy.borderRadius = 6;
+
+          const isDarkBar = dsIdx === 1 || (ds.label && (ds.label.includes('2026') || ds.label.includes('Actual')));
+          copy.datalabels = {
+            display: true,
+            clip: false,
+            clamp: false,
+            anchor: (c) => {
+              const val = c.dataset.data[c.dataIndex];
+              const yAxis = c.chart?.scales?.y;
+              if (!val || val === 0 || !yAxis) return 'center';
+              const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+              return h < 34 ? 'end' : 'center';
+            },
+            align: (c) => {
+              const val = c.dataset.data[c.dataIndex];
+              const yAxis = c.chart?.scales?.y;
+              if (!val || val === 0 || !yAxis) return 'center';
+              const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+              return h < 34 ? 'top' : 'center';
+            },
+            offset: (c) => {
+              const val = c.dataset.data[c.dataIndex];
+              const yAxis = c.chart?.scales?.y;
+              if (!val || val === 0 || !yAxis) return 0;
+              const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+              return h < 34 ? 4 : 0;
+            },
+            color: isDarkBar ? '#ffffff' : '#0f172a',
+            font: {
+              weight: '800',
+              size: barFontSize,
+              family: "'Inter', -apple-system, sans-serif"
+            },
+            textStrokeColor: isDarkBar ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.95)',
+            textStrokeWidth: 2.5,
+            formatter: (v) => (v !== null && v !== undefined && v > 0) ? formatNumberBadge(v) : ''
+          };
+        } else if (isLine) {
+          copy.borderWidth = 2.8;
+          copy.pointRadius = 4.5;
+          copy.datalabels = {
+            display: true,
+            clip: false,
+            clamp: false,
+            align: 'top',
+            anchor: 'end',
+            offset: 6,
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            borderColor: ds.borderColor || '#0284c7',
+            borderWidth: 1.5,
+            color: ds.borderColor || '#0284c7',
+            font: {
+              weight: '800',
+              size: planFontSize,
+              family: "'Inter', -apple-system, sans-serif"
+            },
+            borderRadius: 5,
+            padding: { top: 3, bottom: 3, left: 6, right: 6 },
+            formatter: (v) => (v !== null && v !== undefined && v > 0) ? `P: ${formatNumberBadge(v)}` : ''
+          };
         }
         return copy;
       });
@@ -2346,17 +2436,50 @@ document.addEventListener('DOMContentLoaded', () => {
         animation: false,
         devicePixelRatio: scale,
         layout: {
-          padding: { top: 6, bottom: 6, left: 14, right: 14 }
+          padding: { top: 8, bottom: 4, left: 14, right: 14 }
         },
         plugins: {
           ...srcChart.options.plugins,
+          datalabels: {
+            display: true,
+            clip: false,
+            clamp: false
+          },
           legend: {
             ...srcChart.options.plugins?.legend,
+            display: true,
+            position: 'top',
+            align: 'center',
             labels: {
               ...srcChart.options.plugins?.legend?.labels,
-              font: { size: 12, weight: '700', family: "'Inter', sans-serif" },
-              padding: 12,
-              boxWidth: 10
+              usePointStyle: true,
+              pointStyle: 'rectRounded',
+              font: { size: 13, weight: '700', family: "'Inter', -apple-system, sans-serif" },
+              padding: 14,
+              boxWidth: 12,
+              color: '#334155'
+            }
+          },
+          tooltip: { enabled: false }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              maxRotation: 0,
+              autoSkip: false,
+              font: { weight: '700', size: 13, family: "'Inter', -apple-system, sans-serif" },
+              color: '#1e293b'
+            }
+          },
+          y: {
+            beginAtZero: true,
+            grace: '14%',
+            grid: { color: 'rgba(226, 232, 240, 0.7)' },
+            ticks: {
+              font: { size: 12, weight: '600', family: "'Inter', -apple-system, sans-serif" },
+              color: '#64748b',
+              callback: (v) => formatNumberBadge(v)
             }
           }
         }
@@ -3309,8 +3432,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const yoyDespSem   = calcYoY(despSemCurr, despSemPrev);
     const yoyInvSem    = calcYoY(invSemCurr, invSemPrev);
 
-    // 2. Métricas Período Completo (semanas mostradas en tabla)
-    const weeksToSum = tableWeeks.length > 0 ? tableWeeks : [lastDataWeek];
+    // 2. Métricas Período Seleccionado (según filtro de semanas: 4, 8, 12, 16 o todas)
+    // Refleja las semanas seleccionadas por el usuario en la segunda fila de KPIs, mientras la tabla mantiene sus 8 semanas
+    const filterValue = ctxData.filterValue || '8';
+    const baseFilter = ctxData.baseFilter || '8';
+    const isAllWeeks = baseFilter === 'all' || filterValue === 'all';
+    const weeksToSum = (ctxData.closedWeeks && ctxData.closedWeeks.length > 0)
+      ? ctxData.closedWeeks
+      : (tableWeeks.length > 0 ? tableWeeks : [lastDataWeek]);
+
     let totReciboCurr = 0, totReciboPrev = 0;
     let totDespCurr = 0, totDespPrev = 0;
     let totInvCurr = 0, totInvPrev = 0, countInv = 0, countInvPrev = 0;
@@ -3411,23 +3541,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── SECCIÓN 2: ACUMULADO Y PROMEDIO DEL PERÍODO ──
     const sec2Y = 248;
+    let sec2Label = `📈 ACUMULADO Y PROMEDIO · ÚLTIMAS ${weeksToSum.length} SEMANAS CERRADAS`;
+    if (isAllWeeks) {
+      sec2Label = `📈 ACUMULADO Y PROMEDIO · TODAS LAS SEMANAS CERRADAS (${weeksToSum.length} SEM.)`;
+    } else if (weeksToSum.length === 1) {
+      sec2Label = `📈 ACUMULADO Y PROMEDIO · SEMANA ${weeksToSum[0]} CERRADA`;
+    }
+
+    ctx.font = 'bold 13px Inter, -apple-system, sans-serif';
+    const bannerW = Math.max(460, Math.round(ctx.measureText(sec2Label).width + 36));
+
     ctx.fillStyle = '#f8fafc';
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = 1;
-    roundRect(ctx, kpiMarginX, sec2Y, 460, 28, 6);
+    roundRect(ctx, kpiMarginX, sec2Y, bannerW, 28, 6);
 
     ctx.fillStyle = '#334155';
-    ctx.font = 'bold 13px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`📈 ACUMULADO Y PROMEDIO · ÚLTIMAS ${weeksToSum.length} SEMANAS CERRADAS`, kpiMarginX + 14, sec2Y + 14);
+    ctx.fillText(sec2Label, kpiMarginX + 14, sec2Y + 14);
 
     const kpiRow2Y = 284;
 
     const kpiCardsRow2 = [
       {
         icon: '📦',
-        label: 'TOTAL ENTRADAS (RECIBO) · ACUMULADO',
+        label: isAllWeeks ? 'TOTAL ENTRADAS (RECIBO) · AÑO ACUMULADO' : `TOTAL ENTRADAS (RECIBO) · ACUM. ${weeksToSum.length} SEM.`,
         val: totReciboCurr,
         prevVal: totReciboPrev,
         yoy: yoyReciboPer,
@@ -3435,7 +3574,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
         icon: '🚛',
-        label: 'TOTAL SALIDAS (DESPACHO) · ACUMULADO',
+        label: isAllWeeks ? 'TOTAL SALIDAS (DESPACHO) · AÑO ACUMULADO' : `TOTAL SALIDAS (DESPACHO) · ACUM. ${weeksToSum.length} SEM.`,
         val: totDespCurr,
         prevVal: totDespPrev,
         yoy: yoyDespPer,
@@ -3443,7 +3582,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       {
         icon: '📊',
-        label: 'STOCK INVENTARIO · PROMEDIO DEL PERÍODO',
+        label: isAllWeeks ? 'STOCK INVENTARIO · PROMEDIO ANUAL' : `STOCK INVENTARIO · PROMEDIO (${weeksToSum.length} SEM.)`,
         val: avgInvCurr,
         prevVal: avgInvPrev,
         yoy: yoyInvPer,
@@ -3905,13 +4044,15 @@ document.addEventListener('DOMContentLoaded', () => {
     isCopyingImageInProgress = true;
 
     try {
-      // Crear canvas panorámico individual (1600 x 720)
+      // Crear canvas panorámico individual (1600 x 720) en Retina 2x
       const W = 1600;
       const H = 720;
+      const scale = 2;
       const offscreen = document.createElement('canvas');
-      offscreen.width = W;
-      offscreen.height = H;
+      offscreen.width = Math.round(W * scale);
+      offscreen.height = Math.round(H * scale);
       const ctx = offscreen.getContext('2d');
+      ctx.scale(scale, scale);
 
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, W, H);
