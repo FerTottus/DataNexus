@@ -2334,30 +2334,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const labelCount = srcChart.data?.labels?.length || 12;
       const pxPerCategory = (canvasW - (120 * scale)) / Math.max(1, labelCount);
-      const optimalBarThickness = Math.min(180, Math.max(88, Math.floor(pxPerCategory * 0.42)));
+      const optimalBarThickness = Math.min(220, Math.max(100, Math.floor(pxPerCategory * 0.44)));
 
-      // Fuentes en escala real 2x para que en el slide 1920x1080 Full HD se lean con claridad ejecutiva
-      let baseBarFont = 16;
-      let basePlanFont = 14;
+      // Fuentes en escala real 2x (se duplican para que en el slide 1920x1080 sean GRANDES y de alta legibilidad ejecutiva)
+      let barFontSize2x = 48;      // 24px en el slide de PowerPoint
+      let planFontSize2x = 42;     // 21px en el slide
+      let legendFontSize2x = 42;   // 21px en el slide
+      let xTickFontSize2x = 38;    // 19px en el slide
+      let yTickFontSize2x = 34;    // 17px en el slide
+
       if (labelCount <= 6) {
-        baseBarFont = 18.5;
-        basePlanFont = 16;
+        barFontSize2x = 56;        // 28px en slide
+        planFontSize2x = 48;       // 24px en slide
+        legendFontSize2x = 46;     // 23px en slide
       } else if (labelCount <= 10) {
-        baseBarFont = 17;
-        basePlanFont = 15;
+        barFontSize2x = 52;        // 26px en slide
+        planFontSize2x = 44;       // 22px en slide
+        legendFontSize2x = 44;     // 22px en slide
       } else if (labelCount <= 14) {
-        baseBarFont = 16;
-        basePlanFont = 14;
+        barFontSize2x = 48;        // 24px en slide
+        planFontSize2x = 42;       // 21px en slide
+        legendFontSize2x = 42;     // 21px en slide
       } else {
-        baseBarFont = 14.5;
-        basePlanFont = 13;
+        barFontSize2x = 40;        // 20px en slide
+        planFontSize2x = 36;       // 18px en slide
+        legendFontSize2x = 38;     // 19px en slide
       }
-
-      const barFontSize2x = Math.round(baseBarFont * scale);      // ~32px a 37px en 2x (16px a 18.5px en slide)
-      const planFontSize2x = Math.round(basePlanFont * scale);    // ~28px a 32px en 2x (14px a 16px en slide)
-      const legendFontSize2x = Math.round(15 * scale);            // 30px en 2x (15px en slide)
-      const xTickFontSize2x = Math.round(14.5 * scale);           // 29px en 2x (14.5px en slide)
-      const yTickFontSize2x = Math.round(13.5 * scale);           // 27px en 2x (13.5px en slide)
 
       // Datasets calibrados con grosor armónico y números grandes y claros
       const slideDatasets = srcChart.data.datasets.map((ds, dsIdx) => {
@@ -2369,7 +2371,7 @@ document.addEventListener('DOMContentLoaded', () => {
           copy.maxBarThickness = optimalBarThickness;
           copy.barPercentage = 0.92;
           copy.categoryPercentage = 0.88;
-          copy.borderRadius = 6 * scale;
+          copy.borderRadius = 8;
 
           const isDarkBar = dsIdx === 1 || (ds.label && (ds.label.includes('2026') || ds.label.includes('Actual')));
           copy.datalabels = {
@@ -2381,21 +2383,21 @@ document.addEventListener('DOMContentLoaded', () => {
               const yAxis = c.chart?.scales?.y;
               if (!val || val === 0 || !yAxis) return 'center';
               const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
-              return h < (32 * scale) ? 'end' : 'center';
+              return h < 64 ? 'end' : 'center';
             },
             align: (c) => {
               const val = c.dataset.data[c.dataIndex];
               const yAxis = c.chart?.scales?.y;
               if (!val || val === 0 || !yAxis) return 'center';
               const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
-              return h < (32 * scale) ? 'top' : 'center';
+              return h < 64 ? 'top' : 'center';
             },
             offset: (c) => {
               const val = c.dataset.data[c.dataIndex];
               const yAxis = c.chart?.scales?.y;
               if (!val || val === 0 || !yAxis) return 0;
               const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
-              return h < (32 * scale) ? (5 * scale) : 0;
+              return h < 64 ? 8 : 0;
             },
             color: isDarkBar ? '#ffffff' : '#0f172a',
             font: {
@@ -2403,32 +2405,32 @@ document.addEventListener('DOMContentLoaded', () => {
               size: barFontSize2x,
               family: "'Inter', -apple-system, sans-serif"
             },
-            textStrokeColor: isDarkBar ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.95)',
-            textStrokeWidth: 3 * scale,
+            textStrokeColor: isDarkBar ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.98)',
+            textStrokeWidth: 7,
             formatter: (v) => (v !== null && v !== undefined && v > 0) ? formatNumberBadge(v) : ''
           };
         } else if (isLine) {
-          copy.borderWidth = 3 * scale;
-          copy.pointRadius = 5 * scale;
-          copy.borderDash = [7 * scale, 5 * scale];
+          copy.borderWidth = 6;
+          copy.pointRadius = 9;
+          copy.borderDash = [14, 10];
           copy.datalabels = {
             display: true,
             clip: false,
             clamp: false,
             align: 'top',
             anchor: 'end',
-            offset: 7 * scale,
+            offset: 14,
             backgroundColor: 'rgba(255, 255, 255, 0.98)',
             borderColor: ds.borderColor || '#0284c7',
-            borderWidth: 2 * scale,
+            borderWidth: 3.5,
             color: ds.borderColor || '#0284c7',
             font: {
               weight: '800',
               size: planFontSize2x,
               family: "'Inter', -apple-system, sans-serif"
             },
-            borderRadius: 6 * scale,
-            padding: { top: 3.5 * scale, bottom: 3.5 * scale, left: 7 * scale, right: 7 * scale },
+            borderRadius: 12,
+            padding: { top: 7, bottom: 7, left: 14, right: 14 },
             formatter: (v) => (v !== null && v !== undefined && v > 0) ? `P: ${formatNumberBadge(v)}` : ''
           };
         }
@@ -2441,7 +2443,7 @@ document.addEventListener('DOMContentLoaded', () => {
         maintainAspectRatio: false,
         animation: false,
         layout: {
-          padding: { top: 12 * scale, bottom: 6 * scale, left: 14 * scale, right: 14 * scale }
+          padding: { top: 20, bottom: 10, left: 24, right: 24 }
         },
         plugins: {
           datalabels: {
@@ -2457,9 +2459,9 @@ document.addEventListener('DOMContentLoaded', () => {
               usePointStyle: true,
               pointStyle: 'rectRounded',
               font: { size: legendFontSize2x, weight: '700', family: "'Inter', -apple-system, sans-serif" },
-              padding: 20 * scale,
-              boxWidth: 16 * scale,
-              color: '#1e293b'
+              padding: 40,
+              boxWidth: 32,
+              color: '#0f172a'
             }
           },
           tooltip: { enabled: false }
@@ -2471,21 +2473,21 @@ document.addEventListener('DOMContentLoaded', () => {
               maxRotation: 0,
               autoSkip: false,
               font: { weight: '700', size: xTickFontSize2x, family: "'Inter', -apple-system, sans-serif" },
-              color: '#1e293b',
-              padding: 6 * scale
+              color: '#0f172a',
+              padding: 12
             }
           },
           y: {
             beginAtZero: true,
-            grace: '16%',
+            grace: '18%',
             grid: {
               color: 'rgba(226, 232, 240, 0.7)',
-              lineWidth: 1 * scale
+              lineWidth: 2
             },
             ticks: {
-              font: { size: yTickFontSize2x, weight: '600', family: "'Inter', -apple-system, sans-serif" },
+              font: { size: yTickFontSize2x, weight: '700', family: "'Inter', -apple-system, sans-serif" },
               color: '#64748b',
-              padding: 8 * scale,
+              padding: 16,
               callback: (v) => formatNumberBadge(v)
             }
           }
@@ -2585,24 +2587,24 @@ document.addEventListener('DOMContentLoaded', () => {
         roundRect(ctx, sideMargin, y0, cardWidth, cardHeight, 10, true, true);
 
         // Cabecera de la sección (Títulos en tamaño ejecutivo grande y legible)
-        const headerY = y0 + 24;
+        const headerY = y0 + 26;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = sec.color;
-        ctx.font = '800 24px Inter, -apple-system, sans-serif';
-        ctx.fillText(sec.title, sideMargin + 20, headerY);
+        ctx.font = '800 28px Inter, -apple-system, sans-serif';
+        ctx.fillText(sec.title, sideMargin + 24, headerY);
 
-        // Badge a la derecha
+        // Badge a la derecha (Notable, grande y destacado)
         ctx.textAlign = 'right';
-        ctx.fillStyle = '#64748b';
-        ctx.font = '700 15px Inter, -apple-system, sans-serif';
-        ctx.fillText(sec.badge, sideMargin + cardWidth - 20, headerY);
+        ctx.fillStyle = '#475569';
+        ctx.font = '800 20px Inter, -apple-system, sans-serif';
+        ctx.fillText(sec.badge, sideMargin + cardWidth - 24, headerY);
 
         // Gráfico renderizado nativamente a las dimensiones exactas de destino (0% distorsión)
-        const chartX = sideMargin + 12;
-        const chartY = y0 + 44;
-        const chartW = cardWidth - 24;
-        const chartH = cardHeight - 52;
+        const chartX = sideMargin + 14;
+        const chartY = y0 + 52;
+        const chartW = cardWidth - 28;
+        const chartH = cardHeight - 62;
 
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
@@ -4074,14 +4076,14 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = colorMap[processKey] || '#1e293b';
-      ctx.font = '800 24px Inter, -apple-system, sans-serif';
-      ctx.fillText(label, 42, 50);
+      ctx.font = '800 28px Inter, -apple-system, sans-serif';
+      ctx.fillText(label, 42, 52);
 
       // Badge
       ctx.textAlign = 'right';
-      ctx.fillStyle = '#64748b';
-      ctx.font = '700 15px Inter, -apple-system, sans-serif';
-      ctx.fillText('Cajas / Semana', W - 42, 50);
+      ctx.fillStyle = '#475569';
+      ctx.font = '800 20px Inter, -apple-system, sans-serif';
+      ctx.fillText('Cajas / Semana', W - 42, 52);
 
       // Dibujar gráfico con suavizado de alta calidad (sin estiramientos)
       ctx.imageSmoothingEnabled = true;
