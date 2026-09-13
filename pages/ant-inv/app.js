@@ -1,12 +1,12 @@
 /**
  * DataNexus - Antigüedad de Inventario (Secos 655 y Frescos 676)
- * Motor Ultra-Robusto de Procesamiento de Excel (.xlsx, .xlsm, .xlsb)
+ * Motor Ultra-Optimizado de Procesamiento por Lotes y Captura 16:9 Nativa
  * 
- * Correcciones Principales:
- * 1. Suma aritmética de LPNs (no recuento/Set.size) para SKUs, Zonas y Rangos.
- * 2. Evolutivo Semanal sincronizado exactamente con la Semana Activa (S-37)
- *    utilizando la Suma de % BULTOS calculada desde tbBD.
- * 3. Tipografía ampliada, números de alto impacto y capturas 16:9 ultra nítidas.
+ * 1. Procesamiento ultra-rápido por lotes (5,000-8,000 filas/chunk) sin congelar la UI.
+ * 2. Suma aritmética exacta de LPNs en todos los niveles.
+ * 3. Gráfico de Barras con valores y porcentajes ENCIMA de cada barra.
+ * 4. Tabla de resumen de rangos (Table 1) en Slide 1 sincronizada con tbBD.
+ * 5. Captura 16:9 panorámica (1920x1080) directa al portapapeles (Ctrl + V en PPT) sin descargas forzadas.
  */
 
 // Estado global
@@ -16,20 +16,19 @@ let currentWeekLabel = 'Semana 37';
 let chartInstanceS1 = null;
 let chartInstanceS3 = null;
 let isCapturing = false;
+let lastCapturedBlob = null;
+let lastCapturedDataUrl = null;
 
-// Almacén de datos activos
+// Base de datos activa
 let ACTIVE_DATABASE = {
   '655': null,
   '676': null
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 1. UTILIDADES Y PROTECCIÓN CONTRA ERRORES DE FORMATO
+// 1. UTILIDADES Y FORMATEADORES
 // ══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Función segura para aplicar toFixed sin riesgo de TypeError
- */
 function safeFixed(val, decimals = 1, suffix = '') {
   if (val === null || val === undefined || isNaN(Number(val))) {
     return '0.0' + suffix;
@@ -58,8 +57,8 @@ function formatNumber(val) {
 function formatCompact(val) {
   const n = parseNum(val);
   if (!n) return '0';
-  if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(0) + 'K';
   return Math.round(n).toString();
 }
 
@@ -74,10 +73,12 @@ function showToast(message, type = 'info', duration = 3500) {
   setTimeout(() => toast.classList.remove('show'), duration);
 }
 
-function showLoading(text) {
+function showLoading(text, subtext = '') {
   const overlay = document.getElementById('loadingOverlay');
   const txt = document.getElementById('loadingText');
+  const sub = document.getElementById('loadingSubtext');
   if (txt) txt.textContent = text || 'Procesando archivo Excel...';
+  if (sub) sub.textContent = subtext;
   if (overlay) overlay.style.display = 'flex';
 }
 
@@ -86,28 +87,8 @@ function hideLoading() {
   if (overlay) overlay.style.display = 'none';
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 2. BUSCADOR INTELIGENTE DE COLUMNAS (NORMALIZADOR FUZZY)
-// ══════════════════════════════════════════════════════════════════════════════
-
-/**
- * Busca un valor en un objeto de fila sin importar mayúsculas, minúsculas,
- * tildes o espacios extras en el encabezado de Excel (ej: "WHSE ", " Semana ").
- */
-function getRowField(row, candidateNames) {
-  if (!row || typeof row !== 'object') return '';
-  const rowKeys = Object.keys(row);
-
-  for (const cand of candidateNames) {
-    const cleanCand = cand.toLowerCase().replace(/[\s_\-\.\:\/%]/g, '').trim();
-    for (const key of rowKeys) {
-      const cleanKey = key.toLowerCase().replace(/[\s_\-\.\:\/%]/g, '').trim();
-      if (cleanKey === cleanCand) {
-        return row[key];
-      }
-    }
-  }
-  return '';
+function yieldToUi() {
+  return new Promise(resolve => setTimeout(resolve, 0));
 }
 
 function normalizeRange(str) {
@@ -118,6 +99,63 @@ function normalizeRange(str) {
   if (s.includes('25 a 52') || s.includes('25-52')) return '25 a 52 Semanas';
   if (s.includes('52') || s.includes('año') || s.includes('ano') || s.includes('> 52') || s.includes('mayor')) return 'mayor a 52 Semanas';
   return '0 a 10 Semanas';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 2. DETECTOR Y MAPA DE ÍNDICES DE COLUMNAS (ALTO RENDIMIENTO O(1))
+// ══════════════════════════════════════════════════════════════════════════════
+
+function buildColumnIndexMap(headers) {
+  const normHeaders = headers.map(h => String(h || '').toLowerCase().replace(/[\s_\-\.\:\/%]/g, '').trim());
+
+  function findIdx(candidates) {
+    // 1. Coincidencia exacta limpia
+    for (const cand of candidates) {
+      const cleanCand = cand.toLowerCase().replace(/[\s_\-\.\:\/%]/g, '').trim();
+      for (let i = 0; i < normHeaders.length; i++) {
+        if (normHeaders[i] === cleanCand) return i;
+      }
+    }
+    // 2. Coincidencia parcial si no hubo exacta
+    for (const cand of candidates) {
+      const cleanCand = cand.toLowerCase().replace(/[\s_\-\.\:\/%]/g, '').trim();
+      for (let i = 0; i < normHeaders.length; i++) {
+        if (normHeaders[i].includes(cleanCand)) return i;
+      }
+    }
+    return -1;
+  }
+
+  return {
+    whse: findIdx(['whse', 'almacenfisico', 'almacen', 'almacen_fisico']),
+    costos: findIdx(['costos', 'costo', 'costototal', 'costo_total']),
+    bultos: findIdx(['bultos', 'bulto', 'cajas', 'cantidad']),
+    lpn: findIdx(['lpn', 'nrolpn', 'lpns', 'cantidadlpn', 'cantlpn']),
+    sku: findIdx(['sku', 'codigo', 'codsku']),
+    desc: findIdx(['descripcion', 'desc', 'descripcionsku', 'producto']),
+    div: findIdx(['division', 'div', 'dpto', 'departamento']),
+    semanas: findIdx(['semanas', 'rangosemanas', 'antiguedadsemanas', 'antiguedad']),
+    zona: findIdx(['zona', 'tipozona', 'tipo_zona']),
+    ubic: findIdx(['ubicacion', 'posicion', 'slot']),
+    rngFv: findIdx(['rngfv', 'fechavencim', 'vencimiento', 'fechavencimiento']),
+    onHand: findIdx(['onhand', 'unidades', 'on_hand']),
+    dias: findIdx(['dias', 'diasantiguedad', 'antiguedaddias']),
+    pctBultos: findIdx(['%bultos', 'pctbultos', 'porcentajebultos', 'partbultos', '%partbultos']),
+    semana: findIdx(['semana', 'sem', 'week', 'nrosemana'])
+  };
+}
+
+function findHeaderRowInMatrix(matrix) {
+  const maxScan = Math.min(matrix.length, 12);
+  for (let r = 0; r < maxScan; r++) {
+    const row = matrix[r] || [];
+    const text = row.map(c => String(c || '').toUpperCase()).join(' ');
+    if ((text.includes('WHSE') || text.includes('ALMACEN')) &&
+        (text.includes('SKU') || text.includes('COSTO') || text.includes('LPN') || text.includes('BULT'))) {
+      return r;
+    }
+  }
+  return 0;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -164,30 +202,31 @@ function handleExcelUpload(event) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 4. MOTOR PRINCIPAL DE LECTURA DE EXCEL (SHEETJS)
+// 4. MOTOR PRINCIPAL DE LECTURA DE EXCEL (SHEETJS POR LOTES ASÍNCRONOS)
 // ══════════════════════════════════════════════════════════════════════════════
 
 function processExcelFile(file) {
-  showLoading(`Abriendo archivo: ${file.name}...`);
+  showLoading(`Abriendo ${file.name}...`, 'Leyendo archivo binario...');
 
   const reader = new FileReader();
 
-  reader.onload = function (e) {
+  reader.onload = async function (e) {
     try {
       const data = new Uint8Array(e.target.result);
-      showLoading('Inspeccionando hojas del libro de trabajo...');
+      showLoading('Inspeccionando hojas del libro...', 'Modo de alto rendimiento activo');
+      await yieldToUi();
 
+      // Lectura rápida de SheetJS sin strings pesados
       const workbook = XLSX.read(data, {
         type: 'array',
-        cellDates: true,
+        cellDates: false,
         cellNF: false,
-        cellText: true // Conservar texto formateado cell.w para lectura perfecta de %
+        cellText: false
       });
 
-      // 1. Detectar Hoja Principal BD
+      // 1. Detectar Hoja BD
       let wsBD = null;
       let sheetNameBD = '';
-
       for (const sName of workbook.SheetNames) {
         const clean = sName.trim().toUpperCase();
         if (clean === 'BD' || clean === 'TBBD' || clean.includes('BD') || clean.includes('BASE')) {
@@ -201,71 +240,78 @@ function processExcelFile(file) {
         wsBD = workbook.Sheets[sheetNameBD];
       }
 
-      showLoading(`Procesando hoja principal "${sheetNameBD}"...`);
+      showLoading(`Estructurando matriz de datos de "${sheetNameBD}"...`);
+      await yieldToUi();
 
-      // Detectar automáticamente la fila exacta donde empiezan los encabezados
-      const headerRowIndex = detectHeaderRowIndex(wsBD);
-      const rawRows = XLSX.utils.sheet_to_json(wsBD, {
-        range: headerRowIndex,
+      // Matriz 2D rápida: O(1) de memoria y sin miles de objetos
+      const rawMatrix = XLSX.utils.sheet_to_json(wsBD, {
+        header: 1,
         defval: ''
       });
 
-      if (!rawRows || rawRows.length === 0) {
-        throw new Error(`La hoja "${sheetNameBD}" no contiene registros de inventario.`);
+      if (!rawMatrix || rawMatrix.length === 0) {
+        throw new Error(`La hoja "${sheetNameBD}" no contiene registros.`);
       }
+
+      const headerRowIdx = findHeaderRowInMatrix(rawMatrix);
+      const headers = (rawMatrix[headerRowIdx] || []).map(h => String(h || '').trim());
+      const colMap = buildColumnIndexMap(headers);
 
       // 2. Detectar Hoja EVOLUTIVO
       let evolSecos = null;
       let evolFrescos = null;
-
       const sheetNameEvol = workbook.SheetNames.find(n => {
         const clean = n.trim().toUpperCase();
         return clean.includes('EVOL') || clean.includes('HIST');
       });
 
       if (sheetNameEvol && workbook.Sheets[sheetNameEvol]) {
-        showLoading('Extrayendo evolución de semanas desde la hoja EVOLUTIVO...');
+        showLoading('Extrayendo evolución de semanas desde hoja EVOLUTIVO...');
+        await yieldToUi();
         const wsEvol = workbook.Sheets[sheetNameEvol];
         const evolFound = parseEvolutivoSheetSmart(wsEvol);
         evolSecos = evolFound.secos;
         evolFrescos = evolFound.frescos;
       }
 
-      // 3. Detectar semana actual de los datos para la cabecera
-      const firstRow = rawRows[0] || {};
-      const semVal = getRowField(firstRow, ['semana', 'sem', 'week', 'nro_semana']);
+      // 3. Detectar semana actual de los datos
       let activeWeekNum = '37';
-      if (semVal) {
-        const cleanW = String(semVal).replace(/[^\d]/g, '').trim();
+      const firstDataRow = rawMatrix[headerRowIdx + 1] || [];
+      if (colMap.semana !== -1 && firstDataRow[colMap.semana] !== undefined) {
+        const cleanW = String(firstDataRow[colMap.semana]).replace(/[^\d]/g, '').trim();
         if (cleanW) activeWeekNum = cleanW;
-        currentWeekLabel = `Semana ${activeWeekNum}`;
       } else if (evolSecos && evolSecos.weeks && evolSecos.weeks.length > 0) {
         const lastW = evolSecos.weeks[evolSecos.weeks.length - 1].replace(/[^\d]/g, '').trim();
         if (lastW) activeWeekNum = lastW;
-        currentWeekLabel = `Semana ${activeWeekNum}`;
       }
+      currentWeekLabel = `Semana ${activeWeekNum}`;
       const activeWeekTag = 'S-' + activeWeekNum;
 
-      // 4. Compilar datos para CD Secos (655) y CD Frescos (676)
-      showLoading('Calculando indicadores de inventario para Secos (655) y Frescos (676)...');
-      ACTIVE_DATABASE['655'] = compileWarehouseData(rawRows, '655', 'CD Secos 655', evolSecos, activeWeekTag);
-      ACTIVE_DATABASE['676'] = compileWarehouseData(rawRows, '676', 'CD Frescos 676', evolFrescos, activeWeekTag);
+      // 4. Procesar filas por bloques asíncronos para evitar congelamientos
+      showLoading('Procesando inventario en lotes optimizados...', 'Calculando Secos (655) y Frescos (676)...');
+      await yieldToUi();
+
+      const dataRows = rawMatrix.slice(headerRowIdx + 1);
+      const compiledData = await compileDataOptimized(dataRows, colMap, evolSecos, evolFrescos, activeWeekTag);
+
+      ACTIVE_DATABASE['655'] = compiledData.secos;
+      ACTIVE_DATABASE['676'] = compiledData.frescos;
 
       // 5. Actualizar interfaz
       document.getElementById('dropzoneBox').style.display = 'none';
       document.getElementById('fileStatusBar').style.display = 'flex';
       document.getElementById('loadedFileName').textContent = `Archivo: ${file.name}`;
-      document.getElementById('loadedFileMeta').textContent = `${rawRows.length.toLocaleString('en-US')} filas procesadas de "${sheetNameBD}" | ${sheetNameEvol ? `Hoja "${sheetNameEvol}" conectada` : 'Cálculos directos de BD'}`;
+      document.getElementById('loadedFileMeta').textContent = `${dataRows.length.toLocaleString('en-US')} filas procesadas | CD Secos 655 y Frescos 676 actualizados`;
 
       updateHeaderWeekBadges();
       renderWarehouseData(currentWarehouse);
       hideLoading();
-      showToast(`¡Archivo ${file.name} procesado con éxito!`, 'success', 4500);
+      showToast(`¡${dataRows.length.toLocaleString('en-US')} filas procesadas con éxito!`, 'success', 4000);
 
     } catch (err) {
       console.error('Error al procesar Excel:', err);
       hideLoading();
-      alert(`Error al leer el archivo Excel: ${err.message}\nPor favor verifica que la hoja "BD" contenga la información de inventario.`);
+      alert(`Error al procesar el archivo Excel: ${err.message}`);
     }
   };
 
@@ -277,39 +323,10 @@ function processExcelFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
-/**
- * Escanea las primeras 12 filas de la hoja para encontrar la fila que contiene
- * los encabezados clave como "WHSE", "SKU", "COSTOS", "LPN" o "DESCRIPCION".
- */
-function detectHeaderRowIndex(ws) {
-  if (!ws || !ws['!ref']) return 0;
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  const maxScanRow = Math.min(range.e.r, 12);
-
-  for (let r = range.s.r; r <= maxScanRow; r++) {
-    let rowText = '';
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const cell = ws[XLSX.utils.encode_cell({ r, c })];
-      if (cell && cell.v !== undefined) {
-        rowText += ' ' + String(cell.v).toUpperCase();
-      }
-    }
-    if ((rowText.includes('WHSE') || rowText.includes('ALMACEN')) &&
-        (rowText.includes('SKU') || rowText.includes('COSTO') || rowText.includes('LPN') || rowText.includes('BULT'))) {
-      return r;
-    }
-  }
-  return 0;
-}
-
 // ══════════════════════════════════════════════════════════════════════════════
-// 5. EXTRACCIÓN INTELIGENTE DE LA HOJA EVOLUTIVO
+// 5. EXTRACCIÓN DE LA HOJA EVOLUTIVO
 // ══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Escanea la hoja "EVOLUTIVO" buscando las filas de rangos ("0 a 10 Semanas")
- * para Secos y para Frescos, sin depender de que estén rígidamente en la celda C5.
- */
 function parseEvolutivoSheetSmart(ws) {
   const result = { secos: null, frescos: null };
   if (!ws || !ws['!ref']) return result;
@@ -317,7 +334,6 @@ function parseEvolutivoSheetSmart(ws) {
   const range = XLSX.utils.decode_range(ws['!ref']);
   const matchingRows = [];
 
-  // Buscar filas que contengan "0 a 10"
   for (let r = range.s.r; r <= range.e.r; r++) {
     for (let c = range.s.c; c <= Math.min(range.e.c, 6); c++) {
       const cell = ws[XLSX.utils.encode_cell({ r, c })];
@@ -331,19 +347,15 @@ function parseEvolutivoSheetSmart(ws) {
     }
   }
 
-  // Primer bloque encontrado = Secos (655)
   if (matchingRows.length > 0) {
     result.secos = extractEvolutivoBlock(ws, matchingRows[0].rowDataStart, range);
   } else {
-    // Fallback a coordenadas tradicionales C5:BC9
     result.secos = extractEvolutivoBlock(ws, 5, range);
   }
 
-  // Segundo bloque encontrado = Frescos (676)
   if (matchingRows.length > 1) {
     result.frescos = extractEvolutivoBlock(ws, matchingRows[1].rowDataStart, range);
   } else {
-    // Fallback a coordenadas tradicionales C14:BC18
     result.frescos = extractEvolutivoBlock(ws, 14, range);
   }
 
@@ -354,7 +366,6 @@ function extractEvolutivoBlock(ws, dataStartRow, range) {
   const headerRow = Math.max(0, dataStartRow - 1);
   const validCols = [];
 
-  // Escaneo horizontal de columnas con encabezado y datos
   for (let c = 1; c <= range.e.c; c++) {
     const hCell = ws[XLSX.utils.encode_cell({ r: headerRow, c })];
     const dCell = ws[XLSX.utils.encode_cell({ r: dataStartRow, c })];
@@ -367,7 +378,6 @@ function extractEvolutivoBlock(ws, dataStartRow, range) {
 
   if (validCols.length === 0) return null;
 
-  // Tomar hasta las últimas 7 columnas disponibles
   const lastCols = validCols.slice(-7);
 
   const weeks = lastCols.map(c => {
@@ -393,7 +403,6 @@ function extractEvolutivoBlock(ws, dataStartRow, range) {
       if (!cell || cell.v === undefined) return 0;
       
       let val = 0;
-      // 1. Si viene con texto formateado en porcentaje (ej: "88.61%", "0.27%")
       if (cell.w && typeof cell.w === 'string' && cell.w.includes('%')) {
         val = parseFloat(cell.w.replace('%', '').replace(',', '.').trim()) || 0;
       } else {
@@ -401,7 +410,6 @@ function extractEvolutivoBlock(ws, dataStartRow, range) {
         if (isNaN(val)) {
           val = parseFloat(String(cell.v).replace('%', '').replace(',', '.').trim()) || 0;
         } else if (val <= 1.0 && val > 0) {
-          // Formato porcentual decimal de Excel (0.8861 -> 88.61)
           val = val * 100;
         }
       }
@@ -418,169 +426,189 @@ function extractEvolutivoBlock(ws, dataStartRow, range) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 6. COMPILACIÓN DE DATOS DESDE LAS FILAS DE "tbBD"
+// 6. MOTOR POR LOTES ASÍNCRONOS PARA EVITAR CONGELAMIENTOS
 // ══════════════════════════════════════════════════════════════════════════════
 
-function compileWarehouseData(rawRows, whseTarget, whseLabel, evolObj, activeWeekTag = 'S-37') {
-  // Filtrar filas por WHSE con tolerancia de espacios y tipos
-  const rows = rawRows.filter(r => {
-    const wVal = String(getRowField(r, ['whse', 'almacen_fisico', 'almacenfisico', 'almacen'])).trim();
-    if (wVal === String(whseTarget)) return true;
-    if (whseTarget === '655' && (wVal.toLowerCase().includes('seco') || wVal.includes('655'))) return true;
-    if (whseTarget === '676' && (wVal.toLowerCase().includes('fresco') || wVal.includes('676'))) return true;
-    return false;
-  });
+function initAccumulator(whseCode, whseLabel) {
+  return {
+    whseCode,
+    whseLabel,
+    totalCost: 0,
+    totalBultos: 0,
+    totalLpns: 0,
+    rangeAgg: {
+      '0 a 10 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#10b981', status: 'Saludable', bultosPctSum: 0, hasExplicitPct: false },
+      '10 a 25 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#f59e0b', status: 'En Alerta', bultosPctSum: 0, hasExplicitPct: false },
+      '25 a 52 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#f97316', status: 'Riesgo Medio', bultosPctSum: 0, hasExplicitPct: false },
+      'mayor a 52 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#ef4444', status: 'Crítico >1 año', bultosPctSum: 0, hasExplicitPct: false }
+    },
+    divisionAgg: {},
+    zoneAgg: {
+      rck: { totalCost: 0, lpns: 0, bultos: 0, r010: 0, r1025: 0, r2552: 0, r52: 0, skus52: {} },
+      rhb: { totalCost: 0, lpns: 0, bultos: 0, r010: 0, r1025: 0, r2552: 0, r52: 0, skus52: {} }
+    },
+    skusOver52: {},
+    locationsAgg: {}
+  };
+}
 
-  if (rows.length === 0) {
-    return createEmptyWarehouseData(whseTarget, whseLabel, evolObj, activeWeekTag);
+function accumulateRow(row, colMap, acc) {
+  const cost = colMap.costos !== -1 ? parseNum(row[colMap.costos]) : 0;
+  const bultos = colMap.bultos !== -1 ? parseNum(row[colMap.bultos]) : 0;
+  const onHand = colMap.onHand !== -1 ? parseNum(row[colMap.onHand]) : 0;
+  const dias = colMap.dias !== -1 ? parseNum(row[colMap.dias]) : 0;
+  const lpnVal = colMap.lpn !== -1 ? (parseNum(row[colMap.lpn]) || 1) : 1;
+
+  const sku = colMap.sku !== -1 ? String(row[colMap.sku] || '').trim() : '';
+  const desc = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
+  const div = colMap.div !== -1 ? (String(row[colMap.div] || 'OTROS').trim() || 'OTROS') : 'OTROS';
+  const rng = colMap.semanas !== -1 ? normalizeRange(row[colMap.semanas]) : '0 a 10 Semanas';
+  const zona = colMap.zona !== -1 ? String(row[colMap.zona] || '').toUpperCase().trim() : '';
+  const ubic = colMap.ubic !== -1 ? String(row[colMap.ubic] || '').trim() : '';
+  const rngFv = colMap.rngFv !== -1 ? (String(row[colMap.rngFv] || '-').trim() || '-') : '-';
+
+  // Soporte de % BULTOS explícito si viene en la tabla
+  let pctBultoRow = null;
+  if (colMap.pctBultos !== -1 && row[colMap.pctBultos] !== undefined && row[colMap.pctBultos] !== '') {
+    const rawP = row[colMap.pctBultos];
+    let p = Number(rawP);
+    if (isNaN(p)) {
+      p = parseFloat(String(rawP).replace('%', '').replace(',', '.').trim());
+    }
+    if (!isNaN(p) && p > 0) pctBultoRow = p;
   }
 
-  let totalCost = 0;
-  let totalBultos = 0;
-  let totalLpns = 0; // Suma directa de LPNs
+  acc.totalCost += cost;
+  acc.totalBultos += bultos;
+  acc.totalLpns += lpnVal;
 
-  const rangeAgg = {
-    '0 a 10 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#10b981', status: 'Saludable', bultosPctSum: 0, hasExplicitPct: false },
-    '10 a 25 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#f59e0b', status: 'En Alerta', bultosPctSum: 0, hasExplicitPct: false },
-    '25 a 52 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#f97316', status: 'Riesgo Medio', bultosPctSum: 0, hasExplicitPct: false },
-    'mayor a 52 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#ef4444', status: 'Crítico >1 año', bultosPctSum: 0, hasExplicitPct: false }
-  };
-
-  const divisionAgg = {};
-
-  const zoneAgg = {
-    rck: { totalCost: 0, lpns: 0, bultos: 0, r010: 0, r1025: 0, r2552: 0, r52: 0, skus52: {} },
-    rhb: { totalCost: 0, lpns: 0, bultos: 0, r010: 0, r1025: 0, r2552: 0, r52: 0, skus52: {} }
-  };
-
-  const skusOver52 = {};
-  const locationsAgg = {};
-
-  rows.forEach((r, rowIdx) => {
-    const cost = parseNum(getRowField(r, ['costos', 'costo', 'costo_total', 'costototal']));
-    const bultos = parseNum(getRowField(r, ['bultos', 'bulto', 'cajas', 'cantidad']));
-    const onHand = parseNum(getRowField(r, ['on_hand', 'onhand', 'unidades']));
-    const dias = parseNum(getRowField(r, ['dias', 'dias_antiguedad', 'antiguedad_dias']));
-
-    // En Excel cada fila tiene su cantidad de LPNs (generalmente 1 por pallet)
-    // El usuario requiere SUMA de LPNs, no un conteo
-    const rawLpn = getRowField(r, ['lpn', 'nro_lpn', 'lpns', 'cantidad_lpn', 'cant_lpn']);
-    const lpnVal = parseNum(rawLpn) || 1;
-
-    const sku = String(getRowField(r, ['sku', 'codigo', 'cod_sku'])).trim();
-    const desc = String(getRowField(r, ['descripcion', 'desc', 'descripcion_sku', 'producto'])).trim();
-    const div = String(getRowField(r, ['division', 'div', 'dpto', 'departamento']) || 'OTROS').trim();
-    const rng = normalizeRange(getRowField(r, ['semanas', 'rango_semanas', 'antiguedad_semanas', 'antiguedad']));
-    const zona = String(getRowField(r, ['zona', 'tipo_zona', 'tipozona'])).toUpperCase().trim();
-    const ubic = String(getRowField(r, ['ubicacion', 'posicion', 'slot'])).trim();
-    const rngFv = String(getRowField(r, ['rng-fv', 'rng_fv', 'rngfv', 'fecha_vencim', 'vencimiento']) || '-').trim();
-
-    // Soporte para campo explícito "% BULTOS" si viene precalculado en la tabla de Excel
-    const rawPctBulto = getRowField(r, ['% bultos', '%_bultos', '%bultos', 'porcentaje_bultos', 'pct_bultos', 'part_bultos', '% part bultos', '% part']);
-    let pctBultoRow = null;
-    if (rawPctBulto !== '' && rawPctBulto !== null && rawPctBulto !== undefined) {
-      let p = Number(rawPctBulto);
-      if (isNaN(p)) {
-        p = parseFloat(String(rawPctBulto).replace('%', '').replace(',', '.').trim());
-      }
-      if (!isNaN(p) && p > 0) {
-        pctBultoRow = p;
-      }
+  // 1. Rangos
+  if (acc.rangeAgg[rng]) {
+    acc.rangeAgg[rng].cost += cost;
+    acc.rangeAgg[rng].bultos += bultos;
+    acc.rangeAgg[rng].lpns += lpnVal;
+    if (pctBultoRow !== null) {
+      acc.rangeAgg[rng].hasExplicitPct = true;
+      acc.rangeAgg[rng].bultosPctSum += pctBultoRow;
     }
+  }
 
-    totalCost += cost;
-    totalBultos += bultos;
-    totalLpns += lpnVal;
+  // 2. Divisiones
+  if (!acc.divisionAgg[div]) {
+    acc.divisionAgg[div] = { code: div, r010: 0, r1025: 0, r2552: 0, r52: 0, total: 0 };
+  }
+  acc.divisionAgg[div].total += cost;
+  if (rng === '0 a 10 Semanas') acc.divisionAgg[div].r010 += cost;
+  else if (rng === '10 a 25 Semanas') acc.divisionAgg[div].r1025 += cost;
+  else if (rng === '25 a 52 Semanas') acc.divisionAgg[div].r2552 += cost;
+  else if (rng === 'mayor a 52 Semanas') acc.divisionAgg[div].r52 += cost;
 
-    // 1. Acumular Rangos
-    if (rangeAgg[rng]) {
-      rangeAgg[rng].cost += cost;
-      rangeAgg[rng].bultos += bultos;
-      rangeAgg[rng].lpns += lpnVal;
-      if (pctBultoRow !== null) {
-        rangeAgg[rng].hasExplicitPct = true;
-        rangeAgg[rng].bultosPctSum += pctBultoRow;
-      }
-    }
+  // 3. Zonas
+  const isRck = zona.includes('RCK') || zona.includes('RACK');
+  const isRhb = zona.includes('RHB') || zona.includes('HIGHBAY') || (!isRck && zona.length > 0);
+  const targetZ = isRck ? acc.zoneAgg.rck : (isRhb ? acc.zoneAgg.rhb : null);
 
-    // 2. Acumular Divisiones
-    if (!divisionAgg[div]) {
-      divisionAgg[div] = { code: div, r010: 0, r1025: 0, r2552: 0, r52: 0, total: 0 };
-    }
-    divisionAgg[div].total += cost;
-    if (rng === '0 a 10 Semanas') divisionAgg[div].r010 += cost;
-    else if (rng === '10 a 25 Semanas') divisionAgg[div].r1025 += cost;
-    else if (rng === '25 a 52 Semanas') divisionAgg[div].r2552 += cost;
-    else if (rng === 'mayor a 52 Semanas') divisionAgg[div].r52 += cost;
-
-    // 3. Acumular Zonas
-    const isRck = zona.includes('RCK') || zona.includes('RACK');
-    const isRhb = zona.includes('RHB') || zona.includes('HIGHBAY') || (!isRck && zona.length > 0);
-    const targetZ = isRck ? zoneAgg.rck : (isRhb ? zoneAgg.rhb : null);
-
-    if (targetZ) {
-      targetZ.totalCost += cost;
-      targetZ.bultos += bultos;
-      targetZ.lpns += lpnVal;
-      if (rng === '0 a 10 Semanas') targetZ.r010 += cost;
-      else if (rng === '10 a 25 Semanas') targetZ.r1025 += cost;
-      else if (rng === '25 a 52 Semanas') targetZ.r2552 += cost;
-      else if (rng === 'mayor a 52 Semanas') {
-        targetZ.r52 += cost;
-        if (sku) {
-          if (!targetZ.skus52[sku]) {
-            targetZ.skus52[sku] = { sku, desc, fv: rngFv, lpns: 0, cost: 0, bultos: 0 };
-          }
-          targetZ.skus52[sku].cost += cost;
-          targetZ.skus52[sku].bultos += bultos;
-          targetZ.skus52[sku].lpns += lpnVal;
+  if (targetZ) {
+    targetZ.totalCost += cost;
+    targetZ.bultos += bultos;
+    targetZ.lpns += lpnVal;
+    if (rng === '0 a 10 Semanas') targetZ.r010 += cost;
+    else if (rng === '10 a 25 Semanas') targetZ.r1025 += cost;
+    else if (rng === '25 a 52 Semanas') targetZ.r2552 += cost;
+    else if (rng === 'mayor a 52 Semanas') {
+      targetZ.r52 += cost;
+      if (sku) {
+        if (!targetZ.skus52[sku]) {
+          targetZ.skus52[sku] = { sku, desc, fv: rngFv, lpns: 0, cost: 0, bultos: 0 };
         }
+        targetZ.skus52[sku].cost += cost;
+        targetZ.skus52[sku].bultos += bultos;
+        targetZ.skus52[sku].lpns += lpnVal;
       }
     }
+  }
 
-    // 4. Top SKUs >52 Semanas
-    if (rng === 'mayor a 52 Semanas' && sku) {
-      if (!skusOver52[sku]) {
-        skusOver52[sku] = { sku, desc, div, rngFv, lpns: 0, cost: 0, bultos: 0, onHand: 0, diasTotal: 0, diasCount: 0 };
-      }
-      skusOver52[sku].cost += cost;
-      skusOver52[sku].bultos += bultos;
-      skusOver52[sku].onHand += onHand;
-      skusOver52[sku].lpns += lpnVal;
-      skusOver52[sku].diasTotal += dias;
-      skusOver52[sku].diasCount++;
+  // 4. Top SKUs >52 Semanas
+  if (rng === 'mayor a 52 Semanas' && sku) {
+    if (!acc.skusOver52[sku]) {
+      acc.skusOver52[sku] = { sku, desc, div, rngFv, lpns: 0, cost: 0, bultos: 0, onHand: 0, diasTotal: 0, diasCount: 0 };
+    }
+    acc.skusOver52[sku].cost += cost;
+    acc.skusOver52[sku].bultos += bultos;
+    acc.skusOver52[sku].onHand += onHand;
+    acc.skusOver52[sku].lpns += lpnVal;
+    acc.skusOver52[sku].diasTotal += dias;
+    acc.skusOver52[sku].diasCount++;
+  }
+
+  // 5. Ubicaciones
+  if (ubic) {
+    if (!acc.locationsAgg[div]) {
+      acc.locationsAgg[div] = { div, r010Ubic: new Set(), r1025Ubic: new Set(), r2552Ubic: new Set(), r52Ubic: new Set(), totalUbic: new Set() };
+    }
+    acc.locationsAgg[div].totalUbic.add(ubic);
+    if (rng === '0 a 10 Semanas') acc.locationsAgg[div].r010Ubic.add(ubic);
+    else if (rng === '10 a 25 Semanas') acc.locationsAgg[div].r1025Ubic.add(ubic);
+    else if (rng === '25 a 52 Semanas') acc.locationsAgg[div].r2552Ubic.add(ubic);
+    else if (rng === 'mayor a 52 Semanas') acc.locationsAgg[div].r52Ubic.add(ubic);
+  }
+}
+
+async function compileDataOptimized(dataRows, colMap, evolSecos, evolFrescos, activeWeekTag) {
+  const CHUNK_SIZE = 8000;
+  const totalRows = dataRows.length;
+
+  const acc655 = initAccumulator('655', 'CD Secos 655');
+  const acc676 = initAccumulator('676', 'CD Frescos 676');
+
+  for (let i = 0; i < totalRows; i += CHUNK_SIZE) {
+    const end = Math.min(i + CHUNK_SIZE, totalRows);
+
+    for (let r = i; r < end; r++) {
+      const row = dataRows[r];
+      if (!row || row.length === 0) continue;
+
+      const rawWhse = colMap.whse !== -1 ? String(row[colMap.whse] || '').trim() : '';
+      let targetAcc = null;
+      if (rawWhse === '655' || rawWhse.toLowerCase().includes('seco')) targetAcc = acc655;
+      else if (rawWhse === '676' || rawWhse.toLowerCase().includes('fresco')) targetAcc = acc676;
+      else continue;
+
+      accumulateRow(row, colMap, targetAcc);
     }
 
-    // 5. Ubicaciones
-    if (ubic) {
-      if (!locationsAgg[div]) {
-        locationsAgg[div] = { div, r010Ubic: new Set(), r1025Ubic: new Set(), r2552Ubic: new Set(), r52Ubic: new Set(), totalUbic: new Set() };
-      }
-      locationsAgg[div].totalUbic.add(ubic);
-      if (rng === '0 a 10 Semanas') locationsAgg[div].r010Ubic.add(ubic);
-      else if (rng === '10 a 25 Semanas') locationsAgg[div].r1025Ubic.add(ubic);
-      else if (rng === '25 a 52 Semanas') locationsAgg[div].r2552Ubic.add(ubic);
-      else if (rng === 'mayor a 52 Semanas') locationsAgg[div].r52Ubic.add(ubic);
-    }
-  });
+    const pct = Math.round((end / totalRows) * 100);
+    showLoading(`Procesando filas por lotes optimizados...`, `Fila ${end.toLocaleString()} de ${totalRows.toLocaleString()} (${pct}%)`);
+    await yieldToUi();
+  }
 
-  // Normalizar el % BULTOS calculado de la base actual
+  const secos = finalizeWarehouseData(acc655, evolSecos, activeWeekTag);
+  const frescos = finalizeWarehouseData(acc676, evolFrescos, activeWeekTag);
+
+  return { secos, frescos };
+}
+
+function finalizeWarehouseData(acc, evolObj, activeWeekTag) {
+  const { whseCode, whseLabel, totalCost, totalBultos, totalLpns, rangeAgg, divisionAgg, zoneAgg, skusOver52, locationsAgg } = acc;
+
+  if (totalCost === 0 && totalBultos === 0) {
+    return createEmptyWarehouseData(whseCode, whseLabel, evolObj, activeWeekTag);
+  }
+
   const anyExplicitPct = Object.values(rangeAgg).some(item => item.hasExplicitPct);
   let totalExplicitSum = 0;
   if (anyExplicitPct) {
     Object.values(rangeAgg).forEach(item => totalExplicitSum += item.bultosPctSum);
   }
 
-  // Estructuración de Rangos con % BULTOS calculado
+  // Estructuración de Rangos con % BULTOS
   const ranges = Object.keys(rangeAgg).map(k => {
     const itm = rangeAgg[k];
     let computedBultosPct = 0;
 
     if (anyExplicitPct && totalExplicitSum > 0) {
-      // Si el total de la suma es <= 1.5 significa que venía como decimal (ej. 0.88), multiplicar x 100
       computedBultosPct = totalExplicitSum <= 1.5 ? itm.bultosPctSum * 100 : itm.bultosPctSum;
     } else {
-      // Fórmula estándar y canónica: Suma de bultos del rango / Total bultos * 100
       computedBultosPct = totalBultos > 0 ? (itm.bultos / totalBultos) * 100 : 0;
     }
 
@@ -597,7 +625,7 @@ function compileWarehouseData(rawRows, whseTarget, whseLabel, evolObj, activeWee
     };
   });
 
-  // Estructuración de Divisiones
+  // Divisiones
   const divisions = Object.values(divisionAgg)
     .sort((a, b) => b.total - a.total)
     .map(d => ({
@@ -677,9 +705,7 @@ function compileWarehouseData(rawRows, whseTarget, whseLabel, evolObj, activeWee
       pct: locationsTotal > 0 ? parseFloat(((l.totalUbic.size / locationsTotal) * 100).toFixed(1)) : 0
     }));
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // CONSTRUCCIÓN DEL EVOLUTIVO DE 7 SEMANAS SINCRONIZADO CON LA SEMANA ACTIVA
-  // ════════════════════════════════════════════════════════════════════════════
+  // Sincronización de 7 Semanas del Evolutivo
   const currentWeekBultosPcts = {
     '0 a 10 Semanas': ranges[0].bultosPct,
     '10 a 25 Semanas': ranges[1].bultosPct,
@@ -689,7 +715,6 @@ function compileWarehouseData(rawRows, whseTarget, whseLabel, evolObj, activeWee
 
   let finalWeeks = [];
   let finalEvolution = [];
-
   const defaultRangeColors = {
     '0 a 10 Semanas': '#10b981',
     '10 a 25 Semanas': '#f59e0b',
@@ -702,7 +727,6 @@ function compileWarehouseData(rawRows, whseTarget, whseLabel, evolObj, activeWee
     const lastWeekInSheet = evolWeeks[evolWeeks.length - 1];
 
     if (lastWeekInSheet === activeWeekTag) {
-      // La hoja EVOLUTIVO ya contiene la columna de la semana actual
       finalWeeks = evolWeeks.slice(-7);
       finalEvolution = evolObj.evolution.map(e => {
         const vals = [...(e.values || [])].slice(-7);
@@ -717,8 +741,6 @@ function compileWarehouseData(rawRows, whseTarget, whseLabel, evolObj, activeWee
         };
       });
     } else {
-      // La hoja EVOLUTIVO tiene datos históricos hasta una semana previa (ej. S-36)
-      // Tomamos las últimas 6 semanas del histórico y le agregamos la semana actual (ej. S-37) como 7ma columna
       const hist6Weeks = evolWeeks.slice(-6);
       finalWeeks = [...hist6Weeks, activeWeekTag];
 
@@ -734,7 +756,6 @@ function compileWarehouseData(rawRows, whseTarget, whseLabel, evolObj, activeWee
       });
     }
   } else {
-    // Si no hay hoja EVOLUTIVO disponible, generar las 7 semanas con histórico estándar y semana activa al final
     finalWeeks = ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', activeWeekTag];
     finalEvolution = [
       { label: '0 a 10 Semanas', values: [89.14, 87.07, 85.83, 86.07, 87.09, 87.96, currentWeekBultosPcts['0 a 10 Semanas']], color: '#10b981' },
@@ -746,10 +767,10 @@ function compileWarehouseData(rawRows, whseTarget, whseLabel, evolObj, activeWee
 
   return {
     name: whseLabel,
-    whseCode: whseTarget,
-    badgeText: whseTarget === '655' ? 'CD SECOS 655' : 'CD FRESCOS 676',
+    whseCode,
+    badgeText: whseCode === '655' ? 'CD SECOS 655' : 'CD FRESCOS 676',
     totalCost: Math.round(totalCost),
-    totalLpns: totalLpns,
+    totalLpns,
     totalBultos: Math.round(totalBultos),
     ranges,
     divisions,
@@ -798,91 +819,95 @@ function createEmptyWarehouseData(whseTarget, whseLabel, evolObj, activeWeekTag 
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 7. DATOS DEMOSTRATIVOS (FALLBACK / PREVISUALIZACIÓN)
+// 7. DATOS DEMOSTRATIVOS (SEMANA 37)
 // ══════════════════════════════════════════════════════════════════════════════
 
 function loadSampleData() {
   showLoading('Cargando datos demostrativos de la Semana 37...');
   currentWeekLabel = 'Semana 37';
 
-  // CD Secos 655 con Semana 37 y suma de LPNs
+  // CD Secos 655
   ACTIVE_DATABASE['655'] = {
     name: 'CD Huachipa - Secos',
     whseCode: '655',
     badgeText: 'CD SECOS 655',
-    totalCost: 11985420,
-    totalLpns: 20193,
-    totalBultos: 845210,
+    totalCost: 112812540,
+    totalLpns: 33265,
+    totalBultos: 1345343,
     ranges: [
-      { label: '0 a 10 Semanas', cost: 10523200, costPct: 87.80, lpns: 17730, lpnsPct: 87.8, bultos: 742180, bultosPct: 87.81, color: '#10b981', status: 'Saludable' },
-      { label: '10 a 25 Semanas', cost: 1209320, costPct: 10.09, lpns: 2035, lpnsPct: 10.1, bultos: 86296, bultosPct: 10.21, color: '#f59e0b', status: 'En Alerta' },
-      { label: '25 a 52 Semanas', cost: 198900, costPct: 1.66, lpns: 335, lpnsPct: 1.7, bultos: 14284, bultosPct: 1.69, color: '#f97316', status: 'Riesgo Medio' },
-      { label: 'mayor a 52 Semanas', cost: 54000, costPct: 0.45, lpns: 93, lpnsPct: 0.5, bultos: 2450, bultosPct: 0.29, color: '#ef4444', status: 'Crítico >1 año' }
+      { label: '0 a 10 Semanas', cost: 97924406, costPct: 86.80, lpns: 27817, lpnsPct: 83.62, bultos: 1183316, bultosPct: 87.96, color: '#10b981', status: 'Saludable' },
+      { label: '10 a 25 Semanas', cost: 12502561, costPct: 11.08, lpns: 4471, lpnsPct: 13.44, bultos: 136958, bultosPct: 10.18, color: '#f59e0b', status: 'En Alerta' },
+      { label: '25 a 52 Semanas', cost: 2096734, costPct: 1.86, lpns: 899, lpnsPct: 2.70, bultos: 21460, bultosPct: 1.60, color: '#f97316', status: 'Riesgo Medio' },
+      { label: 'mayor a 52 Semanas', cost: 288839, costPct: 0.26, lpns: 78, lpnsPct: 0.23, bultos: 3609, bultosPct: 0.27, color: '#ef4444', status: 'Crítico >1 año' }
     ],
     divisions: [
-      { code: 'J01-PGC COMESTIBLE', r010: 4850000, r1025: 420000, r2552: 65000, r52: 12000, total: 5347000, pct: 44.6 },
-      { code: 'J02-PGC NO COMESTIBLE', r010: 2100000, r1025: 280000, r2552: 38000, r52: 4500, total: 2422500, pct: 20.2 },
-      { code: 'J09-HOGAR', r010: 1540000, r1025: 260000, r2552: 45000, r52: 18500, total: 1863500, pct: 15.5 },
-      { code: 'J08-VESTUARIO', r010: 980000, r1025: 110000, r2552: 22000, r52: 8000, total: 1120000, pct: 9.3 },
-      { code: 'J10-BAZAR', r010: 620000, r1025: 85000, r2552: 18000, r52: 6200, total: 729200, pct: 6.1 },
-      { code: 'J11-ELECTROHOGAR', r010: 433200, r1025: 54320, r2552: 10900, r52: 4800, total: 503220, pct: 4.2 }
+      { code: 'J01-PGC COMESTIBLE', r010: 44893121, r1025: 2409955, r2552: 414515, r52: 167255, total: 47884847, pct: 42.4 },
+      { code: 'J08-VESTUARIO', r010: 12452170, r1025: 3546454, r2552: 220136, r52: 0, total: 16218760, pct: 14.4 },
+      { code: 'J09-HOGAR', r010: 11679599, r1025: 2343584, r2552: 576331, r52: 81400, total: 14680914, pct: 13.0 },
+      { code: 'J02-PGC NO COMESTIBLE', r010: 11873814, r1025: 2012474, r2552: 236322, r52: 7779, total: 14130389, pct: 12.5 },
+      { code: 'J11-ELECTROHOGAR', r010: 11857252, r1025: 911068, r2552: 126627, r52: 0, total: 12894946, pct: 11.4 },
+      { code: 'J10-BAZAR', r010: 2213932, r1025: 1180948, r2552: 486869, r52: 7664, total: 3889414, pct: 3.4 },
+      { code: 'J06-PANADERIA Y PASTELERIA', r010: 1074602, r1025: 90837, r2552: 21380, r52: 1405, total: 1188224, pct: 1.1 },
+      { code: 'J12-INSTITUCIONALES', r010: 887262, r1025: 0, r2552: 4370, r52: 872, total: 892505, pct: 0.8 },
+      { code: 'J05-FLC', r010: 879846, r1025: 2994, r2552: 0, r52: 0, total: 882840, pct: 0.8 },
+      { code: 'J07-PLATOS PREPARADOS', r010: 112807, r1025: 4247, r2552: 10184, r52: 22463, total: 149701, pct: 0.1 }
     ],
     top10Skus: [
-      { sku: '428054', desc: 'CONSERVA DE DURAZNO EN MITADES TOTTUS 820 G', div: 'J01-PGC COMESTIBLE', rngFv: '15/10/2026', lpns: 20, cost: 38406, bultos: 480, onHand: 5760, days: 545, badge: 'CRÍTICO #1' },
-      { sku: '43111173', desc: 'EDREDON SHERPA DOBLE FAZ 2 PLAZAS', div: 'J09-HOGAR', rngFv: '-', lpns: 14, cost: 28940, bultos: 112, onHand: 224, days: 520, badge: 'CRÍTICO #2' },
-      { sku: '43438965', desc: 'SARTEN ANTIADHERENTE 24CM GRANITO', div: 'J09-HOGAR', rngFv: '-', lpns: 11, cost: 21450, bultos: 180, onHand: 720, days: 490, badge: 'PRIORIDAD' },
-      { sku: '41761405', desc: 'AVENA GRANO DE ORO X 370 G', div: 'J12-INSTITUCIONALES', rngFv: '31/08/2027', lpns: 8, cost: 16800, bultos: 320, onHand: 6400, days: 480, badge: 'PRIORIDAD' },
-      { sku: '42842306', desc: 'ACEITE VEGETAL TOTTUS X 900ML', div: 'J01-PGC COMESTIBLE', rngFv: '12/08/2027', lpns: 7, cost: 14200, bultos: 220, onHand: 2640, days: 460, badge: 'PRIORIDAD' },
-      { sku: '43640214', desc: 'SET DE CAMA QUILT 2 DENIM', div: 'J09-HOGAR', rngFv: '-', lpns: 7, cost: 12995, bultos: 80, onHand: 320, days: 450, badge: 'SALDO' },
-      { sku: '43632796', desc: 'BOLSA REUTILIZABLE NAVIDAD 4', div: 'J09-HOGAR', rngFv: '-', lpns: 6, cost: 9850, bultos: 120, onHand: 7200, days: 430, badge: 'SALDO' },
-      { sku: '42828876', desc: 'MEZCLA LACTEA IDEAL CREMOSITA LATA 390G X 8UND', div: 'J01-PGC COMESTIBLE', rngFv: '17/04/2027', lpns: 5, cost: 8460, bultos: 95, onHand: 760, days: 410, badge: 'SALDO' },
-      { sku: '10225059', desc: 'AGUA CIELO S/G B OT X 2.5 L', div: 'J01-PGC COMESTIBLE', rngFv: '27/03/2027', lpns: 5, cost: 6800, bultos: 140, onHand: 840, days: 395, badge: 'SALDO' },
-      { sku: '41982341', desc: 'DETERGENTE EN POLVO TOTTUS FLORAL 4.5KG', div: 'J02-PGC NO COMESTIBLE', rngFv: '-', lpns: 4, cost: 5200, bultos: 60, onHand: 240, days: 380, badge: 'SALDO' }
+      { sku: '43314915', desc: 'SET X 2 ESPECIERO TAPA CORCHO 90ML', div: 'J09-HOGAR', rngFv: '-', lpns: 5, cost: 10227, bultos: 138, onHand: 3312, days: 492, badge: 'SALDO' },
+      { sku: '43491111', desc: 'COMBO MUG APILABLE VERANO CJ', div: 'J09-HOGAR', rngFv: '-', lpns: 3, cost: 10663, bultos: 85, onHand: 85, days: 569, badge: 'SALDO' },
+      { sku: '41843146', desc: 'KETCHUP AMERICANO TOTTUS X 425GR', div: 'J01-PGC COMESTIBLE', rngFv: '19/05/2027', lpns: 3, cost: 12653, bultos: 198, onHand: 3168, days: 473, badge: 'SALDO' },
+      { sku: '43488563', desc: 'COMBO GUANTE CON SILIC Y TELA 2025', div: 'J09-HOGAR', rngFv: '-', lpns: 5, cost: 17027, bultos: 117, onHand: 117, days: 512, badge: 'PRIORIDAD' },
+      { sku: '42464523', desc: 'PULPA FINAL DE TOMATE TOTTUS X 400 G', div: 'J01-PGC COMESTIBLE', rngFv: '30/09/2027', lpns: 6, cost: 26206, bultos: 785, onHand: 9420, days: 368, badge: 'PRIORIDAD' },
+      { sku: '43111173', desc: 'DURAZNO EN MITADES PRECIO UNO 415G', div: 'J01-PGC COMESTIBLE', rngFv: '20/07/2027', lpns: 20, cost: 61831, bultos: 1110, onHand: 26640, days: 682, badge: 'CRÍTICO #1' },
+      { sku: '43491112', desc: 'COMBO MUG APILABLE VERANO PU', div: 'J09-HOGAR', rngFv: '-', lpns: 7, cost: 26720, bultos: 213, onHand: 213, days: 569, badge: 'PRIORIDAD' },
+      { sku: '43439251', desc: 'LAMINA DE AJI S IMPRES 280MM PET PE 60U', div: 'J07-PLATOS PREPARADOS', rngFv: '05/08/2026', lpns: 1, cost: 11671, bultos: 55, onHand: 55, days: 395, badge: 'SALDO' },
+      { sku: '43438965', desc: 'VINO TINTO ALBACORA X750ML', div: 'J01-PGC COMESTIBLE', rngFv: '10/10/2028', lpns: 4, cost: 54671, bultos: 323, onHand: 1938, days: 550, badge: 'CRÍTICO #2' },
+      { sku: '43439250', desc: 'LAMINA DE AJI S IMPRES 170MM PET PE 60U', div: 'J07-PLATOS PREPARADOS', rngFv: '05/08/2026', lpns: 1, cost: 10792, bultos: 73, onHand: 73, days: 395, badge: 'SALDO' }
     ],
     zones: {
       rck: {
-        totalCost: 4850000,
-        lpns: 7850,
-        bultos: 320400,
-        pct: 40.5,
-        r010: 4150000,
-        r1025: 550000,
-        r2552: 115000,
-        r52: 35000,
-        lpns52: 52,
+        totalCost: 34441661,
+        lpns: 7219,
+        bultos: 360574,
+        pct: 30.5,
+        r010: 29270343,
+        r1025: 4468255,
+        r2552: 522709,
+        r52: 180353,
+        lpns52: 40,
         topSkus: [
-          { sku: '428054', desc: 'CONSERVA DE DURAZNO EN MITADES TOTTUS 820 G', fv: '15/10/2026', lpns: 20, cost: 38406, bultos: 480 },
-          { sku: '41761405', desc: 'AVENA GRANO DE ORO X 370 G', fv: '31/08/2027', lpns: 8, cost: 16800, bultos: 320 },
-          { sku: '43640214', desc: 'SET DE CAMA QUILT 2 DENIM', fv: '-', lpns: 7, cost: 12995, bultos: 80 },
-          { sku: '42828876', desc: 'MEZCLA LACTEA IDEAL CREMOSITA LATA 390G', fv: '17/04/2027', lpns: 5, cost: 8460, bultos: 95 },
-          { sku: '10225059', desc: 'AGUA CIELO S/G B OT X 2.5 L', fv: '27/03/2027', lpns: 5, cost: 6800, bultos: 140 }
+          { sku: '43111173', desc: 'DURAZNO EN MITADES PRECIO UNO 415G', fv: '20/07/2027', lpns: 20, cost: 61831, bultos: 1110 },
+          { sku: '43438965', desc: 'VINO TINTO ALBACORA X750ML', fv: '10/10/2028', lpns: 4, cost: 54671, bultos: 323 },
+          { sku: '42464523', desc: 'PULPA FINAL DE TOMATE TOTTUS X 400 G', fv: '30/09/2027', lpns: 6, cost: 26206, bultos: 785 },
+          { sku: '43439251', desc: 'LAMINA DE AJI S IMPRES 280MM PET PE 60U', fv: '05/08/2026', lpns: 1, cost: 11671, bultos: 55 },
+          { sku: '43439250', desc: 'LAMINA DE AJI S IMPRES 170MM PET PE 60U', fv: '05/08/2026', lpns: 1, cost: 10792, bultos: 73 }
         ]
       },
       rhb: {
-        totalCost: 7135420,
-        lpns: 12343,
-        bultos: 524810,
-        pct: 59.5,
-        r010: 6373200,
-        r1025: 659320,
-        r2552: 83900,
-        r52: 19000,
-        lpns52: 41,
+        totalCost: 78367955,
+        lpns: 26043,
+        bultos: 984765,
+        pct: 69.5,
+        r010: 68654062,
+        r1025: 8034306,
+        r2552: 1571100,
+        r52: 108486,
+        lpns52: 38,
         topSkus: [
-          { sku: '43111173', desc: 'EDREDON SHERPA DOBLE FAZ 2 PLAZAS', fv: '-', lpns: 14, cost: 28940, bultos: 112 },
-          { sku: '43438965', desc: 'SARTEN ANTIADHERENTE 24CM GRANITO', fv: '-', lpns: 11, cost: 21450, bultos: 180 },
-          { sku: '42842306', desc: 'ACEITE VEGETAL TOTTUS X 900ML', fv: '12/08/2027', lpns: 7, cost: 14200, bultos: 220 },
-          { sku: '43632796', desc: 'BOLSA REUTILIZABLE NAVIDAD 4', fv: '-', lpns: 6, cost: 9850, bultos: 120 },
-          { sku: '41982341', desc: 'DETERGENTE EN POLVO TOTTUS FLORAL 4.5KG', fv: '-', lpns: 4, cost: 5200, bultos: 60 }
+          { sku: '43491112', desc: 'COMBO MUG APILABLE VERANO PU', fv: '-', lpns: 7, cost: 26720, bultos: 213 },
+          { sku: '43488563', desc: 'COMBO GUANTE CON SILIC Y TELA 2025', fv: '-', lpns: 5, cost: 17027, bultos: 117 },
+          { sku: '41843146', desc: 'KETCHUP AMERICANO TOTTUS X 425GR', fv: '19/05/2027', lpns: 3, cost: 12653, bultos: 198 },
+          { sku: '43491111', desc: 'COMBO MUG APILABLE VERANO CJ', fv: '-', lpns: 3, cost: 10663, bultos: 85 },
+          { sku: '43314915', desc: 'SET X 2 ESPECIERO TAPA CORCHO 90ML', fv: '-', lpns: 5, cost: 10227, bultos: 138 }
         ]
       }
     },
     weeks: ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', 'S-37'],
     evolution: [
-      { label: '0 a 10 Semanas', values: [89.14, 87.07, 85.83, 86.07, 87.09, 87.96, 87.81], color: '#10b981' },
-      { label: '10 a 25 Semanas', values: [8.73, 10.68, 11.83, 11.71, 10.74, 10.18, 10.21], color: '#f59e0b' },
-      { label: '25 a 52 Semanas', values: [1.83, 1.95, 2.03, 1.94, 1.91, 1.60, 1.69], color: '#f97316' },
-      { label: 'Mayor a 52 Semanas', values: [0.30, 0.31, 0.31, 0.28, 0.26, 0.27, 0.29], color: '#ef4444' }
+      { label: '0 a 10 Semanas', values: [89.14, 87.07, 85.83, 86.07, 87.09, 87.96, 87.96], color: '#10b981' },
+      { label: '10 a 25 Semanas', values: [8.73, 10.68, 11.83, 11.71, 10.74, 10.18, 10.18], color: '#f59e0b' },
+      { label: '25 a 52 Semanas', values: [1.83, 1.95, 2.03, 1.94, 1.91, 1.60, 1.60], color: '#f97316' },
+      { label: 'Mayor a 52 Semanas', values: [0.30, 0.31, 0.31, 0.28, 0.26, 0.27, 0.27], color: '#ef4444' }
     ],
     locationsTotal: 22872,
     locations: [
@@ -918,9 +943,7 @@ function loadSampleData() {
     ],
     top10Skus: [
       { sku: '310452', desc: 'HELADO D\'ONOFRIO TRICOLOR 1L', div: 'J06-CONGELADOS', rngFv: '12/04/2026', lpns: 6, cost: 18450, bultos: 240, onHand: 1440, days: 420, badge: 'CRÍTICO #1' },
-      { sku: '289410', desc: 'HAMBURGUESA SAN FERNANDO X 12 UND', div: 'J03-CARNES', rngFv: '20/05/2026', lpns: 4, cost: 11200, bultos: 150, onHand: 1800, days: 395, badge: 'CRÍTICO #2' },
-      { sku: '198421', desc: 'QUESO EDAM LAIVE EN BARRA 3KG', div: 'J05-LACTEOS', rngFv: '15/06/2026', lpns: 3, cost: 5800, bultos: 60, onHand: 180, days: 380, badge: 'PRIORIDAD' },
-      { sku: '402195', desc: 'PULPA DE MARACUYA CONGELADA 500G', div: 'J04-FRUTAS', rngFv: '30/06/2026', lpns: 3, cost: 3001, bultos: 36, onHand: 432, days: 370, badge: 'PRIORIDAD' }
+      { sku: '289410', desc: 'HAMBURGUESA SAN FERNANDO X 12 UND', div: 'J03-CARNES', rngFv: '20/05/2026', lpns: 4, cost: 11200, bultos: 150, onHand: 1800, days: 395, badge: 'CRÍTICO #2' }
     ],
     zones: {
       rck: {
@@ -933,10 +956,7 @@ function loadSampleData() {
         r2552: 107660,
         r52: 15381,
         lpns52: 9,
-        topSkus: [
-          { sku: '310452', desc: 'HELADO D\'ONOFRIO TRICOLOR 1L', fv: '12/04/2026', lpns: 6, cost: 18450, bultos: 240 },
-          { sku: '198421', desc: 'QUESO EDAM LAIVE EN BARRA 3KG', fv: '15/06/2026', lpns: 3, cost: 5800, bultos: 60 }
-        ]
+        topSkus: []
       },
       rhb: {
         totalCost: 23070126,
@@ -948,10 +968,7 @@ function loadSampleData() {
         r2552: 161491,
         r52: 23070,
         lpns52: 7,
-        topSkus: [
-          { sku: '289410', desc: 'HAMBURGUESA SAN FERNANDO X 12 UND', fv: '20/05/2026', lpns: 4, cost: 11200, bultos: 150 },
-          { sku: '402195', desc: 'PULPA DE MARACUYA CONGELADA 500G', fv: '30/06/2026', lpns: 3, cost: 3001, bultos: 36 }
-        ]
+        topSkus: []
       }
     },
     weeks: ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', 'S-37'],
@@ -964,16 +981,14 @@ function loadSampleData() {
     locationsTotal: 9840,
     locations: [
       { div: 'J03-CARNES Y AVES', r010: 4200, r1025: 180, r2552: 15, r52: 0, total: 4395, pct: 44.7 },
-      { div: 'J04-FRUTAS Y VERDURAS', r010: 3150, r1025: 140, r2552: 8, r52: 0, total: 3298, pct: 33.5 },
-      { div: 'J05-LACTEOS Y EMBUTIDOS', r010: 1520, r1025: 110, r2552: 12, r52: 2, total: 1644, pct: 16.7 },
-      { div: 'J06-PANADERIA Y CONGELADOS', r010: 460, r1025: 35, r2552: 6, r52: 2, total: 503, pct: 5.1 }
+      { div: 'J04-FRUTAS Y VERDURAS', r010: 3150, r1025: 140, r2552: 8, r52: 0, total: 3298, pct: 33.5 }
     ]
   };
 
   document.getElementById('dropzoneBox').style.display = 'none';
   document.getElementById('fileStatusBar').style.display = 'flex';
   document.getElementById('loadedFileName').textContent = 'Datos Demostrativos (Semana 37)';
-  document.getElementById('loadedFileMeta').textContent = 'Valores de ejemplo calculados para CD Secos 655 y Frescos 676';
+  document.getElementById('loadedFileMeta').textContent = 'Valores calculados de ejemplo para CD Secos 655 y Frescos 676';
 
   updateHeaderWeekBadges();
   renderWarehouseData(currentWarehouse);
@@ -1018,7 +1033,6 @@ function renderWarehouseData(whseCode) {
   const data = ACTIVE_DATABASE[whseCode];
   if (!data) return;
 
-  // Actualizar badges
   ['slide1', 'slide2', 'slide3'].forEach(id => {
     const el = document.getElementById(`${id}-whse-badge`);
     if (el) el.textContent = data.badgeText;
@@ -1053,10 +1067,13 @@ function renderSlide1(data) {
   document.getElementById('s1-kpi-crit-pct').textContent = `${safeFixed(critPct, 1, '% del Capital')}`;
   document.getElementById('s1-kpi-over52').textContent = `>52s: ${formatCompact(r52.cost)} (${formatNumber(r52.lpns)} LPNs)`;
 
-  // Gráfico S1
+  // 1. Gráfico S1 con valores encima de las barras
   renderChartS1(data.ranges);
 
-  // Tabla S1: Matriz Divisiones
+  // 2. Tabla 1 S1: Resumen de Rangos (Table 1 de la presentación original)
+  renderTableS1Ranges(data.ranges, data.totalCost, data.totalLpns, data.totalBultos);
+
+  // 3. Tabla 2 S1: Matriz Divisiones
   const tbodyDiv = document.getElementById('tbodyS1Divisions');
   tbodyDiv.innerHTML = '';
   if (data.divisions && data.divisions.length > 0) {
@@ -1074,7 +1091,7 @@ function renderSlide1(data) {
       tbodyDiv.appendChild(tr);
     });
   } else {
-    tbodyDiv.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:14px; color:#64748b;">No hay divisiones registradas</td></tr>`;
+    tbodyDiv.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:12px; color:#64748b;">No hay divisiones registradas</td></tr>`;
   }
 
   document.getElementById('tfootS1Divisions').innerHTML = `
@@ -1089,13 +1106,13 @@ function renderSlide1(data) {
     </tr>
   `;
 
-  // Tabla S1: Top 10 SKUs >52 Semanas (con Suma de LPNs)
+  // 4. Tabla 3 S1: Top 10 SKUs >52 Semanas (Suma de LPNs)
   const tbodyTop = document.getElementById('tbodyS1Top10');
   tbodyTop.innerHTML = '';
   let sumTopCost = 0, sumTopLpns = 0, sumTopBultos = 0, sumTopOnHand = 0;
 
   if (!data.top10Skus || data.top10Skus.length === 0) {
-    tbodyTop.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b; font-weight:600;">No se registraron SKUs con más de 52 semanas de antigüedad</td></tr>`;
+    tbodyTop.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:16px; color:#64748b; font-weight:600;">No se registraron SKUs con más de 52 semanas de antigüedad</td></tr>`;
   } else {
     data.top10Skus.forEach((sku, idx) => {
       sumTopCost += (sku.cost || 0);
@@ -1108,14 +1125,14 @@ function renderSlide1(data) {
         <td style="font-family:'JetBrains Mono',monospace; font-weight:800; color:#1e293b;">${sku.sku}</td>
         <td style="text-align:left; font-weight:700; color:#0f172a;">${sku.desc}</td>
         <td style="text-align:left; color:#475569; font-weight:600;">${sku.div}</td>
-        <td style="text-align:center; color:#64748b; font-size:0.80rem;">${sku.rngFv}</td>
+        <td style="text-align:center; color:#64748b; font-size:0.75rem;">${sku.rngFv}</td>
         <td style="font-weight:800; color:#2563eb;">${formatNumber(sku.lpns)}</td>
         <td style="font-weight:800; color:${sku.cost > 20000 ? '#dc2626' : '#0f172a'};">${formatNumber(sku.cost)}</td>
         <td style="font-weight:600;">${formatNumber(sku.bultos)}</td>
         <td style="color:#64748b;">${formatNumber(sku.onHand)}</td>
         <td style="font-weight:700; color:${sku.days > 500 ? '#b91c1c' : '#475569'};">${sku.days} d</td>
         <td style="text-align:center;">
-          <span style="background:${idx < 2 ? '#fee2e2' : '#f1f5f9'}; color:${idx < 2 ? '#b91c1c' : '#475569'}; padding:3px 8px; border-radius:6px; font-weight:800; font-size:0.75rem;">
+          <span style="background:${idx < 2 ? '#fee2e2' : '#f1f5f9'}; color:${idx < 2 ? '#b91c1c' : '#475569'}; padding:2px 6px; border-radius:5px; font-weight:800; font-size:0.72rem;">
             ${sku.badge}
           </span>
         </td>
@@ -1128,13 +1145,51 @@ function renderSlide1(data) {
     <tr>
       <td colspan="4" style="text-align:left; font-weight:900;">Total Top 10 SKUs</td>
       <td style="color:#2563eb; font-weight:900;">${formatNumber(sumTopLpns)}</td>
-      <td style="color:#dc2626; font-size:0.95rem; font-weight:900;">S/ ${formatNumber(sumTopCost)}</td>
+      <td style="color:#dc2626; font-size:0.90rem; font-weight:900;">S/ ${formatNumber(sumTopCost)}</td>
       <td style="font-weight:800;">${formatNumber(sumTopBultos)}</td>
       <td style="font-weight:700; color:#64748b;">${formatNumber(sumTopOnHand)}</td>
       <td colspan="2" style="text-align:center; color:#64748b; font-weight:700;">Concentración crítica</td>
     </tr>
   `;
 }
+
+function renderTableS1Ranges(ranges, totalCost, totalLpns, totalBultos) {
+  const tbody = document.getElementById('tbodyS1Ranges');
+  const tfoot = document.getElementById('tfootS1Ranges');
+  if (!tbody || !tfoot) return;
+
+  tbody.innerHTML = '';
+  (ranges || []).forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="text-align:left; font-weight:700; color:#0f172a;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${r.color}; margin-right:6px;"></span>
+        ${r.label}
+      </td>
+      <td style="font-weight:700; color:#2563eb;">${formatNumber(r.lpns)}</td>
+      <td>${formatNumber(r.bultos)}</td>
+      <td style="font-weight:800; color:${r.color};">${safeFixed(r.bultosPct, 2, '%')}</td>
+      <td style="font-weight:700;">${formatCurrency(r.cost)}</td>
+      <td style="font-weight:800;">${safeFixed(r.costPct, 1, '%')}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tfoot.innerHTML = `
+    <tr>
+      <td style="text-align:left; font-weight:900;">Total General</td>
+      <td style="color:#2563eb; font-weight:900;">${formatNumber(totalLpns)}</td>
+      <td style="font-weight:900;">${formatNumber(totalBultos)}</td>
+      <td style="font-weight:900;">100%</td>
+      <td style="color:#0f172a; font-weight:900;">${formatCurrency(totalCost)}</td>
+      <td style="font-weight:900;">100%</td>
+    </tr>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 9. GRÁFICOS CHART.JS CON DATALABELS VISIBLES ENCIMA DE LAS BARRAS
+// ══════════════════════════════════════════════════════════════════════════════
 
 function renderChartS1(ranges) {
   const ctx = document.getElementById('chartS1Ranges');
@@ -1145,8 +1200,41 @@ function renderChartS1(ranges) {
   }
 
   const labels = ranges.map(r => r.label);
-  const dataCosts = ranges.map(r => (r.cost / 1000000).toFixed(2));
+  const dataCosts = ranges.map(r => parseFloat((r.cost / 1000000).toFixed(2)));
   const colors = ranges.map(r => r.color);
+
+  // Plugin personalizado para pintar valores y porcentajes ENCIMA de cada barra
+  const valueLabelsPlugin = {
+    id: 'barValueLabelsOnTop',
+    afterDatasetsDraw(chart) {
+      const { ctx: c } = chart;
+      c.save();
+      const meta = chart.getDatasetMeta(0);
+      if (!meta || !meta.data) return;
+
+      meta.data.forEach((bar, idx) => {
+        const rItem = ranges[idx];
+        if (!bar || !rItem) return;
+
+        const costText = formatCompact(rItem.cost);
+        const pctText = safeFixed(rItem.costPct, 1, '%');
+
+        c.textAlign = 'center';
+        c.textBaseline = 'bottom';
+
+        // Línea 1: Costo (S/ 97.9M o S/ 289K)
+        c.font = 'bold 12px Inter, sans-serif';
+        c.fillStyle = '#0f172a';
+        c.fillText(`S/ ${costText}`, bar.x, bar.y - 14);
+
+        // Línea 2: Porcentaje (86.8%)
+        c.font = '800 11px Inter, sans-serif';
+        c.fillStyle = rItem.color || '#2563eb';
+        c.fillText(`(${pctText})`, bar.x, bar.y - 2);
+      });
+      c.restore();
+    }
+  };
 
   chartInstanceS1 = new Chart(ctx, {
     type: 'bar',
@@ -1160,29 +1248,36 @@ function renderChartS1(ranges) {
         borderWidth: 0
       }]
     },
+    plugins: [valueLabelsPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: {
+        padding: {
+          top: 28 // Margen superior para que el texto encima de la barra más alta nunca se corte
+        }
+      },
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: (item) => ` S/ ${item.raw} Millones (${safeFixed(ranges[item.dataIndex]?.costPct, 1, '%')})`
+            label: (item) => ` S/ ${item.raw}M (${safeFixed(ranges[item.dataIndex]?.costPct, 1, '%')})`
           }
         }
       },
       scales: {
         y: {
           beginAtZero: true,
+          grace: '25%', // 25% de altura adicional sobre la barra mayor
           grid: { color: '#f1f5f9' },
           ticks: {
             callback: (v) => `S/ ${v}M`,
-            font: { size: 12, weight: '700' }
+            font: { size: 11, weight: '700' }
           }
         },
         x: {
           grid: { display: false },
-          ticks: { font: { size: 12, weight: '700' } }
+          ticks: { font: { size: 11, weight: '700' } }
         }
       }
     }
@@ -1214,7 +1309,7 @@ function renderSlide2(data) {
   let sumRckCost = 0, sumRckLpns = 0, sumRckBultos = 0;
 
   if (!z.rck?.topSkus || z.rck.topSkus.length === 0) {
-    tbodyRck.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px; color:#64748b; font-weight:600;">No hay SKUs >52s en RCK</td></tr>`;
+    tbodyRck.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:12px; color:#64748b; font-weight:600;">No hay SKUs >52s en RCK</td></tr>`;
   } else {
     z.rck.topSkus.forEach(s => {
       sumRckCost += (s.cost || 0);
@@ -1224,7 +1319,7 @@ function renderSlide2(data) {
       tr.innerHTML = `
         <td style="font-family:'JetBrains Mono',monospace; font-weight:800;">${s.sku}</td>
         <td style="text-align:left; font-weight:700; color:#0f172a;">${s.desc}</td>
-        <td style="text-align:center; color:#64748b; font-size:0.78rem;">${s.fv}</td>
+        <td style="text-align:center; color:#64748b; font-size:0.75rem;">${s.fv}</td>
         <td style="font-weight:800; color:#dc2626;">${formatNumber(s.lpns)}</td>
         <td style="font-weight:800; color:#dc2626;">${formatNumber(s.cost)}</td>
         <td style="font-weight:600;">${formatNumber(s.bultos)}</td>
@@ -1237,7 +1332,7 @@ function renderSlide2(data) {
     <tr>
       <td colspan="3" style="text-align:left; font-weight:900;">Total RCK Top SKUs</td>
       <td style="color:#dc2626; font-weight:900;">${formatNumber(sumRckLpns)}</td>
-      <td style="color:#dc2626; font-size:0.95rem; font-weight:900;">S/ ${formatNumber(sumRckCost)}</td>
+      <td style="color:#dc2626; font-size:0.90rem; font-weight:900;">S/ ${formatNumber(sumRckCost)}</td>
       <td style="font-weight:800;">${formatNumber(sumRckBultos)}</td>
     </tr>
   `;
@@ -1248,7 +1343,7 @@ function renderSlide2(data) {
   let sumRhbCost = 0, sumRhbLpns = 0, sumRhbBultos = 0;
 
   if (!z.rhb?.topSkus || z.rhb.topSkus.length === 0) {
-    tbodyRhb.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:16px; color:#64748b; font-weight:600;">No hay SKUs >52s en RHB</td></tr>`;
+    tbodyRhb.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:12px; color:#64748b; font-weight:600;">No hay SKUs >52s en RHB</td></tr>`;
   } else {
     z.rhb.topSkus.forEach(s => {
       sumRhbCost += (s.cost || 0);
@@ -1258,7 +1353,7 @@ function renderSlide2(data) {
       tr.innerHTML = `
         <td style="font-family:'JetBrains Mono',monospace; font-weight:800;">${s.sku}</td>
         <td style="text-align:left; font-weight:700; color:#0f172a;">${s.desc}</td>
-        <td style="text-align:center; color:#64748b; font-size:0.78rem;">${s.fv}</td>
+        <td style="text-align:center; color:#64748b; font-size:0.75rem;">${s.fv}</td>
         <td style="font-weight:800; color:#2563eb;">${formatNumber(s.lpns)}</td>
         <td style="font-weight:800; color:#1e293b;">${formatNumber(s.cost)}</td>
         <td style="font-weight:600;">${formatNumber(s.bultos)}</td>
@@ -1271,7 +1366,7 @@ function renderSlide2(data) {
     <tr>
       <td colspan="3" style="text-align:left; font-weight:900;">Total RHB Top SKUs</td>
       <td style="color:#2563eb; font-weight:900;">${formatNumber(sumRhbLpns)}</td>
-      <td style="color:#0f172a; font-size:0.95rem; font-weight:900;">S/ ${formatNumber(sumRhbCost)}</td>
+      <td style="color:#0f172a; font-size:0.90rem; font-weight:900;">S/ ${formatNumber(sumRhbCost)}</td>
       <td style="font-weight:800;">${formatNumber(sumRhbBultos)}</td>
     </tr>
   `;
@@ -1284,7 +1379,7 @@ function renderSlide3(data) {
   theadRow.innerHTML = `<th style="text-align:left; font-weight:900;">Rango Semanas</th>`;
   (data.weeks || []).forEach((w, idx) => {
     const isCurrent = idx === data.weeks.length - 1;
-    theadRow.innerHTML += `<th style="${isCurrent ? 'background:#eff6ff; color:#1d4ed8; font-weight:900; font-size:0.96rem;' : 'font-weight:800;'}">${w}</th>`;
+    theadRow.innerHTML += `<th style="${isCurrent ? 'background:#eff6ff; color:#1d4ed8; font-weight:900; font-size:0.90rem;' : 'font-weight:800;'}">${w}</th>`;
   });
   theadRow.innerHTML += `<th style="font-weight:900;">Var. WoW</th>`;
 
@@ -1298,18 +1393,18 @@ function renderSlide3(data) {
     const isPositiveGood = e.label.includes('0 a 10') ? diff > 0 : diff < 0;
 
     let trHtml = `
-      <td style="text-align:left; font-weight:800; color:#1e293b; font-size:0.96rem;">
-        <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${e.color}; margin-right:8px;"></span>
+      <td style="text-align:left; font-weight:800; color:#1e293b; font-size:0.90rem;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e.color}; margin-right:6px;"></span>
         ${e.label}
       </td>
     `;
     vals.forEach((v, idx) => {
       const isCurrent = idx === vals.length - 1;
-      trHtml += `<td style="${isCurrent ? 'background:#eff6ff; font-weight:900; font-size:1.02rem; color:' + e.color + ';' : 'font-size:0.95rem; font-weight:600;'}">${safeFixed(v, 2, '%')}</td>`;
+      trHtml += `<td style="${isCurrent ? 'background:#eff6ff; font-weight:900; font-size:0.96rem; color:' + e.color + ';' : 'font-size:0.88rem; font-weight:600;'}">${safeFixed(v, 2, '%')}</td>`;
     });
 
     trHtml += `
-      <td style="font-weight:800; font-size:0.95rem; color:${isPositiveGood ? '#059669' : '#dc2626'};">
+      <td style="font-weight:800; font-size:0.88rem; color:${isPositiveGood ? '#059669' : '#dc2626'};">
         ${diff >= 0 ? '▲ +' : '▼ '}${safeFixed(Math.abs(diff), 2, '%')}
       </td>
     `;
@@ -1371,10 +1466,10 @@ function renderChartS3(weeks, evolution) {
     data: e.values || [],
     borderColor: e.color,
     backgroundColor: e.color,
-    borderWidth: e.label.includes('0 a 10') ? 3.5 : 2.5,
+    borderWidth: e.label.includes('0 a 10') ? 3 : 2,
     tension: 0.25,
-    pointRadius: 5,
-    pointHoverRadius: 7
+    pointRadius: 4,
+    pointHoverRadius: 6
   }));
 
   chartInstanceS3 = new Chart(ctx, {
@@ -1389,7 +1484,7 @@ function renderChartS3(weeks, evolution) {
       plugins: {
         legend: {
           position: 'top',
-          labels: { boxWidth: 14, font: { size: 12, weight: '700' } }
+          labels: { boxWidth: 12, font: { size: 11, weight: '700' } }
         },
         tooltip: {
           callbacks: {
@@ -1401,13 +1496,13 @@ function renderChartS3(weeks, evolution) {
         y: {
           ticks: {
             callback: (v) => `${v}%`,
-            font: { size: 12, weight: '700' }
+            font: { size: 11, weight: '700' }
           },
           grid: { color: '#f1f5f9' }
         },
         x: {
           grid: { display: false },
-          ticks: { font: { size: 12, weight: '700' } }
+          ticks: { font: { size: 11, weight: '700' } }
         }
       }
     }
@@ -1415,79 +1510,124 @@ function renderChartS3(weeks, evolution) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 9. MOTOR DE CAPTURA 16:9 PARA POWERPOINT
+// 10. MOTOR DE COPIA 16:9 NATIVO DIRECTO AL PORTAPAPELES (SIN DESCARGAS FORZADAS)
 // ══════════════════════════════════════════════════════════════════════════════
 
-async function captureCurrentSlide() {
+async function copyCurrentSlideToClipboard() {
   if (isCapturing) return;
-
-  const containerId = `slide${currentSlide}-container`;
-  const container = document.getElementById(containerId);
-  if (!container) {
-    showToast('No se encontró el contenedor de la diapositiva', 'danger');
-    return;
-  }
-
   isCapturing = true;
-  showToast(`📸 Generando diapositiva 16:9 de Lámina ${currentSlide}...`, 'info', 2500);
+
+  const btn = document.getElementById('btnCapturePpt');
+  const originalText = btn ? btn.innerHTML : '';
+  if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Copiando...';
 
   try {
+    const containerId = `slide${currentSlide}-container`;
+    const container = document.getElementById(containerId);
+    if (!container) throw new Error('Contenedor de diapositiva no encontrado');
+
+    showToast(`📸 Generando diapositiva 16:9 de Lámina ${currentSlide}...`, 'info', 2000);
+
+    // 1. Aplicar clase que bloquea dimensiones estrictas 16:9 (1600x900)
+    container.classList.add('capturing-16-9');
+    if (currentSlide === 1 && chartInstanceS1) chartInstanceS1.resize();
+    if (currentSlide === 3 && chartInstanceS3) chartInstanceS3.resize();
+    await yieldToUi();
+
+    // 2. Renderizar con html2canvas en alta definición
     const renderedCanvas = await window.html2canvas(container, {
-      scale: 2,
+      scale: 1.5, // Resolución nítida Retina
       backgroundColor: '#ffffff',
       useCORS: true,
       logging: false
     });
 
+    // Restaurar vista web responsiva inmediatamente
+    container.classList.remove('capturing-16-9');
+    if (currentSlide === 1 && chartInstanceS1) chartInstanceS1.resize();
+    if (currentSlide === 3 && chartInstanceS3) chartInstanceS3.resize();
+
+    // 3. Crear canvas panorámico exacto 1920x1080 (16:9)
     const W = 1920;
     const H = 1080;
     const offscreen = document.createElement('canvas');
     offscreen.width = W;
     offscreen.height = H;
     const ctx = offscreen.getContext('2d');
-
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, W, H);
 
-    const margin = 36;
-    const availW = W - margin * 2;
-    const availH = H - margin * 2;
-
-    const scaleFit = Math.min(availW / renderedCanvas.width, availH / renderedCanvas.height);
-    const drawW = renderedCanvas.width * scaleFit;
-    const drawH = renderedCanvas.height * scaleFit;
-    const posX = (W - drawW) / 2;
-    const posY = (H - drawH) / 2;
-
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(renderedCanvas, posX, posY, drawW, drawH);
+    ctx.drawImage(renderedCanvas, 0, 0, W, H);
 
+    lastCapturedDataUrl = offscreen.toDataURL('image/png');
+
+    // 4. Escribir directamente al Portapapeles (Clipboard API)
     offscreen.toBlob(async (blob) => {
-      if (!blob) throw new Error('Error al generar blob de imagen');
+      if (!blob) {
+        showToast('Error al crear imagen de la diapositiva', 'danger');
+        return;
+      }
+
+      lastCapturedBlob = blob;
 
       if (navigator.clipboard && window.ClipboardItem) {
         try {
           const item = new ClipboardItem({ 'image/png': blob });
           await navigator.clipboard.write([item]);
-          showToast(`✅ ¡Lámina ${currentSlide} copiada en 16:9! Lista para pegar en PowerPoint (Ctrl + V)`, 'success', 5000);
+          showToast(`✅ ¡Lámina ${currentSlide} copiada! Lista para pegar en PowerPoint (Ctrl + V)`, 'success', 5000);
+          showCopySuccessModal(lastCapturedDataUrl);
         } catch (clipErr) {
-          console.warn('Error al escribir en portapapeles:', clipErr);
-          downloadCanvasAsPng(offscreen, `Antiguedad_Inventario_CD${currentWarehouse}_Lamina${currentSlide}_16x9.png`);
-          showToast(`Descargada como archivo PNG 16:9`, 'info', 4500);
+          console.warn('Acceso directo al portapapeles restringido:', clipErr);
+          // Si el navegador bloquea la escritura automática, mostrar modal con botón explícito
+          showCopySuccessModal(lastCapturedDataUrl);
         }
       } else {
-        downloadCanvasAsPng(offscreen, `Antiguedad_Inventario_CD${currentWarehouse}_Lamina${currentSlide}_16x9.png`);
-        showToast(`Descargada como archivo PNG 16:9`, 'info', 4500);
+        showCopySuccessModal(lastCapturedDataUrl);
       }
     }, 'image/png');
 
   } catch (err) {
     console.error('Error al capturar diapositiva:', err);
-    showToast('No se pudo generar la captura. Inténtalo nuevamente.', 'danger');
+    showToast('No se pudo generar la diapositiva', 'danger');
   } finally {
-    setTimeout(() => { isCapturing = false; }, 400);
+    if (btn) btn.innerHTML = originalText;
+    setTimeout(() => { isCapturing = false; }, 300);
   }
+}
+
+function showCopySuccessModal(dataUrl) {
+  const modal = document.getElementById('modalCopySuccess');
+  const img = document.getElementById('modalPreviewImg');
+  if (img) img.src = dataUrl;
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeCopyModal() {
+  const modal = document.getElementById('modalCopySuccess');
+  if (modal) modal.style.display = 'none';
+}
+
+async function copyModalImgAgain() {
+  if (!lastCapturedBlob) return;
+  try {
+    const item = new ClipboardItem({ 'image/png': lastCapturedBlob });
+    await navigator.clipboard.write([item]);
+    showToast('✅ ¡Copiado nuevamente al portapapeles!', 'success', 3000);
+  } catch (err) {
+    showToast('Por favor pulsa botón derecho sobre la imagen y selecciona "Copiar imagen"', 'info', 4500);
+  }
+}
+
+function downloadModalImg() {
+  if (!lastCapturedDataUrl) return;
+  const link = document.createElement('a');
+  link.download = `Antiguedad_Inventario_CD${currentWarehouse}_Lamina${currentSlide}_16x9.png`;
+  link.href = lastCapturedDataUrl;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 async function downloadCurrentSlide() {
@@ -1495,12 +1635,17 @@ async function downloadCurrentSlide() {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  showToast(`💾 Descargando Lámina ${currentSlide} en 1920x1080...`, 'info', 2000);
+  showToast(`💾 Generando archivo PNG 16:9 (1920x1080)...`, 'info', 2000);
+
+  container.classList.add('capturing-16-9');
+  await yieldToUi();
 
   const renderedCanvas = await window.html2canvas(container, {
-    scale: 2,
+    scale: 1.5,
     backgroundColor: '#ffffff'
   });
+
+  container.classList.remove('capturing-16-9');
 
   const W = 1920;
   const H = 1080;
@@ -1510,20 +1655,11 @@ async function downloadCurrentSlide() {
   const ctx = offscreen.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(renderedCanvas, 0, 0, W, H);
 
-  const margin = 36;
-  const scaleFit = Math.min((W - margin * 2) / renderedCanvas.width, (H - margin * 2) / renderedCanvas.height);
-  const drawW = renderedCanvas.width * scaleFit;
-  const drawH = renderedCanvas.height * scaleFit;
-  ctx.drawImage(renderedCanvas, (W - drawW) / 2, (H - drawH) / 2, drawW, drawH);
-
-  downloadCanvasAsPng(offscreen, `Antiguedad_Inventario_CD${currentWarehouse}_Lamina${currentSlide}_16x9.png`);
-}
-
-function downloadCanvasAsPng(canvas, filename) {
   const link = document.createElement('a');
-  link.download = filename;
-  link.href = canvas.toDataURL('image/png');
+  link.download = `Antiguedad_Inventario_CD${currentWarehouse}_Lamina${currentSlide}_16x9.png`;
+  link.href = offscreen.toDataURL('image/png');
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
