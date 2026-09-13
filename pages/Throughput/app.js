@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
       fileList.appendChild(li);
     });
   }
-  window.filterDriveList = function(text) {
+  window.filterDriveList = function (text) {
     if (!window._driveFiles) return;
     renderDriveFiles(window._driveFiles.filter(f => f.name.toLowerCase().includes(text.toLowerCase())));
   };
@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Resolver nombre exacto de la pestaña BD_Grafico
       const tabs = await window.GoogleSheetsService.fetchSheetTabs(sheetId);
       const tabNames = tabs.map(t => t.title);
-      const sheetGrafico = tabNames.find(t => t.trim().toUpperCase().replace('Á','A') === 'BD_GRAFICO');
+      const sheetGrafico = tabNames.find(t => t.trim().toUpperCase().replace('Á', 'A') === 'BD_GRAFICO');
       if (!sheetGrafico) throw new Error(`No se encontró 'BD_Grafico'. Pestañas disponibles: ${tabNames.join(', ')}`);
       const sg = `'${sheetGrafico}'`;
 
@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Cargar desglose de divisiones si la pestaña DIVISION existe
       const sheetDivisionTab = tabNames.find(t => {
-        const c = t.trim().toUpperCase().replace('Ó','O');
+        const c = t.trim().toUpperCase().replace('Ó', 'O');
         return c === 'DIVISION' || c === 'DIVISIONES';
       });
       if (sheetDivisionTab) {
@@ -230,7 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // PROYECCIÓN A FUTURO (+4 SEMANAS PLAN)
   // ══════════════════════════════════════════════
   const toggleFutureEl = document.getElementById('toggleFutureWeeks');
-  const weeksFilterEl  = document.getElementById('weeksFilter');
+  const weeksFilterEl = document.getElementById('weeksFilter');
 
   toggleFutureEl?.addEventListener('change', (e) => {
     if (!weeksFilterEl) return;
@@ -296,12 +296,12 @@ document.addEventListener('DOMContentLoaded', () => {
     Secos: {
       J01: 0.593, J02: 0.196, J08: 0.093, J09: 0.043,
       J10: 0.025, J05: 0.025, J11: 0.018, J06: 0.004,
-      J07: 0.003, J12: 0.0,   J03: 0.0,   J04: 0.0
+      J07: 0.003, J12: 0.0, J03: 0.0, J04: 0.0
     },
     Frescos: {
       J05: 0.338, J04: 0.254, J06: 0.228, J07: 0.132,
-      J03: 0.039, J01: 0.009, J02: 0.0,   J08: 0.0,
-      J09: 0.0,   J10: 0.0,   J11: 0.0,   J12: 0.0
+      J03: 0.039, J01: 0.009, J02: 0.0, J08: 0.0,
+      J09: 0.0, J10: 0.0, J11: 0.0, J12: 0.0
     }
   };
 
@@ -664,7 +664,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  window.toggleDivisionFilter = function(code) {
+  window.toggleDivisionFilter = function (code) {
     if (!code) {
       selectedDivisions.clear();
     } else {
@@ -688,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
   };
 
-  window.clearDivisionFilter = function() {
+  window.clearDivisionFilter = function () {
     selectedDivisions.clear();
     updateDivisionUI();
     renderAll();
@@ -870,19 +870,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!parsed || isNaN(parsed.week) || isNaN(parsed.year)) return;
 
       const weekKey = `${parsed.year}-${parsed.week}`;
-      const baseRec      = parseFloat(row[cols.recibo]) || 0;
-      const baseDesp     = parseFloat(row[cols.despacho]) || 0;
-      const baseInv      = parseFloat(row[cols.inventario]) || 0;
-      const basePlanRec  = parseFloat(row[cols.planRecibo]) || 0;
+      const baseRec = parseFloat(row[cols.recibo]) || 0;
+      const baseDesp = parseFloat(row[cols.despacho]) || 0;
+      const baseInv = parseFloat(row[cols.inventario]) || 0;
+      const basePlanRec = parseFloat(row[cols.planRecibo]) || 0;
       const basePlanDesp = parseFloat(row[cols.planDespacho]) || 0;
-      const basePlanInv  = parseFloat(row[cols.planInv]) || 0;
+      const basePlanInv = parseFloat(row[cols.planInv]) || 0;
 
-      let rRec  = baseRec;
+      let rRec = baseRec;
       let rDesp = baseDesp;
-      let rInv  = baseInv;
-      let pRec  = basePlanRec;
+      let rInv = baseInv;
+      let pRec = basePlanRec;
       let pDesp = basePlanDesp;
-      let pInv  = basePlanInv;
+      let pInv = basePlanInv;
 
       if (isFilteringDivisions) {
         let sumRec = 0;
@@ -897,29 +897,29 @@ document.addEventListener('DOMContentLoaded', () => {
           const hasDataSource = !!(window.parsedBasesData || window.parsedDivisionData);
           const divShare = DIVISION_SHARE[prefix]?.[code] || 0;
 
-          sumRec  += (vRec > 0 || hasDataSource) ? vRec : (baseRec * divShare);
+          sumRec += (vRec > 0 || hasDataSource) ? vRec : (baseRec * divShare);
           sumDesp += (vDesp > 0 || hasDataSource) ? vDesp : (baseDesp * divShare);
-          sumInv  += (vInv > 0 || hasDataSource) ? vInv : (baseInv * divShare);
+          sumInv += (vInv > 0 || hasDataSource) ? vInv : (baseInv * divShare);
         });
 
-        rRec  = sumRec;
+        rRec = sumRec;
         rDesp = sumDesp;
-        rInv  = sumInv;
-        pRec  = basePlanRec * combinedShare;
+        rInv = sumInv;
+        pRec = basePlanRec * combinedShare;
         pDesp = basePlanDesp * combinedShare;
-        pInv  = basePlanInv * combinedShare;
+        pInv = basePlanInv * combinedShare;
       }
 
       allParsed.push({
         label,
         week: parsed.week,
         year: parsed.year,
-        recibo:       rRec,
-        despacho:     rDesp,
-        inventario:   rInv,
-        planRecibo:   pRec,
+        recibo: rRec,
+        despacho: rDesp,
+        inventario: rInv,
+        planRecibo: pRec,
         planDespacho: pDesp,
-        planInv:      pInv
+        planInv: pInv
       });
     });
 
@@ -1007,17 +1007,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Para semanas futuras (w > lastDataWeek), el valor real debe ser null
     // para que Chart.js NO dibuje una barra vacía o en cero y solo se trace el PLAN y el año anterior
-    const prevRecibo =       weekNumbers.map(w => get(prevYear, w, 'recibo'));
-    const currRecibo =       weekNumbers.map(w => w > lastDataWeek ? null : get(currentYear, w, 'recibo'));
-    const planRecibo =       weekNumbers.map(w => get(currentYear, w, 'planRecibo'));
+    const prevRecibo = weekNumbers.map(w => get(prevYear, w, 'recibo'));
+    const currRecibo = weekNumbers.map(w => w > lastDataWeek ? null : get(currentYear, w, 'recibo'));
+    const planRecibo = weekNumbers.map(w => get(currentYear, w, 'planRecibo'));
 
-    const prevDespacho =     weekNumbers.map(w => get(prevYear, w, 'despacho'));
-    const currDespacho =     weekNumbers.map(w => w > lastDataWeek ? null : get(currentYear, w, 'despacho'));
-    const planDespacho =     weekNumbers.map(w => get(currentYear, w, 'planDespacho'));
+    const prevDespacho = weekNumbers.map(w => get(prevYear, w, 'despacho'));
+    const currDespacho = weekNumbers.map(w => w > lastDataWeek ? null : get(currentYear, w, 'despacho'));
+    const planDespacho = weekNumbers.map(w => get(currentYear, w, 'planDespacho'));
 
-    const prevInventario =   weekNumbers.map(w => get(prevYear, w, 'inventario'));
-    const currInventario =   weekNumbers.map(w => w > lastDataWeek ? null : get(currentYear, w, 'inventario'));
-    const planInv =          weekNumbers.map(w => get(currentYear, w, 'planInv'));
+    const prevInventario = weekNumbers.map(w => get(prevYear, w, 'inventario'));
+    const currInventario = weekNumbers.map(w => w > lastDataWeek ? null : get(currentYear, w, 'inventario'));
+    const planInv = weekNumbers.map(w => get(currentYear, w, 'planInv'));
 
     // 6. Renderizar KPI Executive Strip (respetando semanas cerradas para no distorsionar promedios)
     renderKPIs(prefix, weekNumbers, currentYear, prevYear, dataMap, lastDataWeek);
@@ -1100,12 +1100,12 @@ document.addEventListener('DOMContentLoaded', () => {
       semanaRef = `S${w}`;
       const c = dataMap[`${currentYear}-${w}`] || {};
       const p = dataMap[`${prevYear}-${w}`] || {};
-      reciboCurr   = c.recibo || 0;
-      reciboPrev   = p.recibo || 0;
+      reciboCurr = c.recibo || 0;
+      reciboPrev = p.recibo || 0;
       despachoCurr = c.despacho || 0;
       despachoPrev = p.despacho || 0;
-      invCurr      = c.inventario || 0;
-      invPrev      = p.inventario || 0;
+      invCurr = c.inventario || 0;
+      invPrev = p.inventario || 0;
       kpiLabel = `Semana ${w} con datos (${currentYear} vs ${prevYear})${divTag}${futureWeeksCount > 0 ? ` · +${futureWeeksCount} sem. proyectadas en gráficos` : ''}`;
     } else {
       // ── MODO PERÍODO COMPLETO: suma/promedio de semanas cerradas ─────
@@ -1117,31 +1117,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const c = dataMap[`${currentYear}-${w}`];
         const p = dataMap[`${prevYear}-${w}`];
         if (c) {
-          totReciboCurr   += c.recibo || 0;
+          totReciboCurr += c.recibo || 0;
           totDespachoCurr += c.despacho || 0;
           if (c.inventario > 0) { totInvCurr += c.inventario; countInv++; }
         }
         if (p) {
-          totReciboPrev   += p.recibo || 0;
+          totReciboPrev += p.recibo || 0;
           totDespachoPrev += p.despacho || 0;
-          totInvPrev      += p.inventario || 0;
+          totInvPrev += p.inventario || 0;
         }
       });
 
-      reciboCurr   = totReciboCurr;
-      reciboPrev   = totReciboPrev;
+      reciboCurr = totReciboCurr;
+      reciboPrev = totReciboPrev;
       despachoCurr = totDespachoCurr;
       despachoPrev = totDespachoPrev;
-      invCurr      = countInv > 0 ? totInvCurr / countInv : 0;
-      invPrev      = closedWeeks.length > 0 ? totInvPrev / closedWeeks.length : 0;
+      invCurr = countInv > 0 ? totInvCurr / countInv : 0;
+      invPrev = closedWeeks.length > 0 ? totInvPrev / closedWeeks.length : 0;
       const proyNote = futureWeeksCount > 0 ? ` + ${futureWeeksCount} proyectadas (Plan)` : '';
       kpiLabel = `Últimas ${closedWeeks.length} semanas cerradas (${currentYear} vs ${prevYear})${divTag}${proyNote}`;
       semanaRef = null;
     }
 
-    const yoyRecibo   = calcYoY(reciboCurr, reciboPrev);
+    const yoyRecibo = calcYoY(reciboCurr, reciboPrev);
     const yoyDespacho = calcYoY(despachoCurr, despachoPrev);
-    const yoyInv      = calcYoY(invCurr, invPrev);
+    const yoyInv = calcYoY(invCurr, invPrev);
 
     const modeIsWeek = kpiMode === 'semana';
     const invLabel = modeIsWeek ? 'Inventario Final' : 'Stock Inventario (Prom.)';
@@ -1616,7 +1616,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <tr>
               <th class="col-sticky">Área</th>
     `;
-    
+
     weekNumbers.forEach(w => {
       const mIdx = getMonthForWeek(w, currentYear);
       const mShort = MONTH_NAMES_SHORT[mIdx] || '';
@@ -1685,7 +1685,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
   let divTableProcess = { Secos: 'all', Frescos: 'all' };
 
-  window.setDivTableProcessView = function(prefix, proc) {
+  window.setDivTableProcessView = function (prefix, proc) {
     divTableProcess[prefix] = proc;
     renderAll();
   };
@@ -2074,7 +2074,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  window.copyThroughputProcess = function(processKey) {
+  window.copyThroughputProcess = function (processKey) {
     const isFrescos = document.getElementById('tab-frescos')?.classList.contains('active');
     const prefix = isFrescos ? 'Frescos' : 'Secos';
     const cdData = isFrescos ? window.dataFrescos : window.dataSecos;
@@ -2606,7 +2606,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 1. Copiar Slide Completo 3 en 1 Panorámico 16:9 (Widescreen 1920x1080) Ultrarrápido (<20ms, sin estiramientos)
-  window.copyTripleChartsSlideImage = async function() {
+  window.copyTripleChartsSlideImage = async function () {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
       return;
@@ -2660,7 +2660,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const sections = [
         { chartId: `chart${prefix}Recibo`, canvas: cRecibo, title: 'Entradas (Recibo)', color: '#2563eb', badge: 'Cajas / Semana' },
         { chartId: `chart${prefix}Despacho`, canvas: cDespacho, title: 'Salidas (Despacho)', color: '#ea580c', badge: 'Cajas / Semana' },
-        { chartId: `chart${prefix}Inventario`, canvas: cInventario, title: 'Inventario Activo', color: '#059669', badge: 'Stock en Cajas · Barras Comparativas' }
+        { chartId: `chart${prefix}Inventario`, canvas: cInventario, title: 'Inventario Activo', color: '#059669', badge: 'Stock en Cajas' }
       ];
 
       sections.forEach((sec, idx) => {
@@ -3521,14 +3521,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const pWeek = dataMap[`${prevYear}-${lastDataWeek}`] || {};
     const reciboSemCurr = cWeek.recibo || 0;
     const reciboSemPrev = pWeek.recibo || 0;
-    const despSemCurr   = cWeek.despacho || 0;
-    const despSemPrev   = pWeek.despacho || 0;
-    const invSemCurr    = cWeek.inventario || 0;
-    const invSemPrev    = pWeek.inventario || 0;
+    const despSemCurr = cWeek.despacho || 0;
+    const despSemPrev = pWeek.despacho || 0;
+    const invSemCurr = cWeek.inventario || 0;
+    const invSemPrev = pWeek.inventario || 0;
 
     const yoyReciboSem = calcYoY(reciboSemCurr, reciboSemPrev);
-    const yoyDespSem   = calcYoY(despSemCurr, despSemPrev);
-    const yoyInvSem    = calcYoY(invSemCurr, invSemPrev);
+    const yoyDespSem = calcYoY(despSemCurr, despSemPrev);
+    const yoyInvSem = calcYoY(invSemCurr, invSemPrev);
 
     // 2. Métricas Período Seleccionado (según filtro de semanas: 4, 8, 12, 16 o todas)
     // Refleja las semanas seleccionadas por el usuario en la segunda fila de KPIs, mientras la tabla mantiene sus 8 semanas
@@ -3548,12 +3548,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const p = dataMap[`${prevYear}-${w}`];
       if (c) {
         totReciboCurr += c.recibo || 0;
-        totDespCurr   += c.despacho || 0;
+        totDespCurr += c.despacho || 0;
         if (c.inventario > 0) { totInvCurr += c.inventario; countInv++; }
       }
       if (p) {
         totReciboPrev += p.recibo || 0;
-        totDespPrev   += p.despacho || 0;
+        totDespPrev += p.despacho || 0;
         if (p.inventario > 0) { totInvPrev += p.inventario; countInvPrev++; }
       }
     });
@@ -3562,8 +3562,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const avgInvPrev = countInvPrev > 0 ? totInvPrev / countInvPrev : 0;
 
     const yoyReciboPer = calcYoY(totReciboCurr, totReciboPrev);
-    const yoyDespPer   = calcYoY(totDespCurr, totDespPrev);
-    const yoyInvPer    = calcYoY(avgInvCurr, avgInvPrev);
+    const yoyDespPer = calcYoY(totDespCurr, totDespPrev);
+    const yoyInvPer = calcYoY(avgInvCurr, avgInvPrev);
 
     // Dimensiones de la Diapositiva 16:9 Widescreen (1920x1080)
     const W = 1920;
@@ -3878,7 +3878,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 1.5. Copiar Diapositiva Ejecutiva Completa: Título + KPIs + Tabla Corporativa (<15ms)
-  window.copyCorporateSummarySlideImage = async function(prefix) {
+  window.copyCorporateSummarySlideImage = async function (prefix) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
       return;
@@ -3906,7 +3906,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // 2. Copiar Tabla Detalle Corporativo Semanal (<10ms)
-  window.copyCorporateTableImage = async function(prefix) {
+  window.copyCorporateTableImage = async function (prefix) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
       return;
@@ -3934,7 +3934,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // 3. Copiar Tarjeta de Proceso de División Ultrarrápida (<10ms)
-  window.copyDivisionProcessCardImage = async function(target, labelTitle) {
+  window.copyDivisionProcessCardImage = async function (target, labelTitle) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
       return;
@@ -3962,7 +3962,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // 4. Copiar Diapositiva Panorámica 16:9 con las 3 Tablas de Divisiones + Glosario (<20ms, sin estiramientos)
-  window.copyTripleDivisionTablesSlideImage = async function(prefix) {
+  window.copyTripleDivisionTablesSlideImage = async function (prefix) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
       return;
@@ -4066,7 +4066,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // 5. Copiar la tabla de división activa según la vista seleccionada
-  window.copyActiveDivisionTableImage = function(prefix) {
+  window.copyActiveDivisionTableImage = function (prefix) {
     const currentView = divTableProcess[prefix] || 'all';
     if (currentView === 'all') {
       window.copyTripleDivisionTablesSlideImage(prefix);
@@ -4079,7 +4079,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // 6. Copiar Glosario de Divisiones como imagen para PowerPoint (<3ms)
-  window.copyGlossaryImage = async function(prefix) {
+  window.copyGlossaryImage = async function (prefix) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
       return;
@@ -4107,7 +4107,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // 7. Copiar Gráfico individual Throughput (Recibo, Despacho o Inventario) Ultrarrápido (<15ms)
-  window.copyThroughputChartImage = async function(processKey) {
+  window.copyThroughputChartImage = async function (processKey) {
     if (isCopyingImageInProgress) {
       showToast('Copiado en proceso, por favor espera un momento...', 'info', 1800);
       return;
@@ -4200,7 +4200,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // 7. Función genérica de respaldo (sin descargas automáticas)
-  window.copyElementAsImage = async function(target, labelName) {
+  window.copyElementAsImage = async function (target, labelName) {
     if (isCopyingImageInProgress) return;
     const el = typeof target === 'string' ? document.getElementById(target) : target;
     if (!el) return;
