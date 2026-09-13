@@ -2318,9 +2318,77 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Dibuja una leyenda corporativa ejecutiva en la cabecera de la tarjeta (Canvas 2D nativo)
+  function drawSlideHeaderLegend(ctx, chartInstance, centerX, centerY) {
+    if (!chartInstance || !chartInstance.data || !chartInstance.data.datasets) return;
+    const datasets = chartInstance.data.datasets;
+    if (datasets.length === 0) return;
+
+    const items = datasets.map(ds => {
+      const isLine = ds.type === 'line';
+      return {
+        label: ds.label || '',
+        color: isLine ? (ds.borderColor || '#0284c7') : (ds.backgroundColor || '#2563eb'),
+        isLine: isLine
+      };
+    }).filter(item => item.label);
+
+    if (items.length === 0) return;
+
+    ctx.save();
+    ctx.font = '700 15px Inter, -apple-system, sans-serif';
+    ctx.textBaseline = 'middle';
+
+    const itemGap = 32;
+    const swatchTextGap = 8;
+    const itemWidths = items.map(item => {
+      const swatchW = item.isLine ? 22 : 14;
+      const textW = ctx.measureText(item.label).width;
+      return swatchW + swatchTextGap + textW;
+    });
+
+    const totalWidth = itemWidths.reduce((a, b) => a + b, 0) + (itemGap * (items.length - 1));
+    let curX = Math.round(centerX - (totalWidth / 2));
+
+    items.forEach((item, idx) => {
+      const swatchW = item.isLine ? 22 : 14;
+
+      if (item.isLine) {
+        ctx.save();
+        ctx.strokeStyle = item.color;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(curX, centerY);
+        ctx.lineTo(curX + swatchW, centerY);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.fillStyle = item.color;
+        ctx.beginPath();
+        ctx.arc(curX + (swatchW / 2), centerY, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.fillStyle = item.color;
+        roundRect(ctx, curX, centerY - 6.5, swatchW, 13, 3, true, false);
+        ctx.restore();
+      }
+
+      ctx.fillStyle = '#1e293b';
+      ctx.textAlign = 'left';
+      ctx.fillText(item.label, curX + swatchW + swatchTextGap, centerY);
+
+      curX += itemWidths[idx] + itemGap;
+    });
+
+    ctx.restore();
+  }
+
   // 1. Copiar Slide Completo 3 en 1 Panorámico 16:9 (Widescreen 1920x1080) Ultrarrápido (<20ms, sin esperas ni errores de foco)
-  // Renderiza un gráfico Chart.js a un canvas estático del tamaño exacto de destino con barras sólidas y números grandes legibles
-  function createSlideChartCanvas(srcChart, targetW, targetH, fallbackCanvas) {
+  // Renderiza un gráfico Chart.js a un canvas estático del tamaño exacto de destino con barras estilizadas, altas y números claros
+  function createSlideChartCanvas(srcChart, targetW, targetH, fallbackCanvas, customOptions = {}) {
     if (!srcChart || !srcChart.data) {
       return fallbackCanvas || null;
     }
@@ -2333,35 +2401,39 @@ document.addEventListener('DOMContentLoaded', () => {
       tempCanvas.height = canvasH;
 
       const labelCount = srcChart.data?.labels?.length || 12;
-      const pxPerCategory = (canvasW - (120 * scale)) / Math.max(1, labelCount);
-      const optimalBarThickness = Math.min(220, Math.max(100, Math.floor(pxPerCategory * 0.44)));
+      const pxPerCategory = (canvasW - (80 * scale)) / Math.max(1, labelCount);
 
-      // Fuentes en escala real 2x (se duplican para que en el slide 1920x1080 sean GRANDES y de alta legibilidad ejecutiva)
-      let barFontSize2x = 48;      // 24px en el slide de PowerPoint
-      let planFontSize2x = 42;     // 21px en el slide
-      let legendFontSize2x = 42;   // 21px en el slide
-      let xTickFontSize2x = 38;    // 19px en el slide
-      let yTickFontSize2x = 34;    // 17px en el slide
+      // Barras esbeltas y elegantes ("largas"), con proporción armónica vertical (1:4 a 1:5)
+      // En 2x: ~100-110px (en 1x: ~50-55px de ancho) frente a más de 450px de altura útil
+      const optimalBarThickness = Math.min(110, Math.max(68, Math.floor(pxPerCategory * 0.36)));
+
+      // Fuentes calibradas en escala real 2x (se duplican para que en el slide 1920x1080 sean GRANDES y de alta legibilidad ejecutiva)
+      let barFontSize2x = 32;      // 16px en el slide
+      let planFontSize2x = 26;     // 13px en el slide
+      let xTickFontSize2x = 28;    // 14px en el slide
+      let yTickFontSize2x = 24;    // 12px en el slide
 
       if (labelCount <= 6) {
-        barFontSize2x = 56;        // 28px en slide
-        planFontSize2x = 48;       // 24px en slide
-        legendFontSize2x = 46;     // 23px en slide
+        barFontSize2x = 38;
+        planFontSize2x = 30;
+        xTickFontSize2x = 32;
       } else if (labelCount <= 10) {
-        barFontSize2x = 52;        // 26px en slide
-        planFontSize2x = 44;       // 22px en slide
-        legendFontSize2x = 44;     // 22px en slide
+        barFontSize2x = 34;
+        planFontSize2x = 28;
+        xTickFontSize2x = 30;
       } else if (labelCount <= 14) {
-        barFontSize2x = 48;        // 24px en slide
-        planFontSize2x = 42;       // 21px en slide
-        legendFontSize2x = 42;     // 21px en slide
+        barFontSize2x = 32;
+        planFontSize2x = 26;
+        xTickFontSize2x = 28;
       } else {
-        barFontSize2x = 40;        // 20px en slide
-        planFontSize2x = 36;       // 18px en slide
-        legendFontSize2x = 38;     // 19px en slide
+        barFontSize2x = 28;
+        planFontSize2x = 24;
+        xTickFontSize2x = 24;
       }
 
-      // Datasets calibrados con grosor armónico y números grandes y claros
+      const showLegend = customOptions.showLegend === true;
+
+      // Datasets calibrados con proporciones armónicas de altura y barras altas ("largas")
       const slideDatasets = srcChart.data.datasets.map((ds, dsIdx) => {
         const copy = { ...ds };
         const isBar = ds.type === 'bar' || !ds.type;
@@ -2369,9 +2441,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isBar) {
           copy.maxBarThickness = optimalBarThickness;
-          copy.barPercentage = 0.92;
-          copy.categoryPercentage = 0.88;
-          copy.borderRadius = 8;
+          copy.barPercentage = 0.90;
+          copy.categoryPercentage = 0.82;
+          copy.borderRadius = 6;
 
           const isDarkBar = dsIdx === 1 || (ds.label && (ds.label.includes('2026') || ds.label.includes('Actual')));
           copy.datalabels = {
@@ -2383,67 +2455,81 @@ document.addEventListener('DOMContentLoaded', () => {
               const yAxis = c.chart?.scales?.y;
               if (!val || val === 0 || !yAxis) return 'center';
               const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
-              return h < 64 ? 'end' : 'center';
+              return h < 70 ? 'end' : 'center';
             },
             align: (c) => {
               const val = c.dataset.data[c.dataIndex];
               const yAxis = c.chart?.scales?.y;
               if (!val || val === 0 || !yAxis) return 'center';
               const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
-              return h < 64 ? 'top' : 'center';
+              return h < 70 ? 'top' : 'center';
             },
             offset: (c) => {
               const val = c.dataset.data[c.dataIndex];
               const yAxis = c.chart?.scales?.y;
               if (!val || val === 0 || !yAxis) return 0;
               const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
-              return h < 64 ? 8 : 0;
+              return h < 70 ? 6 : 0;
             },
-            color: isDarkBar ? '#ffffff' : '#0f172a',
+            color: (c) => {
+              const val = c.dataset.data[c.dataIndex];
+              const yAxis = c.chart?.scales?.y;
+              if (!val || val === 0 || !yAxis) return isDarkBar ? '#ffffff' : '#0f172a';
+              const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+              if (h < 70) return '#0f172a';
+              return isDarkBar ? '#ffffff' : '#0f172a';
+            },
             font: {
               weight: '800',
               size: barFontSize2x,
               family: "'Inter', -apple-system, sans-serif"
             },
-            textStrokeColor: isDarkBar ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.98)',
-            textStrokeWidth: 7,
+            textStrokeColor: (c) => {
+              const val = c.dataset.data[c.dataIndex];
+              const yAxis = c.chart?.scales?.y;
+              if (!val || val === 0 || !yAxis) return isDarkBar ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.98)';
+              const h = Math.abs(yAxis.getPixelForValue(0) - yAxis.getPixelForValue(val));
+              if (h < 70) return 'rgba(255, 255, 255, 0.98)';
+              return isDarkBar ? 'rgba(15, 23, 42, 0.92)' : 'rgba(255, 255, 255, 0.98)';
+            },
+            textStrokeWidth: 4.5,
             formatter: (v) => (v !== null && v !== undefined && v > 0) ? formatNumberBadge(v) : ''
           };
         } else if (isLine) {
-          copy.borderWidth = 6;
-          copy.pointRadius = 9;
-          copy.borderDash = [14, 10];
+          copy.borderWidth = 5;
+          copy.pointRadius = 7;
+          copy.borderDash = [10, 8];
           copy.datalabels = {
             display: true,
             clip: false,
             clamp: false,
             align: 'top',
             anchor: 'end',
-            offset: 14,
+            offset: 6,
             backgroundColor: 'rgba(255, 255, 255, 0.98)',
             borderColor: ds.borderColor || '#0284c7',
-            borderWidth: 3.5,
+            borderWidth: 2.2,
             color: ds.borderColor || '#0284c7',
             font: {
               weight: '800',
               size: planFontSize2x,
               family: "'Inter', -apple-system, sans-serif"
             },
-            borderRadius: 12,
-            padding: { top: 7, bottom: 7, left: 14, right: 14 },
+            borderRadius: 6,
+            padding: { top: 4, bottom: 4, left: 10, right: 10 },
             formatter: (v) => (v !== null && v !== undefined && v > 0) ? `P: ${formatNumberBadge(v)}` : ''
           };
         }
         return copy;
       });
 
-      // Opciones para renderizado limpio de alta resolución sin animaciones
+      // Opciones optimizadas: sin leyenda interna de Chart.js para dar el 100% de altura a las barras
       const slideOptions = {
         responsive: false,
         maintainAspectRatio: false,
         animation: false,
         layout: {
-          padding: { top: 20, bottom: 10, left: 24, right: 24 }
+          padding: { top: 8, bottom: 4, left: 16, right: 16 }
         },
         plugins: {
           datalabels: {
@@ -2452,15 +2538,15 @@ document.addEventListener('DOMContentLoaded', () => {
             clamp: false
           },
           legend: {
-            display: true,
+            display: showLegend,
             position: 'top',
             align: 'center',
             labels: {
               usePointStyle: true,
               pointStyle: 'rectRounded',
-              font: { size: legendFontSize2x, weight: '700', family: "'Inter', -apple-system, sans-serif" },
-              padding: 40,
-              boxWidth: 32,
+              font: { size: 24, weight: '700', family: "'Inter', -apple-system, sans-serif" },
+              padding: 16,
+              boxWidth: 18,
               color: '#0f172a'
             }
           },
@@ -2474,20 +2560,20 @@ document.addEventListener('DOMContentLoaded', () => {
               autoSkip: false,
               font: { weight: '700', size: xTickFontSize2x, family: "'Inter', -apple-system, sans-serif" },
               color: '#0f172a',
-              padding: 12
+              padding: 4
             }
           },
           y: {
             beginAtZero: true,
-            grace: '18%',
+            grace: '5%',
             grid: {
               color: 'rgba(226, 232, 240, 0.7)',
-              lineWidth: 2
+              lineWidth: 1.5
             },
             ticks: {
               font: { size: yTickFontSize2x, weight: '700', family: "'Inter', -apple-system, sans-serif" },
               color: '#64748b',
-              padding: 16,
+              padding: 10,
               callback: (v) => formatNumberBadge(v)
             }
           }
@@ -2557,19 +2643,19 @@ document.addEventListener('DOMContentLoaded', () => {
       // 2. Título principal centrado ejecutiva
       const currentYear = window._cdContext?.[prefix]?.currentYear || 2026;
       ctx.fillStyle = '#0f172a';
-      ctx.font = '800 34px Inter, -apple-system, sans-serif';
+      ctx.font = '800 28px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, 42);
+      ctx.fillText(`THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, 26);
 
-      // 3. Dibujar los 3 bloques apilados aprovechando el ancho de la diapositiva con proporciones perfectas
-      const topMargin = 72;
-      const bottomMargin = 20;
-      const sideMargin = 35;
-      const cardWidth = W - (sideMargin * 2); // 1850px de ancho
-      const availableHeight = H - topMargin - bottomMargin; // 988px
-      const gap = 14;
-      const cardHeight = Math.floor((availableHeight - (gap * 2)) / 3); // ~320px
+      // 3. Dibujar los 3 bloques apilados aprovechando al máximo la altura ("largo" y estilizado, jamás aplastado)
+      const topMargin = 48;
+      const bottomMargin = 14;
+      const sideMargin = 28;
+      const cardWidth = W - (sideMargin * 2); // 1864px de ancho
+      const availableHeight = H - topMargin - bottomMargin; // 1018px
+      const gap = 8;
+      const cardHeight = Math.floor((availableHeight - (gap * 2)) / 3); // 334px de altura por tarjeta
 
       const sections = [
         { chartId: `chart${prefix}Recibo`, canvas: cRecibo, title: 'Entradas (Recibo)', color: '#2563eb', badge: 'Cajas / Semana' },
@@ -2586,30 +2672,33 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineWidth = 1.2;
         roundRect(ctx, sideMargin, y0, cardWidth, cardHeight, 10, true, true);
 
-        // Cabecera de la sección (Títulos en tamaño ejecutivo grande y legible)
-        const headerY = y0 + 26;
+        // Cabecera de la sección: Título a la izquierda, Leyenda en el centro, Badge a la derecha
+        const headerY = y0 + 19;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = sec.color;
-        ctx.font = '800 28px Inter, -apple-system, sans-serif';
-        ctx.fillText(sec.title, sideMargin + 24, headerY);
+        ctx.font = '800 24px Inter, -apple-system, sans-serif';
+        ctx.fillText(sec.title, sideMargin + 20, headerY);
+
+        // Leyenda elegante y nítida en el centro de la cabecera (sin colisión con barras ni líneas del gráfico)
+        drawSlideHeaderLegend(ctx, charts[sec.chartId], W / 2, headerY);
 
         // Badge a la derecha (Notable, grande y destacado)
         ctx.textAlign = 'right';
         ctx.fillStyle = '#475569';
-        ctx.font = '800 20px Inter, -apple-system, sans-serif';
-        ctx.fillText(sec.badge, sideMargin + cardWidth - 24, headerY);
+        ctx.font = '700 17px Inter, -apple-system, sans-serif';
+        ctx.fillText(sec.badge, sideMargin + cardWidth - 20, headerY);
 
-        // Gráfico renderizado nativamente a las dimensiones exactas de destino (0% distorsión)
-        const chartX = sideMargin + 14;
-        const chartY = y0 + 52;
-        const chartW = cardWidth - 28;
-        const chartH = cardHeight - 62;
+        // Gráfico renderizado nativamente aprovechando el 100% de altura interna (barras altas y esbeltas)
+        const chartX = sideMargin + 10;
+        const chartY = y0 + 36;
+        const chartW = cardWidth - 20;
+        const chartH = cardHeight - 42; // 292px de alto (antes 258px), +100px útiles para las barras
 
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
-        const chartCanvas = createSlideChartCanvas(charts[sec.chartId], chartW, chartH, sec.canvas);
+        const chartCanvas = createSlideChartCanvas(charts[sec.chartId], chartW, chartH, sec.canvas, { showLegend: false });
         if (chartCanvas) {
           ctx.drawImage(chartCanvas, chartX, chartY, chartW, chartH);
         }
@@ -4077,22 +4166,25 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.textBaseline = 'middle';
       ctx.fillStyle = colorMap[processKey] || '#1e293b';
       ctx.font = '800 28px Inter, -apple-system, sans-serif';
-      ctx.fillText(label, 42, 52);
+      ctx.fillText(label, 42, 50);
+
+      // Leyenda centrada en la cabecera (sin colisión con barras ni líneas)
+      drawSlideHeaderLegend(ctx, charts[targetCanvasId], W / 2, 50);
 
       // Badge
       ctx.textAlign = 'right';
       ctx.fillStyle = '#475569';
       ctx.font = '800 20px Inter, -apple-system, sans-serif';
-      ctx.fillText('Cajas / Semana', W - 42, 52);
+      ctx.fillText('Cajas / Semana', W - 42, 50);
 
       // Dibujar gráfico con suavizado de alta calidad (sin estiramientos)
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-      const chartCanvas = createSlideChartCanvas(charts[targetCanvasId], W - 60, H - 95, srcCanvas);
+      const chartCanvas = createSlideChartCanvas(charts[targetCanvasId], W - 60, H - 90, srcCanvas, { showLegend: false });
       if (chartCanvas) {
-        ctx.drawImage(chartCanvas, 30, 75, W - 60, H - 95);
+        ctx.drawImage(chartCanvas, 30, 72, W - 60, H - 90);
       } else {
-        ctx.drawImage(srcCanvas, 30, 75, W - 60, H - 95);
+        ctx.drawImage(srcCanvas, 30, 72, W - 60, H - 90);
       }
 
       offscreen.toBlob(async (blob) => {
