@@ -13,6 +13,7 @@
 let currentWarehouse = '655'; // '655' (Secos) o '676' (Frescos)
 let currentSlide = 1;
 let currentWeekLabel = 'Semana 37';
+let currentChartS1Mode = 'bultos'; // 'bultos' o 'costo'
 let chartInstanceS1 = null;
 let chartInstanceS3 = null;
 let isCapturing = false;
@@ -472,7 +473,7 @@ function accumulateRow(row, colMap, acc) {
   const bultos = colMap.bultos !== -1 ? parseNum(row[colMap.bultos]) : 0;
   const onHand = colMap.onHand !== -1 ? parseNum(row[colMap.onHand]) : 0;
   const dias = colMap.dias !== -1 ? parseNum(row[colMap.dias]) : 0;
-  const lpnVal = colMap.lpn !== -1 ? (parseNum(row[colMap.lpn]) || 1) : 1;
+  const lpnVal = 1; // Cada registro en tbBD representa exactamente 1 pallet / 1 LPN físico
 
   const sku = colMap.sku !== -1 ? String(row[colMap.sku] || '').trim() : '';
   const desc = colMap.desc !== -1 ? String(row[colMap.desc] || '').trim() : '';
@@ -916,62 +917,75 @@ function loadSampleData() {
     name: 'CD Villa El Salvador - Frescos',
     whseCode: '676',
     badgeText: 'CD FRESCOS 676',
-    totalCost: 38450210,
-    totalLpns: 11240,
-    totalBultos: 486200,
+    totalCost: 7869125,
+    totalLpns: 2514,
+    totalBultos: 122522,
     ranges: [
-      { label: '0 a 10 Semanas', cost: 35912496, costPct: 93.40, lpns: 10453, lpnsPct: 93.00, bultos: 457028, bultosPct: 94.00, color: '#10b981', status: 'Saludable' },
-      { label: '10 a 25 Semanas', cost: 2230112, costPct: 5.80, lpns: 685, lpnsPct: 6.09, bultos: 26255, bultosPct: 5.40, color: '#f59e0b', status: 'En Alerta' },
-      { label: '25 a 52 Semanas', cost: 269151, costPct: 0.70, lpns: 86, lpnsPct: 0.77, bultos: 2431, bultosPct: 0.50, color: '#f97316', status: 'Riesgo Alto' },
-      { label: 'mayor a 52 Semanas', cost: 38451, costPct: 0.10, lpns: 16, lpnsPct: 0.14, bultos: 486, bultosPct: 0.10, color: '#ef4444', status: 'Crítico >1 año' }
+      { label: '0 a 10 Semanas', cost: 7467994, costPct: 94.90, lpns: 2393, lpnsPct: 95.19, bultos: 117009, bultosPct: 95.50, color: '#10b981', status: 'Saludable' },
+      { label: '10 a 25 Semanas', cost: 334413, costPct: 4.25, lpns: 87, lpnsPct: 3.46, bultos: 4662, bultosPct: 3.81, color: '#f59e0b', status: 'En Alerta' },
+      { label: '25 a 52 Semanas', cost: 56368, costPct: 0.72, lpns: 24, lpnsPct: 0.95, bultos: 642, bultosPct: 0.52, color: '#f97316', status: 'Riesgo Medio' },
+      { label: 'mayor a 52 Semanas', cost: 10350, costPct: 0.13, lpns: 10, lpnsPct: 0.40, bultos: 209, bultosPct: 0.17, color: '#ef4444', status: 'Crítico >1 año' }
     ],
     divisions: [
-      { code: 'J03-CARNES Y AVES', r010: 16200000, r1025: 850000, r2552: 45000, r52: 0, total: 17095000, pct: 44.5 },
-      { code: 'J04-FRUTAS Y VERDURAS', r010: 12400000, r1025: 620000, r2552: 25000, r52: 0, total: 13045000, pct: 33.9 },
-      { code: 'J05-LACTEOS Y EMBUTIDOS', r010: 5800000, r1025: 560000, r2552: 120000, r52: 18000, total: 6498000, pct: 16.9 },
-      { code: 'J06-PANADERIA Y CONGELADOS', r010: 1512496, r1025: 200112, r2552: 79151, r52: 20451, total: 1812210, pct: 4.7 }
+      { code: 'J03-CARNES Y PESCADOS', r010: 2085627, r1025: 90246, r2552: 6893, r52: 584, total: 2183351, pct: 27.7 },
+      { code: 'J05-FLC', r010: 1493357, r1025: 82019, r2552: 9193, r52: 0, total: 1584568, pct: 20.1 },
+      { code: 'J06-PANADERIA Y PASTELERIA', r010: 1026325, r1025: 16732, r2552: 3887, r52: 2134, total: 1049078, pct: 13.3 },
+      { code: 'J01-PGC COMESTIBLE', r010: 953238, r1025: 69648, r2552: 0, r52: 0, total: 1022886, pct: 13.0 },
+      { code: 'J04-FRUTAS Y VERDURAS', r010: 1015684, r1025: 0, r2552: 0, r52: 0, total: 1015684, pct: 12.9 },
+      { code: 'J07-PLATOS PREPARADOS', r010: 893762, r1025: 75769, r2552: 36395, r52: 7632, total: 1013559, pct: 12.9 }
     ],
     top10Skus: [
-      { sku: '310452', desc: 'HELADO D\'ONOFRIO TRICOLOR 1L', div: 'J06-CONGELADOS', rngFv: '12/04/2026', lpns: 6, cost: 18450, bultos: 240, onHand: 1440, days: 420, badge: 'CRÍTICO #1' },
-      { sku: '289410', desc: 'HAMBURGUESA SAN FERNANDO X 12 UND', div: 'J03-CARNES', rngFv: '20/05/2026', lpns: 4, cost: 11200, bultos: 150, onHand: 1800, days: 395, badge: 'CRÍTICO #2' }
+      { sku: '43829328', desc: 'ENVASE BISAGRA 121 TR PET', div: 'J07-PLATOS PREPARADOS', rngFv: '-', lpns: 4, cost: 5194, bultos: 53, onHand: 10600, days: 1203, badge: 'CRÍTICO #1' },
+      { sku: '42583778', desc: 'ESTUCHE MULTIUSO 46 H60 D100 TR PET', div: 'J07-PLATOS PREPARADOS', rngFv: '-', lpns: 3, cost: 2438, bultos: 16, onHand: 3840, days: 1564, badge: 'CRÍTICO #2' },
+      { sku: '42794726', desc: 'ESTUCHE MULTIUSO 46 H60 D100 TR PET', div: 'J06-PANADERIA Y PASTELERIA', rngFv: '-', lpns: 2, cost: 2134, bultos: 14, onHand: 3360, days: 1440, badge: 'PRIORIDAD' },
+      { sku: '48866028', desc: 'PIERNITAS DE POLLO IMP TT X KG', div: 'J03-CARNES Y PESCADOS', rngFv: '13/03/2027 - 18/06/2028', lpns: 3, cost: 584, bultos: 126, onHand: 126, days: 488, badge: 'PRIORIDAD' }
     ],
     zones: {
       rck: {
-        totalCost: 15380084,
-        lpns: 4496,
-        bultos: 194480,
+        totalCost: 3147650,
+        lpns: 1005,
+        bultos: 49008,
         pct: 40.0,
-        r010: 14364998,
-        r1025: 892045,
-        r2552: 107660,
-        r52: 15381,
-        lpns52: 9,
-        topSkus: []
+        r010: 2987197,
+        r1025: 133765,
+        r2552: 22547,
+        r52: 4140,
+        lpns52: 4,
+        topSkus: [
+          { sku: '43829328', desc: 'ENVASE BISAGRA 121 TR PET', fv: '-', lpns: 4, cost: 5194, bultos: 53 }
+        ]
       },
       rhb: {
-        totalCost: 23070126,
-        lpns: 6744,
-        bultos: 291720,
+        totalCost: 4721475,
+        lpns: 1509,
+        bultos: 73514,
         pct: 60.0,
-        r010: 21547498,
-        r1025: 1338067,
-        r2552: 161491,
-        r52: 23070,
-        lpns52: 7,
-        topSkus: []
+        r010: 4480797,
+        r1025: 200648,
+        r2552: 33821,
+        r52: 6210,
+        lpns52: 6,
+        topSkus: [
+          { sku: '42583778', desc: 'ESTUCHE MULTIUSO 46 H60 D100 TR PET', fv: '-', lpns: 3, cost: 2438, bultos: 16 },
+          { sku: '42794726', desc: 'ESTUCHE MULTIUSO 46 H60 D100 TR PET', fv: '-', lpns: 2, cost: 2134, bultos: 14 }
+        ]
       }
     },
     weeks: ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', 'S-37'],
     evolution: [
-      { label: '0 a 10 Semanas', values: [95.2, 94.8, 94.1, 93.9, 94.2, 94.5, 94.0], color: '#10b981' },
-      { label: '10 a 25 Semanas', values: [4.2, 4.5, 5.1, 5.3, 5.0, 4.8, 5.4], color: '#f59e0b' },
-      { label: '25 a 52 Semanas', values: [0.5, 0.6, 0.7, 0.7, 0.7, 0.6, 0.5], color: '#f97316' },
-      { label: 'Mayor a 52 Semanas', values: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1], color: '#ef4444' }
+      { label: '0 a 10 Semanas', values: [95.20, 94.80, 94.10, 93.90, 94.20, 94.50, 95.50], color: '#10b981' },
+      { label: '10 a 25 Semanas', values: [4.20, 4.50, 5.10, 5.30, 5.00, 4.80, 3.81], color: '#f59e0b' },
+      { label: '25 a 52 Semanas', values: [0.50, 0.60, 0.70, 0.70, 0.70, 0.60, 0.52], color: '#f97316' },
+      { label: 'Mayor a 52 Semanas', values: [0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.17], color: '#ef4444' }
     ],
-    locationsTotal: 9840,
+    locationsTotal: 2514,
     locations: [
-      { div: 'J03-CARNES Y AVES', r010: 4200, r1025: 180, r2552: 15, r52: 0, total: 4395, pct: 44.7 },
-      { div: 'J04-FRUTAS Y VERDURAS', r010: 3150, r1025: 140, r2552: 8, r52: 0, total: 3298, pct: 33.5 }
+      { div: 'J03-CARNES Y PESCADOS', r010: 672, r1025: 28, r2552: 2, r52: 1, total: 703, pct: 28.0 },
+      { div: 'J05-FLC', r010: 504, r1025: 25, r2552: 3, r52: 0, total: 532, pct: 21.2 },
+      { div: 'J06-PANADERIA Y PASTELERIA', r010: 340, r1025: 6, r2552: 2, r52: 1, total: 349, pct: 13.9 },
+      { div: 'J01-PGC COMESTIBLE', r010: 320, r1025: 22, r2552: 0, r52: 0, total: 342, pct: 13.6 },
+      { div: 'J04-FRUTAS Y VERDURAS', r010: 325, r1025: 0, r2552: 0, r52: 0, total: 325, pct: 12.9 },
+      { div: 'J07-PLATOS PREPARADOS', r010: 232, r1025: 6, r2552: 17, r52: 8, total: 263, pct: 10.5 }
     ]
   };
 
@@ -1038,24 +1052,30 @@ function renderSlide1(data) {
   document.getElementById('s1-kpi-lpns').textContent = `${formatNumber(data.totalLpns)} LPNs`;
   document.getElementById('s1-kpi-bultos').textContent = `${formatNumber(data.totalBultos)} Bultos`;
 
-  const r010 = (data.ranges && data.ranges[0]) ? data.ranges[0] : { costPct: 0, cost: 0, bultosPct: 0 };
-  document.getElementById('s1-kpi-healthy-pct').textContent = `${safeFixed(r010.costPct, 1, '%')}`;
-  document.getElementById('s1-kpi-healthy-cost').textContent = formatCurrency(r010.cost);
-  document.getElementById('s1-kpi-healthy-bultos').textContent = `${safeFixed(r010.bultosPct, 2, '% Bultos')}`;
+  const r010 = (data.ranges && data.ranges[0]) ? data.ranges[0] : { costPct: 0, cost: 0, bultos: 0, bultosPct: 0 };
+  const r1025 = (data.ranges && data.ranges[1]) ? data.ranges[1] : { costPct: 0, cost: 0, bultos: 0, bultosPct: 0, lpns: 0 };
+  const r2552 = (data.ranges && data.ranges[2]) ? data.ranges[2] : { cost: 0, costPct: 0, bultos: 0, bultosPct: 0 };
+  const r52 = (data.ranges && data.ranges[3]) ? data.ranges[3] : { cost: 0, costPct: 0, bultos: 0, bultosPct: 0, lpns: 0 };
 
-  const r1025 = (data.ranges && data.ranges[1]) ? data.ranges[1] : { costPct: 0, cost: 0, lpns: 0, bultosPct: 0 };
-  document.getElementById('s1-kpi-warn-pct').textContent = `${safeFixed(r1025.costPct, 1, '%')}`;
-  document.getElementById('s1-kpi-warn-cost').textContent = formatCurrency(r1025.cost);
-  document.getElementById('s1-kpi-warn-lpns').textContent = `${formatNumber(r1025.lpns)} LPNs`;
-
-  const r2552 = (data.ranges && data.ranges[2]) ? data.ranges[2] : { cost: 0, costPct: 0 };
-  const r52 = (data.ranges && data.ranges[3]) ? data.ranges[3] : { cost: 0, costPct: 0, lpns: 0 };
   const critCost = (r2552.cost || 0) + (r52.cost || 0);
   const critPct = (r2552.costPct || 0) + (r52.costPct || 0);
+  const critBultos = (r2552.bultos || 0) + (r52.bultos || 0);
+  const critBultosPct = (r2552.bultosPct || 0) + (r52.bultosPct || 0);
 
-  document.getElementById('s1-kpi-crit-cost').textContent = formatCurrency(critCost);
-  document.getElementById('s1-kpi-crit-pct').textContent = `${safeFixed(critPct, 1, '% del Capital')}`;
-  document.getElementById('s1-kpi-over52').textContent = `>52s: ${formatCurrency(r52.cost)} (${formatNumber(r52.lpns)} LPNs)`;
+  // Tarjeta 2: Saludable (0 a 10 Sem) - % Bultos destacado + % Costo
+  document.getElementById('s1-kpi-healthy-pct').innerHTML = `${safeFixed(r010.bultosPct, 2, '%')} <span style="font-size:0.80rem; font-weight:800; color:#065f46;">Bultos</span>`;
+  document.getElementById('s1-kpi-healthy-cost').textContent = `${safeFixed(r010.costPct, 1, '%')} Costo (${formatCurrency(r010.cost)})`;
+  document.getElementById('s1-kpi-healthy-bultos').textContent = `${formatNumber(r010.bultos)} Bultos`;
+
+  // Tarjeta 3: En Seguimiento (10 a 25 Sem)
+  document.getElementById('s1-kpi-warn-pct').innerHTML = `${safeFixed(r1025.bultosPct, 2, '%')} <span style="font-size:0.80rem; font-weight:800; color:#92400e;">Bultos</span>`;
+  document.getElementById('s1-kpi-warn-cost').textContent = `${safeFixed(r1025.costPct, 1, '%')} Costo (${formatCurrency(r1025.cost)})`;
+  document.getElementById('s1-kpi-warn-lpns').textContent = `${formatNumber(r1025.bultos)} Bultos`;
+
+  // Tarjeta 4: Crítico (>25 Sem)
+  document.getElementById('s1-kpi-crit-cost').innerHTML = `${safeFixed(critBultosPct, 2, '%')} <span style="font-size:0.80rem; font-weight:800; color:#991b1b;">Bultos</span>`;
+  document.getElementById('s1-kpi-crit-pct').textContent = `${safeFixed(critPct, 1, '%')} Costo (${formatCurrency(critCost)})`;
+  document.getElementById('s1-kpi-over52').textContent = `>52s: ${formatCurrency(r52.cost)} (${formatNumber(r52.bultos)} Bultos)`;
 
   // 1. Gráfico S1 con valores encima de las barras
   renderChartS1(data.ranges);
@@ -1197,6 +1217,47 @@ function renderTableS1Ranges(ranges, totalCost, totalLpns, totalBultos) {
 // 9. GRÁFICOS CHART.JS CON DATALABELS VISIBLES ENCIMA DE LAS BARRAS
 // ══════════════════════════════════════════════════════════════════════════════
 
+function setChartS1Mode(mode) {
+  currentChartS1Mode = mode;
+  const btnBultos = document.getElementById('btnChartModeBultos');
+  const btnCosto = document.getElementById('btnChartModeCosto');
+  const title = document.getElementById('chartS1Title');
+
+  if (btnBultos && btnCosto) {
+    if (mode === 'bultos') {
+      btnBultos.style.background = '#ffffff';
+      btnBultos.style.color = '#1e3a8a';
+      btnBultos.style.fontWeight = '800';
+      btnBultos.style.boxShadow = '0 1px 2px rgba(0,0,0,0.08)';
+
+      btnCosto.style.background = 'transparent';
+      btnCosto.style.color = '#64748b';
+      btnCosto.style.fontWeight = '700';
+      btnCosto.style.boxShadow = 'none';
+
+      if (title) title.textContent = 'Distribución de Bultos por Antigüedad';
+    } else {
+      btnCosto.style.background = '#ffffff';
+      btnCosto.style.color = '#1e3a8a';
+      btnCosto.style.fontWeight = '800';
+      btnCosto.style.boxShadow = '0 1px 2px rgba(0,0,0,0.08)';
+
+      btnBultos.style.background = 'transparent';
+      btnBultos.style.color = '#64748b';
+      btnBultos.style.fontWeight = '700';
+      btnBultos.style.boxShadow = 'none';
+
+      if (title) title.textContent = 'Distribución de Costo por Antigüedad';
+    }
+  }
+
+  const data = ACTIVE_DATABASE[currentWarehouse];
+  if (data && data.ranges) {
+    renderChartS1(data.ranges);
+  }
+}
+window.setChartS1Mode = setChartS1Mode;
+
 function renderChartS1(ranges) {
   const ctx = document.getElementById('chartS1Ranges');
   if (!ctx) return;
@@ -1205,9 +1266,16 @@ function renderChartS1(ranges) {
     chartInstanceS1.destroy();
   }
 
+  const isBultos = (currentChartS1Mode === 'bultos');
   const labels = ranges.map(r => r.label);
-  const dataCosts = ranges.map(r => parseFloat((r.cost / 1000000).toFixed(2)));
   const colors = ranges.map(r => r.color);
+
+  // Datos según modo activo:
+  const chartData = isBultos
+    ? ranges.map(r => r.bultos)
+    : ranges.map(r => {
+        return r.cost >= 1000000 ? parseFloat((r.cost / 1000000).toFixed(2)) : parseFloat((r.cost / 1000000).toFixed(3));
+      });
 
   // Plugin personalizado para pintar valores y porcentajes ENCIMA de cada barra
   const valueLabelsPlugin = {
@@ -1222,21 +1290,34 @@ function renderChartS1(ranges) {
         const rItem = ranges[idx];
         if (!bar || !rItem) return;
 
-        const costText = formatCompact(rItem.cost);
-        const pctText = safeFixed(rItem.costPct, 1, '%');
-
         c.textAlign = 'center';
         c.textBaseline = 'bottom';
 
-        // Línea 1: Costo (S/ 97.9M o S/ 289K)
-        c.font = 'bold 12px Inter, sans-serif';
-        c.fillStyle = '#0f172a';
-        c.fillText(`S/ ${costText}`, bar.x, bar.y - 14);
+        if (isBultos) {
+          // Línea 1: Bultos (ej. 117,009 Bultos)
+          const bultosText = `${formatNumber(rItem.bultos)} Bultos`;
+          c.font = 'bold 11px Inter, sans-serif';
+          c.fillStyle = '#0f172a';
+          c.fillText(bultosText, bar.x, bar.y - 14);
 
-        // Línea 2: Porcentaje (86.8%)
-        c.font = '800 11px Inter, sans-serif';
-        c.fillStyle = rItem.color || '#2563eb';
-        c.fillText(`(${pctText})`, bar.x, bar.y - 2);
+          // Línea 2: Porcentaje de Bultos (ej. 95.50%)
+          const pctText = safeFixed(rItem.bultosPct, 2, '%');
+          c.font = '800 11px Inter, sans-serif';
+          c.fillStyle = rItem.color || '#2563eb';
+          c.fillText(`(${pctText})`, bar.x, bar.y - 2);
+        } else {
+          // Línea 1: Costo (S/ 7.5M o S/ 334K)
+          const costText = formatCompact(rItem.cost);
+          c.font = 'bold 12px Inter, sans-serif';
+          c.fillStyle = '#0f172a';
+          c.fillText(`S/ ${costText}`, bar.x, bar.y - 14);
+
+          // Línea 2: Porcentaje de Costo (ej. 94.9%)
+          const pctText = safeFixed(rItem.costPct, 1, '%');
+          c.font = '800 11px Inter, sans-serif';
+          c.fillStyle = rItem.color || '#2563eb';
+          c.fillText(`(${pctText})`, bar.x, bar.y - 2);
+        }
       });
       c.restore();
     }
@@ -1247,8 +1328,8 @@ function renderChartS1(ranges) {
     data: {
       labels: labels,
       datasets: [{
-        label: 'Costo (Millones S/)',
-        data: dataCosts,
+        label: isBultos ? 'Bultos' : 'Costo (Millones S/)',
+        data: chartData,
         backgroundColor: colors,
         borderRadius: 8,
         borderWidth: 0
@@ -1260,24 +1341,32 @@ function renderChartS1(ranges) {
       maintainAspectRatio: false,
       layout: {
         padding: {
-          top: 28 // Margen superior para que el texto encima de la barra más alta nunca se corte
+          top: 32 // Margen superior para que el texto encima de la barra más alta nunca se corte
         }
       },
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: (item) => ` S/ ${item.raw}M (${safeFixed(ranges[item.dataIndex]?.costPct, 1, '%')})`
+            label: (item) => {
+              const r = ranges[item.dataIndex];
+              if (!r) return '';
+              if (isBultos) {
+                return ` ${formatNumber(r.bultos)} Bultos (${safeFixed(r.bultosPct, 2, '%')})`;
+              } else {
+                return ` ${formatCurrency(r.cost)} (${safeFixed(r.costPct, 1, '%')})`;
+              }
+            }
           }
         }
       },
       scales: {
         y: {
           beginAtZero: true,
-          grace: '25%', // 25% de altura adicional sobre la barra mayor
+          grace: '30%', // 30% de altura adicional sobre la barra mayor para alojar los datalabels
           grid: { color: '#f1f5f9' },
           ticks: {
-            callback: (v) => `S/ ${v}M`,
+            callback: (v) => isBultos ? formatCompact(v) : `S/ ${v}M`,
             font: { size: 11, weight: '700' }
           }
         },

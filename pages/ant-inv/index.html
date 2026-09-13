@@ -696,10 +696,10 @@
             <span>Saludable (0 a 10 Sem)</span>
             <span class="text-emerald-700 font-bold">ÓPTIMO</span>
           </div>
-          <div class="kpi-number text-emerald-600" id="s1-kpi-healthy-pct">0.0%</div>
+          <div class="kpi-number text-emerald-600" id="s1-kpi-healthy-pct">0.0% Bultos</div>
           <div class="kpi-sub">
-            <span id="s1-kpi-healthy-cost">S/ 0</span>
-            <span id="s1-kpi-healthy-bultos">0.0% Bultos</span>
+            <span id="s1-kpi-healthy-cost">0.0% Costo (S/ 0)</span>
+            <span id="s1-kpi-healthy-bultos">0 Bultos</span>
           </div>
         </div>
 
@@ -708,10 +708,10 @@
             <span>En Seguimiento (10 a 25 Sem)</span>
             <span class="text-amber-700 font-bold">ALERTA</span>
           </div>
-          <div class="kpi-number text-amber-600" id="s1-kpi-warn-pct">0.0%</div>
+          <div class="kpi-number text-amber-600" id="s1-kpi-warn-pct">0.0% Bultos</div>
           <div class="kpi-sub">
-            <span id="s1-kpi-warn-cost">S/ 0</span>
-            <span id="s1-kpi-warn-lpns">0 LPNs</span>
+            <span id="s1-kpi-warn-cost">0.0% Costo (S/ 0)</span>
+            <span id="s1-kpi-warn-lpns">0 Bultos</span>
           </div>
         </div>
 
@@ -720,9 +720,9 @@
             <span class="text-red-700">Crítico (&gt;25 Semanas)</span>
             <span class="bg-red-200 text-red-800 text-[10px] px-1.5 py-0.5 rounded font-bold">ACCIONAR</span>
           </div>
-          <div class="kpi-number text-red-600" id="s1-kpi-crit-cost">S/ 0</div>
+          <div class="kpi-number text-red-600" id="s1-kpi-crit-cost">0.0% Bultos</div>
           <div class="kpi-sub text-red-700 font-medium">
-            <span id="s1-kpi-crit-pct">0.0% del Capital</span>
+            <span id="s1-kpi-crit-pct">0.0% Costo (S/ 0)</span>
             <span id="s1-kpi-over52">&gt;52s: S/ 0</span>
           </div>
         </div>
@@ -733,9 +733,12 @@
         
         <!-- Columna Izquierda: Gráfico de Barras + Tabla de Rangos -->
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <h3 style="font-size: 0.94rem; font-weight: 800; margin: 0; color: #0f172a;">Distribución de Costo por Antigüedad</h3>
-            <span style="font-size: 0.76rem; font-weight: 700; color: #475569; background: #ffffff; border: 1px solid #cbd5e1; padding: 2px 7px; border-radius: 5px;">Valores Encima</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <h3 id="chartS1Title" style="font-size: 0.94rem; font-weight: 800; margin: 0; color: #0f172a;">Distribución de Bultos por Antigüedad</h3>
+            <div style="display: flex; gap: 4px; background: #e2e8f0; padding: 2px; border-radius: 7px;">
+              <button id="btnChartModeBultos" onclick="setChartS1Mode('bultos')" style="border: none; background: #ffffff; color: #1e3a8a; font-size: 0.73rem; font-weight: 800; padding: 3px 9px; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.08); transition: all 0.2s ease;">📦 Bultos (% Bultos)</button>
+              <button id="btnChartModeCosto" onclick="setChartS1Mode('costo')" style="border: none; background: transparent; color: #64748b; font-size: 0.73rem; font-weight: 700; padding: 3px 9px; border-radius: 5px; cursor: pointer; transition: all 0.2s ease;">💰 Costos (S/)</button>
+            </div>
           </div>
           
           <!-- Gráfico con Datalabels encima de cada barra -->
