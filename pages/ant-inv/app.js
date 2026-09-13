@@ -39,7 +39,24 @@ function safeFixed(val, decimals = 1, suffix = '') {
 function parseNum(v) {
   if (typeof v === 'number') return isNaN(v) ? 0 : v;
   if (!v) return 0;
-  const clean = String(v).replace(/,/g, '').replace(/[^\d\.-]/g, '').trim();
+  let str = String(v).trim().replace(/\s+/g, '');
+  if (str.includes(',') && str.includes('.')) {
+    if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      str = str.replace(/,/g, '');
+    }
+  } else if (str.includes(',')) {
+    const parts = str.split(',');
+    if (parts.length === 2 && parts[1].length !== 3) {
+      str = str.replace(',', '.');
+    } else if (parts.length > 2) {
+      str = str.replace(/,/g, '');
+    } else {
+      str = str.replace(/,/g, '');
+    }
+  }
+  const clean = str.replace(/[^\d\.-]/g, '').trim();
   const n = parseFloat(clean);
   return isNaN(n) ? 0 : n;
 }
@@ -140,7 +157,6 @@ function buildColumnIndexMap(headers) {
     rngFv: findIdx(['rngfv', 'fechavencim', 'vencimiento', 'fechavencimiento']),
     onHand: findIdx(['onhand', 'unidades', 'on_hand']),
     dias: findIdx(['dias', 'diasantiguedad', 'antiguedaddias']),
-    pctBultos: findIdx(['%bultos', 'pctbultos', 'porcentajebultos', 'partbultos', '%partbultos']),
     semana: findIdx(['semana', 'sem', 'week', 'nrosemana'])
   };
 }
@@ -403,17 +419,16 @@ function extractEvolutivoBlock(ws, dataStartRow, range) {
       if (!cell || cell.v === undefined) return 0;
       
       let val = 0;
-      if (cell.w && typeof cell.w === 'string' && cell.w.includes('%')) {
+      if (typeof cell.v === 'number') {
+        val = cell.v <= 1.0 && cell.v > 0 ? cell.v * 100 : cell.v;
+      } else if (cell.w && typeof cell.w === 'string' && cell.w.includes('%')) {
         val = parseFloat(cell.w.replace('%', '').replace(',', '.').trim()) || 0;
       } else {
-        val = Number(cell.v);
-        if (isNaN(val)) {
-          val = parseFloat(String(cell.v).replace('%', '').replace(',', '.').trim()) || 0;
-        } else if (val <= 1.0 && val > 0) {
-          val = val * 100;
-        }
+        const clean = String(cell.v || '').replace('%', '').replace(',', '.').trim();
+        val = parseFloat(clean) || 0;
+        if (val <= 1.0 && val > 0) val = val * 100;
       }
-      return isNaN(val) ? 0 : parseFloat(val.toFixed(2));
+      return isNaN(val) ? 0 : Number(val.toFixed(5));
     });
     return {
       label: rDef.label,
@@ -437,10 +452,10 @@ function initAccumulator(whseCode, whseLabel) {
     totalBultos: 0,
     totalLpns: 0,
     rangeAgg: {
-      '0 a 10 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#10b981', status: 'Saludable', bultosPctSum: 0, hasExplicitPct: false },
-      '10 a 25 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#f59e0b', status: 'En Alerta', bultosPctSum: 0, hasExplicitPct: false },
-      '25 a 52 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#f97316', status: 'Riesgo Medio', bultosPctSum: 0, hasExplicitPct: false },
-      'mayor a 52 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#ef4444', status: 'Crítico >1 año', bultosPctSum: 0, hasExplicitPct: false }
+      '0 a 10 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#10b981', status: 'Saludable' },
+      '10 a 25 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#f59e0b', status: 'En Alerta' },
+      '25 a 52 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#f97316', status: 'Riesgo Medio' },
+      'mayor a 52 Semanas': { cost: 0, bultos: 0, lpns: 0, color: '#ef4444', status: 'Crítico >1 año' }
     },
     divisionAgg: {},
     zoneAgg: {
@@ -467,17 +482,6 @@ function accumulateRow(row, colMap, acc) {
   const ubic = colMap.ubic !== -1 ? String(row[colMap.ubic] || '').trim() : '';
   const rngFv = colMap.rngFv !== -1 ? (String(row[colMap.rngFv] || '-').trim() || '-') : '-';
 
-  // Soporte de % BULTOS explícito si viene en la tabla
-  let pctBultoRow = null;
-  if (colMap.pctBultos !== -1 && row[colMap.pctBultos] !== undefined && row[colMap.pctBultos] !== '') {
-    const rawP = row[colMap.pctBultos];
-    let p = Number(rawP);
-    if (isNaN(p)) {
-      p = parseFloat(String(rawP).replace('%', '').replace(',', '.').trim());
-    }
-    if (!isNaN(p) && p > 0) pctBultoRow = p;
-  }
-
   acc.totalCost += cost;
   acc.totalBultos += bultos;
   acc.totalLpns += lpnVal;
@@ -487,10 +491,6 @@ function accumulateRow(row, colMap, acc) {
     acc.rangeAgg[rng].cost += cost;
     acc.rangeAgg[rng].bultos += bultos;
     acc.rangeAgg[rng].lpns += lpnVal;
-    if (pctBultoRow !== null) {
-      acc.rangeAgg[rng].hasExplicitPct = true;
-      acc.rangeAgg[rng].bultosPctSum += pctBultoRow;
-    }
   }
 
   // 2. Divisiones
@@ -595,31 +595,21 @@ function finalizeWarehouseData(acc, evolObj, activeWeekTag) {
     return createEmptyWarehouseData(whseCode, whseLabel, evolObj, activeWeekTag);
   }
 
-  const anyExplicitPct = Object.values(rangeAgg).some(item => item.hasExplicitPct);
-  let totalExplicitSum = 0;
-  if (anyExplicitPct) {
-    Object.values(rangeAgg).forEach(item => totalExplicitSum += item.bultosPctSum);
-  }
-
-  // Estructuración de Rangos con % BULTOS
+  // Estructuración de Rangos con % BULTOS, % COSTO y % LPN con precisión matemática exacta (5 decimales)
   const ranges = Object.keys(rangeAgg).map(k => {
     const itm = rangeAgg[k];
-    let computedBultosPct = 0;
-
-    if (anyExplicitPct && totalExplicitSum > 0) {
-      computedBultosPct = totalExplicitSum <= 1.5 ? itm.bultosPctSum * 100 : itm.bultosPctSum;
-    } else {
-      computedBultosPct = totalBultos > 0 ? (itm.bultos / totalBultos) * 100 : 0;
-    }
+    const bultosPct = totalBultos > 0 ? Number(((itm.bultos / totalBultos) * 100).toFixed(5)) : 0;
+    const costPct = totalCost > 0 ? Number(((itm.cost / totalCost) * 100).toFixed(5)) : 0;
+    const lpnsPct = totalLpns > 0 ? Number(((itm.lpns / totalLpns) * 100).toFixed(5)) : 0;
 
     return {
       label: k,
       cost: itm.cost,
-      costPct: totalCost > 0 ? (itm.cost / totalCost) * 100 : 0,
+      costPct: costPct,
       lpns: itm.lpns,
-      lpnsPct: totalLpns > 0 ? (itm.lpns / totalLpns) * 100 : 0,
+      lpnsPct: lpnsPct,
       bultos: itm.bultos,
-      bultosPct: parseFloat(computedBultosPct.toFixed(2)),
+      bultosPct: bultosPct,
       color: itm.color,
       status: itm.status
     };
@@ -730,7 +720,7 @@ function finalizeWarehouseData(acc, evolObj, activeWeekTag) {
       finalWeeks = evolWeeks.slice(-7);
       finalEvolution = evolObj.evolution.map(e => {
         const vals = [...(e.values || [])].slice(-7);
-        const normLabel = e.label.includes('52') ? 'mayor a 52 Semanas' : e.label;
+        const normLabel = normalizeRange(e.label);
         if (currentWeekBultosPcts[normLabel] !== undefined && vals.length > 0) {
           vals[vals.length - 1] = currentWeekBultosPcts[normLabel];
         }
@@ -746,7 +736,7 @@ function finalizeWarehouseData(acc, evolObj, activeWeekTag) {
 
       finalEvolution = evolObj.evolution.map(e => {
         const hist6Vals = (e.values || []).slice(-6);
-        const normLabel = e.label.includes('52') ? 'mayor a 52 Semanas' : e.label;
+        const normLabel = normalizeRange(e.label);
         const currentPct = currentWeekBultosPcts[normLabel] !== undefined ? currentWeekBultosPcts[normLabel] : 0;
         return {
           label: e.label,
@@ -1051,9 +1041,9 @@ function renderSlide1(data) {
   const r010 = (data.ranges && data.ranges[0]) ? data.ranges[0] : { costPct: 0, cost: 0, bultosPct: 0 };
   document.getElementById('s1-kpi-healthy-pct').textContent = `${safeFixed(r010.costPct, 1, '%')}`;
   document.getElementById('s1-kpi-healthy-cost').textContent = formatCurrency(r010.cost);
-  document.getElementById('s1-kpi-healthy-bultos').textContent = `${safeFixed(r010.bultosPct, 1, '% Bultos')}`;
+  document.getElementById('s1-kpi-healthy-bultos').textContent = `${safeFixed(r010.bultosPct, 2, '% Bultos')}`;
 
-  const r1025 = (data.ranges && data.ranges[1]) ? data.ranges[1] : { costPct: 0, cost: 0, lpns: 0 };
+  const r1025 = (data.ranges && data.ranges[1]) ? data.ranges[1] : { costPct: 0, cost: 0, lpns: 0, bultosPct: 0 };
   document.getElementById('s1-kpi-warn-pct').textContent = `${safeFixed(r1025.costPct, 1, '%')}`;
   document.getElementById('s1-kpi-warn-cost').textContent = formatCurrency(r1025.cost);
   document.getElementById('s1-kpi-warn-lpns').textContent = `${formatNumber(r1025.lpns)} LPNs`;
@@ -1065,7 +1055,7 @@ function renderSlide1(data) {
 
   document.getElementById('s1-kpi-crit-cost').textContent = formatCurrency(critCost);
   document.getElementById('s1-kpi-crit-pct').textContent = `${safeFixed(critPct, 1, '% del Capital')}`;
-  document.getElementById('s1-kpi-over52').textContent = `>52s: ${formatCompact(r52.cost)} (${formatNumber(r52.lpns)} LPNs)`;
+  document.getElementById('s1-kpi-over52').textContent = `>52s: ${formatCurrency(r52.cost)} (${formatNumber(r52.lpns)} LPNs)`;
 
   // 1. Gráfico S1 con valores encima de las barras
   renderChartS1(data.ranges);
@@ -1073,35 +1063,49 @@ function renderSlide1(data) {
   // 2. Tabla 1 S1: Resumen de Rangos (Table 1 de la presentación original)
   renderTableS1Ranges(data.ranges, data.totalCost, data.totalLpns, data.totalBultos);
 
-  // 3. Tabla 2 S1: Matriz Divisiones
+  // 3. Tabla 2 S1: Matriz Divisiones (Detalle exacto de PPT y Tabla Dinámica)
   const tbodyDiv = document.getElementById('tbodyS1Divisions');
   tbodyDiv.innerHTML = '';
   if (data.divisions && data.divisions.length > 0) {
     data.divisions.forEach(d => {
+      const p010 = r010.cost > 0 ? (d.r010 / r010.cost) * 100 : 0;
+      const p1025 = r1025.cost > 0 ? (d.r1025 / r1025.cost) * 100 : 0;
+      const p2552 = r2552.cost > 0 ? (d.r2552 / r2552.cost) * 100 : 0;
+      const p52 = r52.cost > 0 ? (d.r52 / r52.cost) * 100 : 0;
+      const pTot = data.totalCost > 0 ? (d.total / data.totalCost) * 100 : 0;
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="font-weight:700; color:#0f172a;">${d.code}</td>
-        <td>${formatCompact(d.r010)}</td>
-        <td>${formatCompact(d.r1025)}</td>
-        <td style="${d.r2552 > 200000 ? 'background:#fffbeb; font-weight:700; color:#b45309;' : ''}">${formatCompact(d.r2552)}</td>
+        <td style="font-weight:700; color:#0f172a; text-align:left;">${d.code}</td>
+        <td>${d.r010 > 0 ? formatNumber(d.r010) : '-'}</td>
+        <td style="color:#059669; font-weight:600;">${d.r010 > 0 ? (p010 < 1 ? safeFixed(p010, 1, '%') : safeFixed(p010, 0, '%')) : '0%'}</td>
+        <td>${d.r1025 > 0 ? formatNumber(d.r1025) : '-'}</td>
+        <td style="color:#d97706; font-weight:600;">${d.r1025 > 0 ? (p1025 < 1 ? safeFixed(p1025, 1, '%') : safeFixed(p1025, 0, '%')) : '0%'}</td>
+        <td style="${d.r2552 > 100000 ? 'background:#fffbeb; font-weight:700; color:#b45309;' : ''}">${d.r2552 > 0 ? formatNumber(d.r2552) : '-'}</td>
+        <td style="color:#ea580c; font-weight:600;">${d.r2552 > 0 ? (p2552 < 1 ? safeFixed(p2552, 1, '%') : safeFixed(p2552, 0, '%')) : '0%'}</td>
         <td style="${d.r52 > 10000 ? 'background:#fee2e2; font-weight:800; color:#dc2626;' : ''}">${d.r52 > 0 ? formatNumber(d.r52) : '-'}</td>
-        <td style="font-weight:800; color:#0f172a;">${formatCompact(d.total)}</td>
-        <td style="color:#2563eb; font-weight:700;">${safeFixed(d.pct, 1, '%')}</td>
+        <td style="color:#dc2626; font-weight:700;">${d.r52 > 0 ? (p52 < 1 ? safeFixed(p52, 1, '%') : safeFixed(p52, 0, '%')) : '0%'}</td>
+        <td style="font-weight:800; color:#0f172a;">${formatNumber(d.total)}</td>
+        <td style="color:#2563eb; font-weight:800;">${pTot < 1 ? safeFixed(pTot, 2, '%') : safeFixed(pTot, 0, '%')}</td>
       `;
       tbodyDiv.appendChild(tr);
     });
   } else {
-    tbodyDiv.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:12px; color:#64748b;">No hay divisiones registradas</td></tr>`;
+    tbodyDiv.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:12px; color:#64748b;">No hay divisiones registradas</td></tr>`;
   }
 
   document.getElementById('tfootS1Divisions').innerHTML = `
     <tr>
-      <td style="text-align:left; font-weight:900;">Total General</td>
-      <td>${formatCompact(r010.cost)}</td>
-      <td>${formatCompact(r1025.cost)}</td>
-      <td style="color:#c2410c;">${formatCompact(r2552.cost)}</td>
-      <td style="color:#dc2626;">${formatNumber(r52.cost)}</td>
-      <td style="color:#0f172a; font-weight:900;">${formatCompact(data.totalCost)}</td>
+      <td style="text-align:left; font-weight:900;">Total general</td>
+      <td style="font-weight:900;">${formatNumber(r010.cost)}</td>
+      <td style="font-weight:900; color:#059669;">100%</td>
+      <td style="font-weight:900;">${formatNumber(r1025.cost)}</td>
+      <td style="font-weight:900; color:#d97706;">100%</td>
+      <td style="font-weight:900; color:#ea580c;">${formatNumber(r2552.cost)}</td>
+      <td style="font-weight:900; color:#ea580c;">100%</td>
+      <td style="font-weight:900; color:#dc2626;">${formatNumber(r52.cost)}</td>
+      <td style="font-weight:900; color:#dc2626;">100%</td>
+      <td style="color:#0f172a; font-weight:900;">${formatNumber(data.totalCost)}</td>
       <td style="color:#2563eb; font-weight:900;">100%</td>
     </tr>
   `;
@@ -1167,6 +1171,7 @@ function renderTableS1Ranges(ranges, totalCost, totalLpns, totalBultos) {
         ${r.label}
       </td>
       <td style="font-weight:700; color:#2563eb;">${formatNumber(r.lpns)}</td>
+      <td style="font-weight:600; color:#475569;">${safeFixed(r.lpnsPct, 2, '%')}</td>
       <td>${formatNumber(r.bultos)}</td>
       <td style="font-weight:800; color:${r.color};">${safeFixed(r.bultosPct, 2, '%')}</td>
       <td style="font-weight:700;">${formatCurrency(r.cost)}</td>
@@ -1177,8 +1182,9 @@ function renderTableS1Ranges(ranges, totalCost, totalLpns, totalBultos) {
 
   tfoot.innerHTML = `
     <tr>
-      <td style="text-align:left; font-weight:900;">Total General</td>
+      <td style="text-align:left; font-weight:900;">Total general</td>
       <td style="color:#2563eb; font-weight:900;">${formatNumber(totalLpns)}</td>
+      <td style="font-weight:900; color:#475569;">100.00%</td>
       <td style="font-weight:900;">${formatNumber(totalBultos)}</td>
       <td style="font-weight:900;">100%</td>
       <td style="color:#0f172a; font-weight:900;">${formatCurrency(totalCost)}</td>
@@ -1390,6 +1396,7 @@ function renderSlide3(data) {
     const lastVal = vals[vals.length - 1] || 0;
     const prevVal = vals[vals.length - 2] || lastVal;
     const diff = lastVal - prevVal;
+    const isNeutral = Math.abs(diff) < 0.005;
     const isPositiveGood = e.label.includes('0 a 10') ? diff > 0 : diff < 0;
 
     let trHtml = `
@@ -1404,8 +1411,8 @@ function renderSlide3(data) {
     });
 
     trHtml += `
-      <td style="font-weight:800; font-size:0.88rem; color:${isPositiveGood ? '#059669' : '#dc2626'};">
-        ${diff >= 0 ? '▲ +' : '▼ '}${safeFixed(Math.abs(diff), 2, '%')}
+      <td style="font-weight:800; font-size:0.88rem; color:${isNeutral ? '#64748b' : (isPositiveGood ? '#059669' : '#dc2626')};">
+        ${isNeutral ? '= 0.00%' : (diff > 0 ? '▲ +' : '▼ -') + safeFixed(Math.abs(diff), 2, '%')}
       </td>
     `;
 
@@ -1488,12 +1495,14 @@ function renderChartS3(weeks, evolution) {
         },
         tooltip: {
           callbacks: {
-            label: (item) => ` ${item.dataset.label}: ${safeFixed(item.raw, 2, '%')}`
+            label: (item) => ` ${item.dataset.label}: ${safeFixed(item.raw, 2, '%')} (${safeFixed(item.raw, 4, '%')})`
           }
         }
       },
       scales: {
         y: {
+          beginAtZero: true,
+          max: 100,
           ticks: {
             callback: (v) => `${v}%`,
             font: { size: 11, weight: '700' }

@@ -397,16 +397,28 @@
       font-size: 0.82rem !important;
     }
     .capturing-16-9 .exec-table th {
-      padding: 5px 7px !important;
-      font-size: 0.76rem !important;
+      padding: 4px 6px !important;
+      font-size: 0.74rem !important;
     }
     .capturing-16-9 .exec-table td {
-      padding: 4px 7px !important;
-      font-size: 0.80rem !important;
+      padding: 3px 6px !important;
+      font-size: 0.77rem !important;
     }
     .capturing-16-9 .exec-table tfoot td {
-      padding: 5px 7px !important;
-      font-size: 0.84rem !important;
+      padding: 4px 6px !important;
+      font-size: 0.80rem !important;
+    }
+    .capturing-16-9 .exec-table-sm th {
+      padding: 2.5px 4px !important;
+      font-size: 0.68rem !important;
+    }
+    .capturing-16-9 .exec-table-sm td {
+      padding: 2px 4px !important;
+      font-size: 0.72rem !important;
+    }
+    .capturing-16-9 .exec-table-sm tfoot td {
+      padding: 2.5px 4px !important;
+      font-size: 0.74rem !important;
     }
     .capturing-16-9 h2 {
       font-size: 1.40rem !important;
@@ -736,12 +748,13 @@
             <table class="exec-table exec-table-sm" id="tableS1Ranges">
               <thead>
                 <tr>
-                  <th>Rango Semanas</th>
-                  <th>LPN (Suma)</th>
+                  <th style="text-align: left;">Rango Semanas</th>
+                  <th>LPN</th>
+                  <th>% LPN</th>
                   <th>Bultos</th>
                   <th>% Bultos</th>
-                  <th>Costo (S/)</th>
-                  <th>% Costo</th>
+                  <th>Costos (S/)</th>
+                  <th>% Costos</th>
                 </tr>
               </thead>
               <tbody id="tbodyS1Ranges">
@@ -757,19 +770,29 @@
         <!-- Columna Derecha: Matriz Comercial por División -->
         <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; overflow-x: auto;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <h3 style="font-size: 0.94rem; font-weight: 800; margin: 0; color: #0f172a;">Costo de Inventario por División y Rango (S/)</h3>
-            <span style="font-size: 0.76rem; font-weight: 800; color: #b45309; background: #fef3c7; padding: 2px 7px; border-radius: 5px;">Foco: &gt;25 Semanas</span>
+            <h3 style="font-size: 0.94rem; font-weight: 800; margin: 0; color: #0f172a;">Costo de Inventario por División y Antigüedad</h3>
+            <span style="font-size: 0.76rem; font-weight: 800; color: #b45309; background: #fef3c7; padding: 2px 7px; border-radius: 5px;">Detalle Comercial Completo</span>
           </div>
           <table class="exec-table exec-table-sm" id="tableS1Divisions">
             <thead>
               <tr>
-                <th>División</th>
-                <th>0 a 10 Sem</th>
-                <th>10 a 25 Sem</th>
-                <th>25 a 52 Sem</th>
-                <th style="color: #dc2626;">&gt;52 Sem</th>
-                <th>Total S/</th>
-                <th>% Part.</th>
+                <th rowspan="2" style="text-align: left; vertical-align: middle;">División</th>
+                <th colspan="2" style="text-align: center; background: #ecfdf5; color: #065f46; border-bottom: 1px solid #a7f3d0;">0 a 10 Sem</th>
+                <th colspan="2" style="text-align: center; background: #fffbeb; color: #92400e; border-bottom: 1px solid #fde68a;">10 a 25 Sem</th>
+                <th colspan="2" style="text-align: center; background: #fff7ed; color: #9a3412; border-bottom: 1px solid #fed7aa;">25 a 52 Sem</th>
+                <th colspan="2" style="text-align: center; background: #fef2f2; color: #991b1b; border-bottom: 1px solid #fecaca;">Mayor a 52 Sem</th>
+                <th rowspan="2" style="text-align: right; vertical-align: middle; background: #f8fafc;">Total COSTOS</th>
+                <th rowspan="2" style="text-align: right; vertical-align: middle; background: #f8fafc;">Total %</th>
+              </tr>
+              <tr>
+                <th style="background: #f0fdf4; font-size: 0.69rem; padding: 3px 5px;">Costos</th>
+                <th style="background: #f0fdf4; font-size: 0.69rem; padding: 3px 5px;">%</th>
+                <th style="background: #fefce8; font-size: 0.69rem; padding: 3px 5px;">Costos</th>
+                <th style="background: #fefce8; font-size: 0.69rem; padding: 3px 5px;">%</th>
+                <th style="background: #fff7ed; font-size: 0.69rem; padding: 3px 5px;">Costos</th>
+                <th style="background: #fff7ed; font-size: 0.69rem; padding: 3px 5px;">%</th>
+                <th style="background: #fef2f2; font-size: 0.69rem; padding: 3px 5px; color: #dc2626;">Costos</th>
+                <th style="background: #fef2f2; font-size: 0.69rem; padding: 3px 5px; color: #dc2626;">%</th>
               </tr>
             </thead>
             <tbody id="tbodyS1Divisions">
