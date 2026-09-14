@@ -377,21 +377,21 @@
     .exec-table-green tbody tr:nth-child(odd) { background: #ffffff; }
 
     /* ═════════════════════════════════════════════════════════════════════════ */
+    /* ═════════════════════════════════════════════════════════════════════════ */
     /* CLASE MAESTRA DE CAPTURA 16:9 PARA POWERPOINT (1600x900 NATIVO)           */
-    /* Llena 100% de la diapositiva panorámica sin bordes vacíos a los lados    */
+    /* Distribuye el espacio de manera homogénea y mantiene proporciones reales  */
     /* ═════════════════════════════════════════════════════════════════════════ */
     .capturing-16-9 {
       width: 1600px !important;
       height: 900px !important;
       max-width: 1600px !important;
       max-height: 900px !important;
-      padding: 12px 20px !important;
+      padding: 16px 24px !important;
       margin: 0 auto !important;
       overflow: hidden !important;
       display: flex !important;
       flex-direction: column !important;
-      justify-content: flex-start !important;
-      gap: 6px !important;
+      justify-content: space-between !important; /* Distribución vertical uniforme sin vacíos al pie */
       background: #ffffff !important;
       border: none !important;
       border-radius: 0 !important;
@@ -399,98 +399,158 @@
       box-sizing: border-box !important;
     }
 
+    /* Cabeceras de diapositiva */
     .capturing-16-9 .slide-header {
-      padding-bottom: 2px !important;
-      margin-bottom: 4px !important;
+      padding-bottom: 4px !important;
+      margin-bottom: 0 !important;
+      border-bottom: 1px solid #e2e8f0 !important;
     }
     .capturing-16-9 h2 {
-      font-size: 1.25rem !important;
+      font-size: 1.35rem !important;
+      font-weight: 900 !important;
     }
     .capturing-16-9 .subtitle {
-      font-size: 0.74rem !important;
+      font-size: 0.82rem !important;
+      color: #64748b !important;
     }
 
+    /* KPIs Diapositiva 1 */
     .capturing-16-9 .kpi-row {
-      margin-bottom: 4px !important;
-      gap: 8px !important;
+      margin-bottom: 0 !important;
+      gap: 12px !important;
     }
     .capturing-16-9 .kpi-box {
-      padding: 5px 10px !important;
+      padding: 8px 14px !important;
+      border-radius: 10px !important;
     }
     .capturing-16-9 .kpi-number {
-      font-size: 1.40rem !important;
-      margin: 1px 0 !important;
+      font-size: 1.70rem !important;
+      font-weight: 900 !important;
+      margin: 2px 0 !important;
     }
     .capturing-16-9 .kpi-label {
-      font-size: 0.70rem !important;
+      font-size: 0.80rem !important;
+      font-weight: 800 !important;
     }
     .capturing-16-9 .kpi-sub {
-      font-size: 0.74rem !important;
+      font-size: 0.80rem !important;
     }
 
+    /* Diapositiva 1: Secciones intermedias e inferiores */
     .capturing-16-9 .slide1-middle-grid {
-      margin-bottom: 4px !important;
-      gap: 10px !important;
+      margin-bottom: 0 !important;
+      gap: 14px !important;
     }
     .capturing-16-9 .s1-card {
-      padding: 5px 8px !important;
-      border-radius: 8px !important;
+      padding: 8px 12px !important;
+      border-radius: 10px !important;
     }
     .capturing-16-9 .chart-s1-container {
-      height: 105px !important;
-      margin-bottom: 3px !important;
+      height: 130px !important;
+      margin-bottom: 6px !important;
     }
     .capturing-16-9 .s1-bottom-card {
-      padding: 4px 8px !important;
-      border-radius: 8px !important;
+      padding: 8px 12px !important;
+      border-radius: 10px !important;
     }
     .capturing-16-9 .s1-bottom-card h3 {
-      font-size: 0.82rem !important;
+      font-size: 0.94rem !important;
     }
+
+    /* Diapositiva 2: Pivot de zonas y Top 10 por zona */
+    .capturing-16-9 .s2-top-card {
+      padding: 8px 12px !important;
+      border-radius: 10px !important;
+      margin-bottom: 0 !important;
+    }
+    .capturing-16-9 .s2-bottom-section {
+      margin-top: 0 !important;
+    }
+    .capturing-16-9 .s2-bottom-section h3 {
+      font-size: 1.0rem !important;
+      margin: 0 0 8px !important;
+    }
+
+    /* Diapositiva 3: Evolutivo y Capacidad física */
+    .capturing-16-9 .s3-top-card {
+      padding: 10px 16px !important;
+      border-radius: 10px !important;
+      margin-bottom: 0 !important;
+    }
+    .capturing-16-9 .chart-s3-container {
+      height: 200px !important;
+      margin-bottom: 8px !important;
+    }
+    .capturing-16-9 .s3-bottom-card {
+      padding: 10px 16px !important;
+      border-radius: 10px !important;
+      margin-bottom: 0 !important;
+    }
+
+    /* Prevenir recortes por scroll containers */
     .capturing-16-9 div[style*="overflow-x: auto"] {
       overflow: visible !important;
     }
 
+    /* Tablas Ejecutivas Generales - Proporciones confortables */
     .capturing-16-9 .exec-table {
       width: 100% !important;
     }
     .capturing-16-9 .exec-table th {
-      padding: 2.5px 5px !important;
-      font-size: 0.68rem !important;
+      padding: 4px 8px !important;
+      font-size: 0.78rem !important;
+      font-weight: 800 !important;
     }
     .capturing-16-9 .exec-table td {
-      padding: 1.5px 5px !important;
-      font-size: 0.70rem !important;
-      line-height: 1.2 !important;
+      padding: 3.5px 8px !important;
+      font-size: 0.78rem !important;
+      line-height: 1.25 !important;
     }
     .capturing-16-9 .exec-table tfoot td {
-      padding: 2.5px 5px !important;
-      font-size: 0.74rem !important;
+      padding: 4.5px 8px !important;
+      font-size: 0.82rem !important;
       font-weight: 900 !important;
       background: #f1f5f9 !important;
       border-top: 2px solid #0f172a !important;
     }
+
+    /* Tablas Ejecutivas Compactas (Slide 1 y Slide 3) */
     .capturing-16-9 .exec-table-sm th {
-      padding: 1.5px 4px !important;
-      font-size: 0.65rem !important;
+      padding: 3.5px 6px !important;
+      font-size: 0.76rem !important;
+      font-weight: 800 !important;
     }
     .capturing-16-9 .exec-table-sm td {
-      padding: 1.2px 4px !important;
-      font-size: 0.67rem !important;
-      line-height: 1.18 !important;
+      padding: 3px 6px !important;
+      font-size: 0.77rem !important;
+      line-height: 1.22 !important;
     }
     .capturing-16-9 .exec-table-sm tfoot td {
-      padding: 2.5px 4px !important;
-      font-size: 0.70rem !important;
+      padding: 4px 6px !important;
+      font-size: 0.80rem !important;
+      font-weight: 900 !important;
       background: #f1f5f9 !important;
       border-top: 2px solid #0f172a !important;
     }
+
+    /* Tablas Corporativas Verdes (Diapositiva 2) */
     .capturing-16-9 .exec-table-green thead th {
       background: #2d6a4f !important;
       color: #ffffff !important;
-      padding: 3px 4px !important;
-      font-size: 0.68rem !important;
+      padding: 6px 10px !important;
+      font-size: 0.82rem !important;
       border-bottom: 2px solid #1e4620 !important;
+    }
+    .capturing-16-9 .exec-table-green td {
+      padding: 5px 10px !important;
+      font-size: 0.82rem !important;
+      line-height: 1.25 !important;
+    }
+    .capturing-16-9 .exec-table-green tfoot td {
+      padding: 6px 10px !important;
+      font-size: 0.84rem !important;
+      font-weight: 900 !important;
+      border-top: 2px solid #1e4620 !important;
     }
     .capturing-16-9 .exec-table-green tbody tr:nth-child(even) { background: #f4faf6 !important; }
     .capturing-16-9 .exec-table-green tbody tr:nth-child(odd) { background: #ffffff !important; }
@@ -936,7 +996,7 @@
       </div>
 
       <!-- Tabla Principal: Antigüedad por Zonas (Pivot Completo idéntico a PPT) -->
-      <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+      <div class="s2-top-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
         <table class="exec-table exec-table-sm exec-table-green" id="tableS2Zones" style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="background: #2d6a4f !important; color: #ffffff !important;">
@@ -958,16 +1018,19 @@
         </table>
       </div>
 
-      <!-- Título de Sección Top 10 SKUs por Zona -->
-      <div style="text-align: center; margin-bottom: 6px;">
-        <h3 style="font-size: 0.95rem; font-weight: 800; color: #1e293b; margin: 0;">
-          Top 10 SKU – Costo de Inventario - Mayor 52 Semanas por Zona
-        </h3>
-      </div>
+      <!-- Sección Inferior: Top 10 SKUs por Zona -->
+      <div class="s2-bottom-section">
+        <!-- Título de Sección Top 10 SKUs por Zona -->
+        <div style="text-align: center; margin-bottom: 6px;">
+          <h3 style="font-size: 0.95rem; font-weight: 800; color: #1e293b; margin: 0;">
+            Top 10 SKU – Costo de Inventario - Mayor 52 Semanas por Zona
+          </h3>
+        </div>
 
-      <!-- Tablas Dinámicas de Top SKUs >52 Semanas por Zona (RCK, RHB, TOL o cualquier zona con información) -->
-      <div id="containerS2TopZones" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
-        <!-- Se renderiza dinámicamente según las zonas con información (2 columnas para RCK/RHB, 3 columnas si TOL u otra zona tiene datos) -->
+        <!-- Tablas Dinámicas de Top SKUs >52 Semanas por Zona (RCK, RHB, TOL o cualquier zona con información) -->
+        <div id="containerS2TopZones" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+          <!-- Se renderiza dinámicamente según las zonas con información (2 columnas para RCK/RHB, 3 columnas si TOL u otra zona tiene datos) -->
+        </div>
       </div>
     </div>
 
@@ -991,7 +1054,7 @@
       </div>
 
       <!-- Sección Superior: Gráfico de Líneas Evolutivo 7 Semanas + Tabla -->
-      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;">
+      <div class="s3-top-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <div>
             <h3 style="font-size: 0.96rem; font-weight: 900; color: #0f172a; margin: 0;">Evolutivo Semanal - % Participación por Bulto (Últimas 7 Semanas)</h3>
@@ -1002,7 +1065,7 @@
           </span>
         </div>
 
-        <div style="height: 190px; position: relative; margin-bottom: 12px;">
+        <div class="chart-s3-container" style="height: 190px; position: relative; margin-bottom: 12px;">
           <canvas id="chartS3Evolution"></canvas>
         </div>
 
@@ -1021,7 +1084,7 @@
       </div>
 
       <!-- Sección Inferior: Capacidad Física (Ubicaciones por División) -->
-      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px;">
+      <div class="s3-bottom-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
           <div>
             <h3 style="font-size: 0.96rem; font-weight: 900; color: #0f172a; margin: 0;">Distribución de Ubicaciones Físicas por Antigüedad y División</h3>
