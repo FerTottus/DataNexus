@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataNexus - Antigüedad de Inventario (Secos y Frescos)</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📦</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../../css/styles.css">
+
+  <!-- SheetJS para lectura y procesamiento de archivos Excel (.xlsx, .xlsm, .xlsb) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+  <!-- Chart.js & html2canvas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #0f172a;
+      --accent-blue: #2563eb;
+      --green-safe: #10b981;
+      --yellow-warn: #f59e0b;
+      --orange-alert: #f97316;
+      --red-critical: #ef4444;
+      --card-bg: #ffffff;
+      --border-color: #e2e8f0;
+    }
+
+    body {
+      background:
+        radial-gradient(at 10% 12%, rgba(37, 99, 235, 0.08) 0px, transparent 40%),
+        radial-gradient(at 90% 10%, rgba(16, 185, 129, 0.07) 0px, transparent 40%),
+        radial-gradient(at 50% 60%, rgba(249, 115, 22, 0.05) 0px, transparent 50%),
+        #f8fafc;
+      min-height: 100vh;
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      color: #0f172a;
+    }
+
+    /* Zona de Carga de Excel (Dropzone) */
+    .upload-section-card {
+      max-width: 1540px;
+      margin: 16px auto 8px;
+      padding: 0 16px;
+    }
+
+    .dropzone-box {
+      border: 2px dashed #93c5fd;
+      background: rgba(239, 246, 255, 0.7);
+      border-radius: 14px;
+      padding: 24px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .dropzone-box:hover, .dropzone-box.dragover {
+      border-color: #2563eb;
+      background: rgba(219, 234, 254, 0.9);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.15);
+    }
+
+    .dropzone-icon {
+      font-size: 2.4rem;
+      color: #2563eb;
+      margin-bottom: 8px;
+    }
+
+    .dropzone-title {
+      font-size: 1.18rem;
+      font-weight: 800;
+      color: #1e3a8a;
+      margin: 0 0 4px;
+    }
+
+    .dropzone-subtitle {
+      font-size: 0.86rem;
+      color: #475569;
+      margin: 0 0 10px;
+    }
+
+    .dropzone-badge-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+
+    /* Barra de Estado del Archivo Cargado */
+    .file-status-bar {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 18px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+
+    /* Sub-navbar de control */
+    .control-bar {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 61px;
+      z-index: 90;
+    }
+
+    .pill-group {
+      display: inline-flex;
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 3px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .pill-btn {
+      border: none;
+      background: transparent;
+      padding: 7px 14px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #475569;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-btn:hover { color: #0f172a; }
+
+    .pill-btn.active {
+      background: #0f172a;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+    }
+
+    .pill-btn.pill-frescos.active {
+      background: #059669;
+      color: #ffffff;
+    }
+
+    /* Botón de Copia 16:9 Directa */
+    .btn-capture-ppt {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: #ffffff;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 9px;
+      font-size: 0.90rem;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.30);
+      transition: all 0.2s ease;
+    }
+
+    .btn-capture-ppt:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.40);
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+    }
+
+    /* Contenedor Responsivo de Diapositiva */
+    .slide-wrapper {
+      max-width: 1540px;
+      margin: 12px auto;
+      padding: 0 16px 36px;
+    }
+
+    .slide-canvas-container {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08);
+      position: relative;
+      padding: 22px 26px;
+      margin-bottom: 24px;
+      box-sizing: border-box;
+      transition: all 0.2s ease;
+    }
+
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #f1f5f9;
+      margin-bottom: 16px;
+    }
+
+    .slide-header h2 {
+      font-size: 1.55rem;
+      font-weight: 900;
+      color: #0f172a;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.4px;
+    }
+
+    .slide-header .subtitle {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: #64748b;
+      margin-top: 3px;
+    }
+
+    .slide-badges {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .badge-cd {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      font-weight: 800;
+      font-size: 0.82rem;
+      padding: 5px 12px;
+      border-radius: 8px;
+      text-transform: uppercase;
+    }
+
+    .badge-week {
+      background: #f8fafc;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      font-weight: 700;
+      font-size: 0.82rem;
+      padding: 5px 12px;
+      border-radius: 8px;
+    }
+
+    /* KPI Cards Horizontales Compactas */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .kpi-box {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      position: relative;
+      border-left-width: 5px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+
+    .kpi-box.kpi-navy { border-left-color: #0f172a; }
+    .kpi-box.kpi-green { border-left-color: #10b981; }
+    .kpi-box.kpi-amber { border-left-color: #f59e0b; }
+    .kpi-box.kpi-red { border-left-color: #ef4444; background: #fff5f5; }
+
+    .kpi-label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-number {
+      font-size: 1.95rem;
+      font-weight: 900;
+      color: #0f172a;
+      margin: 4px 0 2px;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.5px;
+    }
+
+    .kpi-sub {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Tablas ejecutivas legibles */
+    .exec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      line-height: 1.35;
+    }
+
+    .exec-table th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 800;
+      font-size: 0.82rem;
+      padding: 9px 10px;
+      border-bottom: 2px solid #cbd5e1;
+      text-align: right;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .exec-table th:first-child { text-align: left; }
+
+    .exec-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      text-align: right;
+      color: #1e293b;
+      font-size: 0.88rem;
+    }
+
+    .exec-table td:first-child {
+      text-align: left;
+      font-weight: 700;
+    }
+
+    .exec-table tfoot td {
+      font-weight: 900;
+      font-size: 0.92rem;
+      border-top: 2px solid #94a3b8;
+      background: #f8fafc;
+      color: #0f172a;
+      padding: 9px 10px;
+    }
+
+    /* Tabla ejecutiva compacta para rangos */
+    .exec-table-sm th { padding: 6px 8px; font-size: 0.78rem; }
+    .exec-table-sm td { padding: 5px 8px; font-size: 0.84rem; }
+    .exec-table-sm tfoot td { padding: 6px 8px; font-size: 0.86rem; }
+
+    /* Estilo Corporativo Verde para Diapositiva 2 (Zonas) */
+    .exec-table-green {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .exec-table-green thead th {
+      background: #2d6a4f !important;
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      font-size: 0.76rem !important;
+      border-bottom: 2px solid #1e4620 !important;
+      text-align: right;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .exec-table-green thead th:first-child { text-align: left; }
+    .exec-table-green tbody tr:nth-child(even) { background: #f4faf6; }
+    .exec-table-green tbody tr:nth-child(odd) { background: #ffffff; }
+
+    /* ═════════════════════════════════════════════════════════════════════════ */
+    /* ═════════════════════════════════════════════════════════════════════════ */
+    /* CLASE MAESTRA DE CAPTURA 16:9 PARA POWERPOINT (1600x900 NATIVO)           */
+    /* Sin desbordamientos ni recortes: garantiza 100% de filas y subtotales     */
+    /* ═════════════════════════════════════════════════════════════════════════ */
+    .capturing-16-9 {
+      width: 1600px !important;
+      max-width: 1600px !important;
+      min-height: 900px !important;
+      height: auto !important;
+      max-height: none !important;
+      padding: 12px 20px !important;
+      margin: 0 auto !important;
+      overflow: visible !important;
+      display: flex !important;
+      flex-direction: column !important;
+      justify-content: flex-start !important;
+      gap: 6px !important;
+      background: #ffffff !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      box-sizing: border-box !important;
+    }
+
+    /* Cabeceras de diapositiva */
+    .capturing-16-9 .slide-header {
+      padding-bottom: 2px !important;
+      margin-bottom: 0 !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+    }
+    .capturing-16-9 h2 {
+      font-size: 1.25rem !important;
+      font-weight: 900 !important;
+    }
+    .capturing-16-9 .subtitle {
+      font-size: 0.74rem !important;
+      color: #64748b !important;
+    }
+
+    /* KPIs Diapositiva 1 */
+    .capturing-16-9 .kpi-row {
+      margin-bottom: 2px !important;
+      gap: 8px !important;
+    }
+    .capturing-16-9 .kpi-box {
+      padding: 5px 12px !important;
+      border-radius: 8px !important;
+    }
+    .capturing-16-9 .kpi-number {
+      font-size: 1.50rem !important;
+      font-weight: 900 !important;
+      margin: 1px 0 !important;
+    }
+    .capturing-16-9 .kpi-label {
+      font-size: 0.74rem !important;
+      font-weight: 800 !important;
+    }
+    .capturing-16-9 .kpi-sub {
+      font-size: 0.74rem !important;
+    }
+
+    /* Diapositiva 1: Secciones intermedias e inferiores */
+    .capturing-16-9 .slide1-middle-grid {
+      margin-bottom: 2px !important;
+      gap: 10px !important;
+    }
+    .capturing-16-9 .s1-card {
+      padding: 6px 10px !important;
+      border-radius: 8px !important;
+    }
+    .capturing-16-9 .chart-s1-container {
+      height: 110px !important;
+      margin-bottom: 4px !important;
+    }
+    .capturing-16-9 .s1-bottom-card {
+      padding: 6px 10px !important;
+      border-radius: 8px !important;
+    }
+    .capturing-16-9 .s1-bottom-card h3 {
+      font-size: 0.88rem !important;
+    }
+
+    /* Diapositiva 2: Pivot de zonas y Top 10 por zona */
+    .capturing-16-9 .s2-top-card {
+      padding: 6px 10px !important;
+      border-radius: 8px !important;
+      margin-bottom: 4px !important;
+    }
+    .capturing-16-9 .s2-bottom-section {
+      margin-top: 0 !important;
+    }
+    .capturing-16-9 .s2-bottom-section h3 {
+      font-size: 0.94rem !important;
+      margin: 0 0 6px !important;
+    }
+
+    /* Diapositiva 3: Evolutivo y Capacidad física */
+    .capturing-16-9 .s3-top-card {
+      padding: 8px 14px !important;
+      border-radius: 8px !important;
+      margin-bottom: 4px !important;
+    }
+    .capturing-16-9 .chart-s3-container {
+      height: 180px !important;
+      margin-bottom: 6px !important;
+    }
+    .capturing-16-9 .s3-bottom-card {
+      padding: 8px 14px !important;
+      border-radius: 8px !important;
+      margin-bottom: 0 !important;
+    }
+
+    /* Prevenir recortes por scroll containers */
+    .capturing-16-9 div {
+      overflow: visible !important;
+    }
+
+    /* Tablas Ejecutivas Generales */
+    .capturing-16-9 .exec-table {
+      width: 100% !important;
+    }
+    .capturing-16-9 .exec-table th {
+      padding: 3px 6px !important;
+      font-size: 0.74rem !important;
+      font-weight: 800 !important;
+    }
+    .capturing-16-9 .exec-table td {
+      padding: 2.2px 6px !important;
+      font-size: 0.74rem !important;
+      line-height: 1.20 !important;
+    }
+    .capturing-16-9 .exec-table tfoot td {
+      padding: 3.5px 6px !important;
+      font-size: 0.78rem !important;
+      font-weight: 900 !important;
+      background: #f1f5f9 !important;
+      border-top: 2px solid #0f172a !important;
+    }
+
+    /* Tablas Ejecutivas Compactas (Slide 1 y Slide 3) */
+    .capturing-16-9 .exec-table-sm th {
+      padding: 2.5px 5px !important;
+      font-size: 0.72rem !important;
+      font-weight: 800 !important;
+    }
+    .capturing-16-9 .exec-table-sm td {
+      padding: 2px 5px !important;
+      font-size: 0.73rem !important;
+      line-height: 1.18 !important;
+    }
+    .capturing-16-9 .exec-table-sm tfoot td {
+      padding: 3.5px 5px !important;
+      font-size: 0.76rem !important;
+      font-weight: 900 !important;
+      background: #f1f5f9 !important;
+      border-top: 2px solid #0f172a !important;
+    }
+
+    /* Regla específica para el Top 10 SKUs en Slide 1 (garantizar visibilidad del subtotal) */
+    .capturing-16-9 #tableS1Top10 td {
+      padding: 2px 5px !important;
+      font-size: 0.73rem !important;
+    }
+    .capturing-16-9 #tableS1Top10 tfoot td {
+      padding: 4px 6px !important;
+      font-size: 0.78rem !important;
+      font-weight: 900 !important;
+      background: #f1f5f9 !important;
+      border-top: 2px solid #0f172a !important;
+    }
+
+    /* Tablas Corporativas Verdes (Diapositiva 2) */
+    .capturing-16-9 .exec-table-green thead th {
+      background: #2d6a4f !important;
+      color: #ffffff !important;
+      padding: 5px 8px !important;
+      font-size: 0.78rem !important;
+      border-bottom: 2px solid #1e4620 !important;
+    }
+    .capturing-16-9 .exec-table-green td {
+      padding: 4px 8px !important;
+      font-size: 0.78rem !important;
+      line-height: 1.22 !important;
+    }
+    .capturing-16-9 .exec-table-green tfoot td {
+      padding: 5px 8px !important;
+      font-size: 0.82rem !important;
+      font-weight: 900 !important;
+      border-top: 2px solid #1e4620 !important;
+    }
+    .capturing-16-9 .exec-table-green tbody tr:nth-child(even) { background: #f4faf6 !important; }
+    .capturing-16-9 .exec-table-green tbody tr:nth-child(odd) { background: #ffffff !important; }
+
+    /* Modal de Confirmación de Copia */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-card {
+      background: #ffffff;
+      border-radius: 16px;
+      max-width: 620px;
+      width: 100%;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      overflow: hidden;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Toast Notification */
+    #toastMessage {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 0.90rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+    }
+
+    #toastMessage.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Loading Spinner */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+      z-index: 9999;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 1024px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .kpi-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra de Navegación Principal DataNexus -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="logo-icon">
+        <i class="fa-solid fa-boxes-packing text-primary"></i>
+      </div>
+      <div>
+        <h1 class="logo-title">DataNexus</h1>
+        <span class="logo-subtitle">Antigüedad de Inventario Semanal (CD Secos 655 & Frescos 676)</span>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <!-- Menú Desplegable de Módulos -->
+      <div class="nav-dropdown">
+        <button class="btn btn-outline-info btn-sm">
+          <i class="fa-solid fa-chart-pie"></i> Ver Módulos <i class="fa-solid fa-chevron-down" style="font-size: 0.8em; margin-left: 4px;"></i>
+        </button>
+        <div class="nav-dropdown-content">
+          <a href="../../index.html"><i class="fa-solid fa-house"></i> Inicio / Sheets</a>
+          <a href="../Throughput/index.html"><i class="fa-solid fa-boxes-stacked"></i> Throughput Secos/Frescos</a>
+          <a href="../movilidad/index.html"><i class="fa-solid fa-van-shuttle"></i> Servicio Movilidad</a>
+          <a href="../dotacion/index.html"><i class="fa-solid fa-users"></i> Dotación</a>
+          <a href="../lector.html"><i class="fa-solid fa-file-excel"></i> Lector (Extraer Excel)</a>
+        </div>
+      </div>
+
+      <button onclick="document.getElementById('excelFileInput').click()" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-file-excel"></i> Cargar Excel
+      </button>
+    </div>
+  </header>
+
+  <!-- Input oculto para carga de archivos Excel -->
+  <input type="file" id="excelFileInput" accept=".xlsx, .xlsm, .xls, .xlsb" style="display: none;" onchange="handleExcelUpload(event)">
+
+  <!-- SECCIÓN DE CARGA DE ARCHIVO EXCEL -->
+  <div class="upload-section-card">
+    
+    <!-- Zona de arrastre y selección de archivo -->
+    <div id="dropzoneBox" class="dropzone-box" onclick="document.getElementById('excelFileInput').click()">
+      <div class="dropzone-icon">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+      </div>
+      <h3 class="dropzone-title">Carga tu archivo Excel Semanal para alimentar el Dashboard</h3>
+      <p class="dropzone-subtitle">Arrastra tu archivo aquí o haz clic para seleccionarlo (formatos compatibles: <strong>.xlsx, .xlsm, .xlsb</strong>)</p>
+      
+      <div class="flex items-center justify-center gap-2 flex-wrap">
+        <span class="dropzone-badge-info">
+          <i class="fa-solid fa-check"></i> Hoja <strong>"BD"</strong> (Tabla <code>tbBD</code> con WHSE 655 y 676)
+        </span>
+        <span class="dropzone-badge-info">
+          <i class="fa-solid fa-check"></i> Hoja <strong>"EVOLUTIVO"</strong> (Secos: <code>C5:BC9</code> | Frescos: <code>C14:BC18</code>)
+        </span>
+        <span class="dropzone-badge-info">
+          <i class="fa-solid fa-bolt"></i> Motor ultra-rápido por lotes (sin congelar la pantalla)
+        </span>
+      </div>
+
+      <div style="margin-top: 12px;">
+        <button type="button" onclick="event.stopPropagation(); loadSampleData();" class="btn btn-sm btn-outline-secondary" style="font-size: 0.82rem;">
+          <i class="fa-solid fa-eye"></i> O ver con datos demostrativos (Semana 37)
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Estado cuando el archivo ya está cargado -->
+    <div id="fileStatusBar" class="file-status-bar">
+      <div class="flex items-center gap-3">
+        <div style="width: 38px; height: 38px; background: #ecfdf5; color: #059669; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+          <i class="fa-solid fa-file-excel"></i>
+        </div>
+        <div>
+          <div style="font-weight: 800; color: #0f172a; font-size: 0.94rem;" id="loadedFileName">Archivo: datos_semanales.xlsx</div>
+          <div style="font-size: 0.80rem; color: #64748b;" id="loadedFileMeta">Procesadas filas de tbBD | Hoja EVOLUTIVO conectada</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="badge badge-success" style="font-size: 0.80rem; padding: 4px 10px; background: #dcfce7; color: #15803d; border-radius: 7px; font-weight: 800;">
+          <i class="fa-solid fa-circle-check"></i> Alimentado desde Excel
+        </span>
+        <button onclick="document.getElementById('excelFileInput').click()" class="btn btn-sm btn-outline-primary" style="font-size: 0.82rem;">
+          <i class="fa-solid fa-arrows-rotate"></i> Cambiar Archivo
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Barra de Controles: Selector de CD (655 vs 676) y Pestañas de Diapositiva -->
+  <div class="control-bar">
+    <div class="flex items-center gap-3">
+      <!-- Selector de WHSE -->
+      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Centro Distribución:</span>
+      <div class="pill-group">
+        <button id="btnWhseSecos" onclick="switchWarehouse('655')" class="pill-btn active">
+          <i class="fa-solid fa-warehouse"></i> CD Secos (WHSE 655)
+        </button>
+        <button id="btnWhseFrescos" onclick="switchWarehouse('676')" class="pill-btn pill-frescos">
+          <i class="fa-solid fa-snowflake"></i> CD Frescos (WHSE 676)
+        </button>
+      </div>
+    </div>
+
+    <!-- Selector de Lámina PPT -->
+    <div class="flex items-center gap-3">
+      <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Lámina PPT:</span>
+      <div class="pill-group">
+        <button id="tabBtnSlide1" onclick="switchSlide(1)" class="pill-btn active">
+          1. Visión Global & Top SKUs
+        </button>
+        <button id="tabBtnSlide2" onclick="switchSlide(2)" class="pill-btn">
+          2. Zonas (RCK vs RHB)
+        </button>
+        <button id="tabBtnSlide3" onclick="switchSlide(3)" class="pill-btn">
+          3. Evolutivo & Ubicaciones
+        </button>
+      </div>
+
+      <!-- BOTÓN DE COPIA 16:9 AL PORTAPAPELES -->
+      <button id="btnCapturePpt" onclick="copyCurrentSlideToClipboard()" class="btn-capture-ppt" title="Copia directamente la diapositiva en proporción 16:9 (1920x1080) al portapapeles para pegar con Ctrl + V en PowerPoint">
+        <i class="fa-solid fa-camera"></i> Copiar Diapositiva 16:9 (PPT)
+      </button>
+      <button onclick="downloadCurrentSlide()" class="btn btn-sm btn-outline-secondary" title="Descargar como archivo PNG de alta resolución (1920x1080)">
+        <i class="fa-solid fa-download"></i> Descargar PNG
+      </button>
+    </div>
+  </div>
+
+  <!-- Contenedor Principal de las Diapositivas (16:9 Widescreen Frame) -->
+  <main class="slide-wrapper">
+
+    <!-- ======================================================================= -->
+    <!-- DIAPOSITIVA 1: VISIÓN GENERAL, SALUD DE INVENTARIO Y TOP 10 SKUS        -->
+    <!-- ======================================================================= -->
+    <div id="slide1-container" class="slide-canvas-container">
+      <div class="slide-header">
+        <div>
+          <h2>
+            <span id="slide1-title-prefix">ANTIGÜEDAD DE INVENTARIO</span>
+            <span id="slide1-whse-badge" class="badge-cd">CD SECOS 655</span>
+          </h2>
+          <div class="subtitle">Estructura de Capital Inmovilizado por Rango de Semanas y Concentración Crítica</div>
+        </div>
+        <div class="slide-badges">
+          <span class="badge-week" id="slide1-week-badge"><i class="fa-regular fa-calendar"></i> Semana 37</span>
+          <span class="text-xs font-bold text-slate-400">16:9 Widescreen</span>
+        </div>
+      </div>
+
+      <!-- Tarjetas KPI Horizontales -->
+      <div class="kpi-row">
+        <div class="kpi-box kpi-navy">
+          <div class="kpi-label">Costo Total Inventario</div>
+          <div class="kpi-number" id="s1-kpi-total">S/ 0</div>
+          <div class="kpi-sub">
+            <span id="s1-kpi-lpns">0 LPNs</span>
+            <span id="s1-kpi-bultos">0 Bultos</span>
+          </div>
+        </div>
+
+        <div class="kpi-box kpi-green">
+          <div class="kpi-label flex justify-between">
+            <span>Saludable (0 a 10 Sem)</span>
+            <span class="text-emerald-700 font-bold">ÓPTIMO</span>
+          </div>
+          <div class="kpi-number text-emerald-600" id="s1-kpi-healthy-pct">0.0% Costo</div>
+          <div class="kpi-sub">
+            <span id="s1-kpi-healthy-cost">S/ 0 inmovilizado</span>
+            <span id="s1-kpi-healthy-bultos">0.0% Bultos</span>
+          </div>
+        </div>
+
+        <div class="kpi-box kpi-amber">
+          <div class="kpi-label flex justify-between">
+            <span>En Seguimiento (10 a 25 Sem)</span>
+            <span class="text-amber-700 font-bold">ALERTA</span>
+          </div>
+          <div class="kpi-number text-amber-600" id="s1-kpi-warn-pct">0.0% Costo</div>
+          <div class="kpi-sub">
+            <span id="s1-kpi-warn-cost">S/ 0 inmovilizado</span>
+            <span id="s1-kpi-warn-lpns">0.0% Bultos</span>
+          </div>
+        </div>
+
+        <div class="kpi-box kpi-red">
+          <div class="kpi-label flex justify-between">
+            <span class="text-red-700">Crítico (&gt;25 Semanas)</span>
+            <span class="bg-red-200 text-red-800 text-[10px] px-1.5 py-0.5 rounded font-bold">ACCIONAR</span>
+          </div>
+          <div class="kpi-number text-red-600" id="s1-kpi-crit-cost">0.0% Costo</div>
+          <div class="kpi-sub text-red-700 font-medium">
+            <span id="s1-kpi-crit-pct">S/ 0 inmovilizado</span>
+            <span id="s1-kpi-over52">&gt;52s: S/ 0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fila Intermedia: Gráfico de Rangos con Valores Encima + Matriz Comercial -->
+      <div class="slide1-middle-grid" style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; margin-bottom: 16px;">
+        
+        <!-- Columna Izquierda: Gráfico de Barras + Tabla de Rangos -->
+        <div class="s1-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <h3 id="chartS1Title" style="font-size: 0.94rem; font-weight: 800; margin: 0; color: #0f172a;">Distribución de Bultos por Antigüedad</h3>
+            <div style="display: flex; gap: 4px; background: #e2e8f0; padding: 2px; border-radius: 7px;">
+              <button id="btnChartModeBultos" onclick="setChartS1Mode('bultos')" style="border: none; background: #ffffff; color: #1e3a8a; font-size: 0.73rem; font-weight: 800; padding: 3px 9px; border-radius: 5px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.08); transition: all 0.2s ease;">📦 Bultos (% Bultos)</button>
+              <button id="btnChartModeCosto" onclick="setChartS1Mode('costo')" style="border: none; background: transparent; color: #64748b; font-size: 0.73rem; font-weight: 700; padding: 3px 9px; border-radius: 5px; cursor: pointer; transition: all 0.2s ease;">💰 Costos (S/)</button>
+            </div>
+          </div>
+          
+          <!-- Gráfico con Datalabels encima de cada barra -->
+          <div class="chart-s1-container" style="height: 175px; position: relative; margin-bottom: 10px;">
+            <canvas id="chartS1Ranges"></canvas>
+          </div>
+
+          <!-- Tabla 1: Resumen de Inventario por Rango de Semanas -->
+          <div style="overflow-x: auto;">
+            <table class="exec-table exec-table-sm" id="tableS1Ranges">
+              <thead>
+                <tr>
+                  <th style="text-align: left;">Rango Semanas</th>
+                  <th>LPN</th>
+                  <th>% LPN</th>
+                  <th>Bultos</th>
+                  <th>% Bultos</th>
+                  <th>Costos (S/)</th>
+                  <th>% Costos</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyS1Ranges">
+                <!-- Dinámico -->
+              </tbody>
+              <tfoot id="tfootS1Ranges">
+                <!-- Totales -->
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Matriz Comercial por División -->
+        <div class="s1-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; overflow-x: auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h3 style="font-size: 0.94rem; font-weight: 800; margin: 0; color: #0f172a;">Costo de Inventario por División y Antigüedad</h3>
+            <span style="font-size: 0.76rem; font-weight: 800; color: #b45309; background: #fef3c7; padding: 2px 7px; border-radius: 5px;">Detalle Comercial Completo</span>
+          </div>
+          <table class="exec-table exec-table-sm" id="tableS1Divisions">
+            <thead>
+              <tr>
+                <th rowspan="2" style="text-align: left; vertical-align: middle;">División</th>
+                <th colspan="2" style="text-align: center; background: #ecfdf5; color: #065f46; border-bottom: 1px solid #a7f3d0;">0 a 10 Sem</th>
+                <th colspan="2" style="text-align: center; background: #fffbeb; color: #92400e; border-bottom: 1px solid #fde68a;">10 a 25 Sem</th>
+                <th colspan="2" style="text-align: center; background: #fff7ed; color: #9a3412; border-bottom: 1px solid #fed7aa;">25 a 52 Sem</th>
+                <th colspan="2" style="text-align: center; background: #fef2f2; color: #991b1b; border-bottom: 1px solid #fecaca;">Mayor a 52 Sem</th>
+                <th rowspan="2" style="text-align: right; vertical-align: middle; background: #f8fafc;">Total COSTOS</th>
+                <th rowspan="2" style="text-align: right; vertical-align: middle; background: #f8fafc;">Total %</th>
+              </tr>
+              <tr>
+                <th style="background: #f0fdf4; font-size: 0.69rem; padding: 3px 5px;">Costos</th>
+                <th style="background: #f0fdf4; font-size: 0.69rem; padding: 3px 5px;">%</th>
+                <th style="background: #fefce8; font-size: 0.69rem; padding: 3px 5px;">Costos</th>
+                <th style="background: #fefce8; font-size: 0.69rem; padding: 3px 5px;">%</th>
+                <th style="background: #fff7ed; font-size: 0.69rem; padding: 3px 5px;">Costos</th>
+                <th style="background: #fff7ed; font-size: 0.69rem; padding: 3px 5px;">%</th>
+                <th style="background: #fef2f2; font-size: 0.69rem; padding: 3px 5px; color: #dc2626;">Costos</th>
+                <th style="background: #fef2f2; font-size: 0.69rem; padding: 3px 5px; color: #dc2626;">%</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyS1Divisions">
+              <!-- Renderizado dinámico -->
+            </tbody>
+            <tfoot id="tfootS1Divisions">
+              <!-- Totales -->
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Fila Inferior: Top 10 SKU en Riesgo Mayor a 52 Semanas -->
+      <div class="s1-card s1-bottom-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h3 style="font-size: 0.96rem; font-weight: 900; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
+              <span style="background: #fee2e2; color: #dc2626; padding: 3px 8px; border-radius: 5px; font-size: 0.75rem;">TOP 10 CRÍTICOS</span>
+              Top 10 SKUs en Mayor Riesgo (&gt;52 Semanas de Antigüedad)
+            </h3>
+          </div>
+          <span style="font-size: 0.76rem; color: #b91c1c; font-weight: 800; background: #fef2f2; border: 1px solid #fecaca; padding: 3px 10px; border-radius: 6px;">
+            ⚠️ Plan de Acción Comercial Inmediato
+          </span>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="exec-table exec-table-sm" id="tableS1Top10">
+            <thead>
+              <tr>
+                <th style="width: 85px;">SKU</th>
+                <th style="text-align: left;">Descripción</th>
+                <th style="text-align: left;">División</th>
+                <th style="text-align: center;">Rango Vencimiento</th>
+                <th style="color: #2563eb;">LPNs (Suma)</th>
+                <th>Costo (S/)</th>
+                <th>Bultos</th>
+                <th>Unidades</th>
+                <th>Días Prom</th>
+                <th style="text-align: center;">Prioridad</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyS1Top10">
+              <!-- Renderizado dinámico -->
+            </tbody>
+            <tfoot id="tfootS1Top10">
+              <!-- Totales Top 10 -->
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================================= -->
+    <!-- DIAPOSITIVA 2: ANTIGÜEDAD POR ZONAS (PIVOT COMPLETO) Y TOP 10 SKUS      -->
+    <!-- ======================================================================= -->
+    <div id="slide2-container" class="slide-canvas-container" style="display: none;">
+      <div class="slide-header" style="margin-bottom: 8px;">
+        <div>
+          <h2>
+            <span id="slide2-title-prefix">ANTIGÜEDAD</span>
+            <span class="badge-cd" id="slide2-whse-badge">CD SECOS 655</span>
+          </h2>
+          <div class="subtitle">Antigüedad por zonas</div>
+        </div>
+        <div class="slide-badges">
+          <span class="badge-week" id="slide2-week-badge"><i class="fa-regular fa-calendar"></i> Semana 37</span>
+          <span class="text-xs font-bold text-slate-400">16:9 Widescreen</span>
+        </div>
+      </div>
+
+      <!-- Tabla Principal: Antigüedad por Zonas (Pivot Completo idéntico a PPT) -->
+      <div class="s2-top-card" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <table class="exec-table exec-table-sm exec-table-green" id="tableS2Zones" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #2d6a4f !important; color: #ffffff !important;">
+              <th style="text-align: center; vertical-align: middle; width: 90px; background: #1e4620 !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">ZONA</th>
+              <th style="text-align: left; vertical-align: middle; width: 85px; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">Valores</th>
+              <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">0 a 10 Sem</th>
+              <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">10 a 25 Sem</th>
+              <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">25 a 52 Sem</th>
+              <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.80rem;">mayor a 52 Sem</th>
+              <th style="text-align: right; background: #1e4620 !important; color: #ffffff !important; font-weight: 900; font-size: 0.82rem;">Total general</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyS2Zones">
+            <!-- Renderizado dinámico de 3 filas por zona (COSTOS, LPN, BULTOS) -->
+          </tbody>
+          <tfoot id="tfootS2Zones">
+            <!-- Renderizado dinámico de totales (Total COSTOS, Total LPN, Total BULTOS) -->
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Sección Inferior: Top 10 SKUs por Zona -->
+      <div class="s2-bottom-section">
+        <!-- Título de Sección Top 10 SKUs por Zona -->
+        <div style="text-align: center; margin-bottom: 6px;">
+          <h3 style="font-size: 0.95rem; font-weight: 800; color: #1e293b; margin: 0;">
+            Top 10 SKU – Costo de Inventario - Mayor 52 Semanas por Zona
+          </h3>
+        </div>
+
+        <!-- Tablas Dinámicas de Top SKUs >52 Semanas por Zona (RCK, RHB, TOL o cualquier zona con información) -->
+        <div id="containerS2TopZones" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;">
+          <!-- Se renderiza dinámicamente según las zonas con información (2 columnas para RCK/RHB, 3 columnas si TOL u otra zona tiene datos) -->
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================================= -->
+    <!-- DIAPOSITIVA 3: EVOLUTIVO SEMANAL Y OCUPACIÓN FÍSICA (UBICACIONES)         -->
+    <!-- ======================================================================= -->
+    <div id="slide3-container" class="slide-canvas-container" style="display: none;">
+      <div class="slide-header">
+        <div>
+          <h2>
+            <span>TENDENCIA HISTÓRICA & CAPACIDAD FÍSICA</span>
+            <span class="badge-cd" id="slide3-whse-badge">CD SECOS 655</span>
+          </h2>
+          <div class="subtitle">Evolutivo Semanal (% Bultos últimas 7 Semanas) y Uso de Ubicaciones por División</div>
+        </div>
+        <div class="slide-badges">
+          <span class="badge-week" id="slide3-week-badge"><i class="fa-regular fa-calendar"></i> Semana 37</span>
+          <span class="text-xs font-bold text-slate-400">16:9 Widescreen</span>
+        </div>
+      </div>
+
+      <!-- Sección Superior: Gráfico de Líneas Evolutivo 7 Semanas + Tabla -->
+      <div class="s3-top-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div>
+            <h3 style="font-size: 0.96rem; font-weight: 900; color: #0f172a; margin: 0;">Evolutivo Semanal - % Participación por Bulto (Últimas 7 Semanas)</h3>
+            <span style="font-size: 0.80rem; color: #64748b;">Monitoreo dinámico del inventario sano vs añejamiento (Suma de % Bultos)</span>
+          </div>
+          <span style="font-size: 0.76rem; font-weight: 800; color: #059669; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 3px 8px; border-radius: 6px;">
+            Tendencia de Rotación
+          </span>
+        </div>
+
+        <div class="chart-s3-container" style="height: 190px; position: relative; margin-bottom: 12px;">
+          <canvas id="chartS3Evolution"></canvas>
+        </div>
+
+        <!-- Tabla resumen de valores del evolutivo -->
+        <table class="exec-table exec-table-sm" id="tableS3Evolution">
+          <thead>
+            <tr id="theadS3EvolRow">
+              <th style="text-align: left;">Rango Semanas</th>
+              <!-- Dinámico -->
+            </tr>
+          </thead>
+          <tbody id="tbodyS3Evolution">
+            <!-- Dinámico -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Sección Inferior: Capacidad Física (Ubicaciones por División) -->
+      <div class="s3-bottom-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h3 style="font-size: 0.96rem; font-weight: 900; color: #0f172a; margin: 0;">Distribución de Ubicaciones Físicas por Antigüedad y División</h3>
+            <span style="font-size: 0.80rem; color: #64748b;">Capacidad total ocupada: <strong style="color: #0f172a;" id="s3-total-ubic">0 ubicaciones</strong></span>
+          </div>
+          <div style="font-size: 0.76rem; color: #b91c1c; font-weight: 800; background: #fef2f2; border: 1px solid #fecaca; padding: 3px 10px; border-radius: 6px;" id="s3-locations-alert">
+            ⚠️ Ocupación de espacio por mercadería de baja rotación
+          </div>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="exec-table exec-table-sm" id="tableS3Locations">
+            <thead>
+              <tr>
+                <th style="text-align: left;">División Comercial</th>
+                <th>0 a 10 Sem (Ubic)</th>
+                <th>10 a 25 Sem (Ubic)</th>
+                <th>25 a 52 Sem (Ubic)</th>
+                <th style="color: #dc2626;">&gt;52 Sem (Ubic)</th>
+                <th>Total Ubicaciones</th>
+                <th>% Ocupación</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyS3Locations">
+              <!-- Dinámico -->
+            </tbody>
+            <tfoot id="tfootS3Locations">
+              <!-- Totales -->
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal de Vista Previa y Confirmación de Copia 16:9 -->
+  <div id="modalCopySuccess" class="modal-backdrop" style="display: none;" onclick="if(event.target===this) closeCopyModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="width: 34px; height: 34px; background: #ecfdf5; color: #059669; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+            <i class="fa-solid fa-circle-check"></i>
+          </span>
+          <div>
+            <h3 style="margin: 0; font-size: 1.10rem; font-weight: 800; color: #0f172a;">¡Lámina Copiada al Portapapeles!</h3>
+            <span style="font-size: 0.80rem; color: #64748b;">Proporción exacta 16:9 Panorámica (1920 × 1080 px)</span>
+          </div>
+        </div>
+        <button onclick="closeCopyModal()" style="border: none; background: transparent; font-size: 1.2rem; cursor: pointer; color: #64748b;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="padding: 16px 20px;">
+        <div style="background: #0f172a; border-radius: 8px; padding: 6px; margin-bottom: 12px; display: flex; justify-content: center;">
+          <img id="modalPreviewImg" src="" alt="Vista previa 16:9" style="width: 100%; max-height: 230px; object-fit: contain; border-radius: 4px;">
+        </div>
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 0.86rem; color: #1e40af; font-weight: 600; text-align: center;">
+          🚀 <strong>¡Listo para PowerPoint!</strong> Ve a tu diapositiva y presiona <kbd style="background:#ffffff; border:1px solid #93c5fd; padding:3px 8px; border-radius:4px; font-weight:900; color:#1d4ed8;">Ctrl + V</kbd>. Ocupará toda la diapositiva en 16:9 sin bordes vacíos.
+        </div>
+        <div style="display: flex; justify-content: center; gap: 10px;">
+          <button onclick="copyModalImgAgain()" class="btn btn-primary btn-sm" style="font-weight: 700; padding: 8px 16px;">
+            <i class="fa-solid fa-copy"></i> Copiar de nuevo
+          </button>
+          <button onclick="downloadModalImg()" class="btn btn-outline-secondary btn-sm" style="font-weight: 700; padding: 8px 16px;">
+            <i class="fa-solid fa-download"></i> Descargar imagen PNG
+          </button>
+          <button onclick="closeCopyModal()" class="btn btn-secondary btn-sm" style="font-weight: 600; padding: 8px 14px;">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay de Procesamiento con Barra de Progreso -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="spinner"></div>
+    <div id="loadingText" style="font-size: 1.10rem;">Procesando archivo Excel...</div>
+    <div id="loadingSubtext" style="font-size: 0.85rem; color: #94a3b8; font-weight: 500;">Optimizando registros...</div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toastMessage">
+    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toastText">Acción completada con éxito</span>
+  </div>
+
+  <!-- Script Principal de la Aplicación -->
+  <script src="app.js"></script>
+</body>
+</html>
