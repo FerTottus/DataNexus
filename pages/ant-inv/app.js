@@ -1981,12 +1981,16 @@ async function copyCurrentSlideToClipboard() {
     if (currentSlide === 3 && chartInstanceS3) chartInstanceS3.resize();
     await yieldToUi();
 
-    // 2. Renderizar con html2canvas en alta definición
+    // 2. Renderizar con html2canvas en alta definición capturando todo el scrollHeight
     const renderedCanvas = await window.html2canvas(container, {
       scale: 1.5, // Resolución nítida Retina
       backgroundColor: '#ffffff',
       useCORS: true,
-      logging: false
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: 1600,
+      height: container.scrollHeight
     });
 
     // Restaurar vista web responsiva inmediatamente
@@ -2089,7 +2093,13 @@ async function downloadCurrentSlide() {
 
   const renderedCanvas = await window.html2canvas(container, {
     scale: 1.5,
-    backgroundColor: '#ffffff'
+    backgroundColor: '#ffffff',
+    useCORS: true,
+    logging: false,
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth: 1600,
+    height: container.scrollHeight
   });
 
   container.classList.remove('capturing-16-9');

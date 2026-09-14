@@ -379,19 +379,21 @@
     /* ═════════════════════════════════════════════════════════════════════════ */
     /* ═════════════════════════════════════════════════════════════════════════ */
     /* CLASE MAESTRA DE CAPTURA 16:9 PARA POWERPOINT (1600x900 NATIVO)           */
-    /* Distribuye el espacio de manera homogénea y mantiene proporciones reales  */
+    /* Sin desbordamientos ni recortes: garantiza 100% de filas y subtotales     */
     /* ═════════════════════════════════════════════════════════════════════════ */
     .capturing-16-9 {
       width: 1600px !important;
-      height: 900px !important;
       max-width: 1600px !important;
-      max-height: 900px !important;
-      padding: 16px 24px !important;
+      min-height: 900px !important;
+      height: auto !important;
+      max-height: none !important;
+      padding: 12px 20px !important;
       margin: 0 auto !important;
-      overflow: hidden !important;
+      overflow: visible !important;
       display: flex !important;
       flex-direction: column !important;
-      justify-content: space-between !important; /* Distribución vertical uniforme sin vacíos al pie */
+      justify-content: flex-start !important;
+      gap: 6px !important;
       background: #ffffff !important;
       border: none !important;
       border-radius: 0 !important;
@@ -401,114 +403,114 @@
 
     /* Cabeceras de diapositiva */
     .capturing-16-9 .slide-header {
-      padding-bottom: 4px !important;
+      padding-bottom: 2px !important;
       margin-bottom: 0 !important;
       border-bottom: 1px solid #e2e8f0 !important;
     }
     .capturing-16-9 h2 {
-      font-size: 1.35rem !important;
+      font-size: 1.25rem !important;
       font-weight: 900 !important;
     }
     .capturing-16-9 .subtitle {
-      font-size: 0.82rem !important;
+      font-size: 0.74rem !important;
       color: #64748b !important;
     }
 
     /* KPIs Diapositiva 1 */
     .capturing-16-9 .kpi-row {
-      margin-bottom: 0 !important;
-      gap: 12px !important;
+      margin-bottom: 2px !important;
+      gap: 8px !important;
     }
     .capturing-16-9 .kpi-box {
-      padding: 8px 14px !important;
-      border-radius: 10px !important;
+      padding: 5px 12px !important;
+      border-radius: 8px !important;
     }
     .capturing-16-9 .kpi-number {
-      font-size: 1.70rem !important;
+      font-size: 1.50rem !important;
       font-weight: 900 !important;
-      margin: 2px 0 !important;
+      margin: 1px 0 !important;
     }
     .capturing-16-9 .kpi-label {
-      font-size: 0.80rem !important;
+      font-size: 0.74rem !important;
       font-weight: 800 !important;
     }
     .capturing-16-9 .kpi-sub {
-      font-size: 0.80rem !important;
+      font-size: 0.74rem !important;
     }
 
     /* Diapositiva 1: Secciones intermedias e inferiores */
     .capturing-16-9 .slide1-middle-grid {
-      margin-bottom: 0 !important;
-      gap: 14px !important;
+      margin-bottom: 2px !important;
+      gap: 10px !important;
     }
     .capturing-16-9 .s1-card {
-      padding: 8px 12px !important;
-      border-radius: 10px !important;
+      padding: 6px 10px !important;
+      border-radius: 8px !important;
     }
     .capturing-16-9 .chart-s1-container {
-      height: 130px !important;
-      margin-bottom: 6px !important;
+      height: 110px !important;
+      margin-bottom: 4px !important;
     }
     .capturing-16-9 .s1-bottom-card {
-      padding: 8px 12px !important;
-      border-radius: 10px !important;
+      padding: 6px 10px !important;
+      border-radius: 8px !important;
     }
     .capturing-16-9 .s1-bottom-card h3 {
-      font-size: 0.94rem !important;
+      font-size: 0.88rem !important;
     }
 
     /* Diapositiva 2: Pivot de zonas y Top 10 por zona */
     .capturing-16-9 .s2-top-card {
-      padding: 8px 12px !important;
-      border-radius: 10px !important;
-      margin-bottom: 0 !important;
+      padding: 6px 10px !important;
+      border-radius: 8px !important;
+      margin-bottom: 4px !important;
     }
     .capturing-16-9 .s2-bottom-section {
       margin-top: 0 !important;
     }
     .capturing-16-9 .s2-bottom-section h3 {
-      font-size: 1.0rem !important;
-      margin: 0 0 8px !important;
+      font-size: 0.94rem !important;
+      margin: 0 0 6px !important;
     }
 
     /* Diapositiva 3: Evolutivo y Capacidad física */
     .capturing-16-9 .s3-top-card {
-      padding: 10px 16px !important;
-      border-radius: 10px !important;
-      margin-bottom: 0 !important;
+      padding: 8px 14px !important;
+      border-radius: 8px !important;
+      margin-bottom: 4px !important;
     }
     .capturing-16-9 .chart-s3-container {
-      height: 200px !important;
-      margin-bottom: 8px !important;
+      height: 180px !important;
+      margin-bottom: 6px !important;
     }
     .capturing-16-9 .s3-bottom-card {
-      padding: 10px 16px !important;
-      border-radius: 10px !important;
+      padding: 8px 14px !important;
+      border-radius: 8px !important;
       margin-bottom: 0 !important;
     }
 
     /* Prevenir recortes por scroll containers */
-    .capturing-16-9 div[style*="overflow-x: auto"] {
+    .capturing-16-9 div {
       overflow: visible !important;
     }
 
-    /* Tablas Ejecutivas Generales - Proporciones confortables */
+    /* Tablas Ejecutivas Generales */
     .capturing-16-9 .exec-table {
       width: 100% !important;
     }
     .capturing-16-9 .exec-table th {
-      padding: 4px 8px !important;
-      font-size: 0.78rem !important;
+      padding: 3px 6px !important;
+      font-size: 0.74rem !important;
       font-weight: 800 !important;
     }
     .capturing-16-9 .exec-table td {
-      padding: 3.5px 8px !important;
-      font-size: 0.78rem !important;
-      line-height: 1.25 !important;
+      padding: 2.2px 6px !important;
+      font-size: 0.74rem !important;
+      line-height: 1.20 !important;
     }
     .capturing-16-9 .exec-table tfoot td {
-      padding: 4.5px 8px !important;
-      font-size: 0.82rem !important;
+      padding: 3.5px 6px !important;
+      font-size: 0.78rem !important;
       font-weight: 900 !important;
       background: #f1f5f9 !important;
       border-top: 2px solid #0f172a !important;
@@ -516,18 +518,31 @@
 
     /* Tablas Ejecutivas Compactas (Slide 1 y Slide 3) */
     .capturing-16-9 .exec-table-sm th {
-      padding: 3.5px 6px !important;
-      font-size: 0.76rem !important;
+      padding: 2.5px 5px !important;
+      font-size: 0.72rem !important;
       font-weight: 800 !important;
     }
     .capturing-16-9 .exec-table-sm td {
-      padding: 3px 6px !important;
-      font-size: 0.77rem !important;
-      line-height: 1.22 !important;
+      padding: 2px 5px !important;
+      font-size: 0.73rem !important;
+      line-height: 1.18 !important;
     }
     .capturing-16-9 .exec-table-sm tfoot td {
+      padding: 3.5px 5px !important;
+      font-size: 0.76rem !important;
+      font-weight: 900 !important;
+      background: #f1f5f9 !important;
+      border-top: 2px solid #0f172a !important;
+    }
+
+    /* Regla específica para el Top 10 SKUs en Slide 1 (garantizar visibilidad del subtotal) */
+    .capturing-16-9 #tableS1Top10 td {
+      padding: 2px 5px !important;
+      font-size: 0.73rem !important;
+    }
+    .capturing-16-9 #tableS1Top10 tfoot td {
       padding: 4px 6px !important;
-      font-size: 0.80rem !important;
+      font-size: 0.78rem !important;
       font-weight: 900 !important;
       background: #f1f5f9 !important;
       border-top: 2px solid #0f172a !important;
@@ -537,18 +552,18 @@
     .capturing-16-9 .exec-table-green thead th {
       background: #2d6a4f !important;
       color: #ffffff !important;
-      padding: 6px 10px !important;
-      font-size: 0.82rem !important;
+      padding: 5px 8px !important;
+      font-size: 0.78rem !important;
       border-bottom: 2px solid #1e4620 !important;
     }
     .capturing-16-9 .exec-table-green td {
-      padding: 5px 10px !important;
-      font-size: 0.82rem !important;
-      line-height: 1.25 !important;
+      padding: 4px 8px !important;
+      font-size: 0.78rem !important;
+      line-height: 1.22 !important;
     }
     .capturing-16-9 .exec-table-green tfoot td {
-      padding: 6px 10px !important;
-      font-size: 0.84rem !important;
+      padding: 5px 8px !important;
+      font-size: 0.82rem !important;
       font-weight: 900 !important;
       border-top: 2px solid #1e4620 !important;
     }
