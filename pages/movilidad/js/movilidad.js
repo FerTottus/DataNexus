@@ -2960,16 +2960,18 @@ function dibujarRutasEnMapa() {
           const decorator = L.polylineDecorator(layer, {
             patterns: [
               {
-                offset: 30,
-                repeat: 85,
+                offset: 35,
+                repeat: 120,
                 symbol: L.Symbol.arrowHead({
-                  pixelSize: 10,
-                  polygon: false,
+                  pixelSize: 11,
+                  polygon: true,
+                  headAngle: 45,
                   pathOptions: {
+                    fillOpacity: 0.95,
+                    fillColor: '#ffffff',
                     stroke: true,
-                    color: '#ffffff',
-                    weight: 2.5,
-                    opacity: 0.9
+                    color: '#0f172a',
+                    weight: 1.2
                   }
                 })
               }
@@ -3010,16 +3012,18 @@ function dibujarRutasEnMapa() {
           const decorator = L.polylineDecorator(layer, {
             patterns: [
               {
-                offset: 25,
-                repeat: 75,
+                offset: 30,
+                repeat: 110,
                 symbol: L.Symbol.arrowHead({
-                  pixelSize: 9,
-                  polygon: false,
+                  pixelSize: 10,
+                  polygon: true,
+                  headAngle: 45,
                   pathOptions: {
+                    fillOpacity: 0.9,
+                    fillColor: '#ffffff',
                     stroke: true,
-                    color: '#ffffff',
-                    weight: 2,
-                    opacity: 0.85
+                    color: '#0f172a',
+                    weight: 1.2
                   }
                 })
               }
@@ -3104,24 +3108,36 @@ function resaltarRutaEnMapa(idRutaSeleccionada) {
         if (decorator.bringToFront) decorator.bringToFront();
         decorator.setPatterns([
           {
-            offset: 25,
-            repeat: 60,
+            offset: 30,
+            repeat: 90,
             symbol: L.Symbol.arrowHead({
-              pixelSize: 12,
-              polygon: false,
-              pathOptions: { stroke: true, color: '#ffffff', weight: 3, opacity: 1 }
+              pixelSize: 13,
+              polygon: true,
+              headAngle: 45,
+              pathOptions: {
+                fillOpacity: 1,
+                fillColor: '#ffffff',
+                stroke: true,
+                color: color,
+                weight: 2
+              }
             })
           }
         ]);
       } else {
         decorator.setPatterns([
           {
-            offset: 35,
-            repeat: 120,
+            offset: 40,
+            repeat: 180,
             symbol: L.Symbol.arrowHead({
               pixelSize: 7,
-              polygon: false,
-              pathOptions: { stroke: true, color: '#ffffff', weight: 1.5, opacity: 0.12 }
+              polygon: true,
+              headAngle: 45,
+              pathOptions: {
+                fillOpacity: 0.12,
+                fillColor: '#ffffff',
+                stroke: false
+              }
             })
           }
         ]);
@@ -3178,12 +3194,19 @@ function resetearVistaMapa(recenter = false) {
     for (const [id, decorator] of Object.entries(AppState.mapDecorators)) {
       decorator.setPatterns([
         {
-          offset: 30,
-          repeat: 85,
+          offset: 35,
+          repeat: 120,
           symbol: L.Symbol.arrowHead({
-            pixelSize: 10,
-            polygon: false,
-            pathOptions: { stroke: true, color: '#ffffff', weight: 2.5, opacity: 0.9 }
+            pixelSize: 11,
+            polygon: true,
+            headAngle: 45,
+            pathOptions: {
+              fillOpacity: 0.95,
+              fillColor: '#ffffff',
+              stroke: true,
+              color: '#0f172a',
+              weight: 1.2
+            }
           })
         }
       ]);
