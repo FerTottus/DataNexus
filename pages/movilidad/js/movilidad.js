@@ -24,6 +24,7 @@ const AppState = {
   sentidoRutaMapa: 'INGRESO', // 'INGRESO' (06:30 AM) o 'SALIDA' (04:30 PM)
   mapInstance: null,
   mapLines: {},
+  mapDecorators: {},
   mapMarkers: {},
   mapCards: {},
   mapBounds: null,
@@ -286,13 +287,43 @@ function getRutaColor(rutaId) {
   return fallbackColors[idx];
 }
 
-function crearIconoDePinColoreado(color) {
-  const svgPin = `<svg viewBox="0 0 24 24" fill="${color}" width="24" height="24" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.6));"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>`;
+function crearIconoDePinColoreado(color, numeroVisual, esCD = false) {
+  if (esCD) {
+    const svgPin = `
+      <div class="pin-cd-wrapper" style="position:relative; display:inline-block; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7));">
+        <svg viewBox="0 0 32 42" width="32" height="42" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 0C7.16 0 0 7.16 0 16c0 11.5 16 26 16 26s16-14.5 16-26C32 7.16 24.84 0 16 0z" fill="#dc2626" stroke="#ffffff" stroke-width="2"/>
+          <circle cx="16" cy="15" r="10.5" fill="#ffffff"/>
+          <text x="16" y="19" text-anchor="middle" font-family="'Inter', -apple-system, BlinkMacSystemFont, sans-serif" font-size="10" font-weight="900" fill="#dc2626">CD</text>
+        </svg>
+      </div>
+    `;
+    return L.divIcon({
+      html: svgPin,
+      className: 'pin-svg-cd',
+      iconSize: [32, 42],
+      iconAnchor: [16, 42]
+    });
+  }
+
+  const numStr = (numeroVisual !== undefined && numeroVisual !== null) ? String(numeroVisual) : '';
+  const fontSize = numStr.length > 2 ? 8 : (numStr.length > 1 ? 10 : 11);
+  const textY = fontSize > 10 ? 17.5 : 17;
+
+  const svgPin = `
+    <div class="pin-num-wrapper" style="position:relative; display:inline-block; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));">
+      <svg viewBox="0 0 28 38" width="28" height="38" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 24 14 24s14-13.5 14-24C28 6.27 21.73 0 14 0z" fill="${color}" stroke="#ffffff" stroke-width="1.8"/>
+        <circle cx="14" cy="13.5" r="9.5" fill="#ffffff"/>
+        <text x="14" y="${textY}" text-anchor="middle" font-family="'Inter', -apple-system, BlinkMacSystemFont, sans-serif" font-size="${fontSize}" font-weight="800" fill="#0f172a">${numStr}</text>
+      </svg>
+    </div>
+  `;
   return L.divIcon({
     html: svgPin,
     className: 'pin-svg-personalizado',
-    iconSize: [24, 24],
-    iconAnchor: [12, 24]
+    iconSize: [28, 38],
+    iconAnchor: [14, 38]
   });
 }
 
@@ -2663,6 +2694,11 @@ function dibujarRutasEnMapa() {
       if (l && l.remove) l.remove();
     });
   }
+  if (AppState.mapDecorators) {
+    Object.values(AppState.mapDecorators).forEach(d => {
+      if (d && d.remove) d.remove();
+    });
+  }
   if (AppState.mapMarkers) {
     Object.values(AppState.mapMarkers).forEach(arr => {
       arr.forEach(m => { if (m && m.remove) m.remove(); });
@@ -2670,6 +2706,7 @@ function dibujarRutasEnMapa() {
   }
 
   AppState.mapLines = {};
+  AppState.mapDecorators = {};
   AppState.mapMarkers = {};
   AppState.mapCards = {};
 
@@ -2778,13 +2815,14 @@ function dibujarRutasEnMapa() {
         }
       }
 
-      const marcador = L.marker([p.lat, p.lng], { icon: crearIconoDePinColoreado(color) })
+      const esCD = isCdStop(p);
+      const marcador = L.marker([p.lat, p.lng], { icon: crearIconoDePinColoreado(color, p.numVisual, esCD) })
         .addTo(AppState.mapInstance)
         .bindTooltip(`<b>Ruta ${rId}</b> [${p.numVisual}/${puntos.length}]: ${p.nombre}${tooltipDetalle}`, {
           permanent: false, // Solo visible en hover o al filtrar ruta -> 100% fluido
           direction: 'top',
           className: 'etiqueta-paradero',
-          offset: [0, -18]
+          offset: [0, -36]
         })
         .on('click', (e) => {
           L.DomEvent.stopPropagation(e);
@@ -2896,8 +2934,17 @@ function dibujarRutasEnMapa() {
         statsEl.innerHTML = `<span><i class="fa-solid fa-road"></i> ${distKM} km</span><span><i class="fa-regular fa-clock"></i> ~${durMin} min</span><span style="font-size: 0.72rem; color: #94a3b8;">${puntos.length} paraderos</span>`;
       }
 
-      const layer = L.geoJSON(rutaData.geometry, {
-        style: { color: colorAsignado, weight: 4, opacity: 0.8 }
+      let latLngs = [];
+      if (rutaData.geometry && Array.isArray(rutaData.geometry.coordinates)) {
+        latLngs = rutaData.geometry.coordinates.map(c => [c[1], c[0]]);
+      } else {
+        latLngs = puntos.map(p => [p.lat, p.lng]);
+      }
+
+      const layer = L.polyline(latLngs, {
+        color: colorAsignado,
+        weight: 5,
+        opacity: 0.85
       }).addTo(AppState.mapInstance);
 
       layer.on('click', (e) => {
@@ -2906,6 +2953,40 @@ function dibujarRutasEnMapa() {
       });
 
       AppState.mapLines[nombreRuta] = layer;
+
+      // Flechas direccionales a lo largo de la ruta en el sentido de viaje
+      if (window.L && L.polylineDecorator && latLngs.length > 1) {
+        try {
+          const decorator = L.polylineDecorator(layer, {
+            patterns: [
+              {
+                offset: 30,
+                repeat: 85,
+                symbol: L.Symbol.arrowHead({
+                  pixelSize: 10,
+                  polygon: false,
+                  pathOptions: {
+                    stroke: true,
+                    color: '#ffffff',
+                    weight: 2.5,
+                    opacity: 0.9
+                  }
+                })
+              }
+            ]
+          }).addTo(AppState.mapInstance);
+
+          decorator.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            resaltarRutaEnMapa(nombreRuta);
+          });
+
+          if (!AppState.mapDecorators) AppState.mapDecorators = {};
+          AppState.mapDecorators[nombreRuta] = decorator;
+        } catch (err) {
+          console.warn('Error al agregar decorador de ruta:', err);
+        }
+      }
     };
 
     const aplicarTrazadoDirecto = () => {
@@ -2923,6 +3004,39 @@ function dibujarRutasEnMapa() {
       });
 
       AppState.mapLines[nombreRuta] = layer;
+
+      if (window.L && L.polylineDecorator && latLngs.length > 1) {
+        try {
+          const decorator = L.polylineDecorator(layer, {
+            patterns: [
+              {
+                offset: 25,
+                repeat: 75,
+                symbol: L.Symbol.arrowHead({
+                  pixelSize: 9,
+                  polygon: false,
+                  pathOptions: {
+                    stroke: true,
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: 0.85
+                  }
+                })
+              }
+            ]
+          }).addTo(AppState.mapInstance);
+
+          decorator.on('click', (e) => {
+            L.DomEvent.stopPropagation(e);
+            resaltarRutaEnMapa(nombreRuta);
+          });
+
+          if (!AppState.mapDecorators) AppState.mapDecorators = {};
+          AppState.mapDecorators[nombreRuta] = decorator;
+        } catch (err) {
+          console.warn('Error al agregar decorador directo:', err);
+        }
+      }
 
       const statsEl = document.getElementById(`stats-ruta-${nombreRuta}`);
       if (statsEl) {
@@ -2983,6 +3097,38 @@ function resaltarRutaEnMapa(idRutaSeleccionada) {
     }
   }
 
+  // 2b. Flechas direccionales del mapa
+  if (AppState.mapDecorators) {
+    for (const [idRuta, decorator] of Object.entries(AppState.mapDecorators)) {
+      if (idRuta === idRutaSeleccionada) {
+        if (decorator.bringToFront) decorator.bringToFront();
+        decorator.setPatterns([
+          {
+            offset: 25,
+            repeat: 60,
+            symbol: L.Symbol.arrowHead({
+              pixelSize: 12,
+              polygon: false,
+              pathOptions: { stroke: true, color: '#ffffff', weight: 3, opacity: 1 }
+            })
+          }
+        ]);
+      } else {
+        decorator.setPatterns([
+          {
+            offset: 35,
+            repeat: 120,
+            symbol: L.Symbol.arrowHead({
+              pixelSize: 7,
+              polygon: false,
+              pathOptions: { stroke: true, color: '#ffffff', weight: 1.5, opacity: 0.12 }
+            })
+          }
+        ]);
+      }
+    }
+  }
+
   // 3. Marcadores y Tooltips: abrir etiquetas SOLO para la ruta seleccionada
   for (const [idRuta, marcadores] of Object.entries(AppState.mapMarkers)) {
     if (idRuta === idRutaSeleccionada) {
@@ -3025,6 +3171,23 @@ function resetearVistaMapa(recenter = false) {
   // Restaurar líneas
   for (const [id, linea] of Object.entries(AppState.mapLines)) {
     linea.setStyle({ weight: 4, color: getRutaColor(id), opacity: 0.8 });
+  }
+
+  // Restaurar flechas direccionales
+  if (AppState.mapDecorators) {
+    for (const [id, decorator] of Object.entries(AppState.mapDecorators)) {
+      decorator.setPatterns([
+        {
+          offset: 30,
+          repeat: 85,
+          symbol: L.Symbol.arrowHead({
+            pixelSize: 10,
+            polygon: false,
+            pathOptions: { stroke: true, color: '#ffffff', weight: 2.5, opacity: 0.9 }
+          })
+        }
+      ]);
+    }
   }
 
   // Restaurar paneles
