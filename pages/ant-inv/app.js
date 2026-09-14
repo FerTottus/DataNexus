@@ -1284,19 +1284,19 @@ function renderSlide1(data) {
   const critBultos = (r2552.bultos || 0) + (r52.bultos || 0);
   const critBultosPct = (r2552.bultosPct || 0) + (r52.bultosPct || 0);
 
-  // Tarjeta 2: Saludable (0 a 10 Sem) - % Bultos destacado + % Costo
-  document.getElementById('s1-kpi-healthy-pct').innerHTML = `${safeFixed(r010.bultosPct, 2, '%')} <span style="font-size:0.80rem; font-weight:800; color:#065f46;">Bultos</span>`;
-  document.getElementById('s1-kpi-healthy-cost').textContent = `${safeFixed(r010.costPct, 1, '%')} Costo (${formatCurrency(r010.cost)})`;
-  document.getElementById('s1-kpi-healthy-bultos').textContent = `${formatNumber(r010.bultos)} Bultos`;
+  // Tarjeta 2: Saludable (0 a 10 Sem) - % Costo destacado (alineado con la tabla) + % Bultos
+  document.getElementById('s1-kpi-healthy-pct').innerHTML = `${safeFixed(r010.costPct, 1, '%')} <span style="font-size:0.75rem; font-weight:800; color:#065f46; letter-spacing:0.3px;">COSTO</span>`;
+  document.getElementById('s1-kpi-healthy-cost').textContent = `${formatCurrency(r010.cost)} inmovilizado`;
+  document.getElementById('s1-kpi-healthy-bultos').innerHTML = `📦 <strong>${safeFixed(r010.bultosPct, 2, '%')}</strong> Bultos (${formatNumber(r010.bultos)})`;
 
-  // Tarjeta 3: En Seguimiento (10 a 25 Sem)
-  document.getElementById('s1-kpi-warn-pct').innerHTML = `${safeFixed(r1025.bultosPct, 2, '%')} <span style="font-size:0.80rem; font-weight:800; color:#92400e;">Bultos</span>`;
-  document.getElementById('s1-kpi-warn-cost').textContent = `${safeFixed(r1025.costPct, 1, '%')} Costo (${formatCurrency(r1025.cost)})`;
-  document.getElementById('s1-kpi-warn-lpns').textContent = `${formatNumber(r1025.bultos)} Bultos`;
+  // Tarjeta 3: En Seguimiento (10 a 25 Sem) - 11.1% Costo + 10.18% Bultos
+  document.getElementById('s1-kpi-warn-pct').innerHTML = `${safeFixed(r1025.costPct, 1, '%')} <span style="font-size:0.75rem; font-weight:800; color:#92400e; letter-spacing:0.3px;">COSTO</span>`;
+  document.getElementById('s1-kpi-warn-cost').textContent = `${formatCurrency(r1025.cost)} inmovilizado`;
+  document.getElementById('s1-kpi-warn-lpns').innerHTML = `📦 <strong>${safeFixed(r1025.bultosPct, 2, '%')}</strong> Bultos (${formatNumber(r1025.bultos)})`;
 
-  // Tarjeta 4: Crítico (>25 Sem)
-  document.getElementById('s1-kpi-crit-cost').innerHTML = `${safeFixed(critBultosPct, 2, '%')} <span style="font-size:0.80rem; font-weight:800; color:#991b1b;">Bultos</span>`;
-  document.getElementById('s1-kpi-crit-pct').textContent = `${safeFixed(critPct, 1, '%')} Costo (${formatCurrency(critCost)})`;
+  // Tarjeta 4: Crítico (>25 Sem) - 2.1% Costo + 1.86% Bultos
+  document.getElementById('s1-kpi-crit-cost').innerHTML = `${safeFixed(critPct, 1, '%')} <span style="font-size:0.75rem; font-weight:800; color:#991b1b; letter-spacing:0.3px;">COSTO</span>`;
+  document.getElementById('s1-kpi-crit-pct').textContent = `${formatCurrency(critCost)} (${safeFixed(critBultosPct, 2, '%')} Bultos)`;
   document.getElementById('s1-kpi-over52').textContent = `>52s: ${formatCurrency(r52.cost)} (${formatNumber(r52.bultos)} Bultos)`;
 
   // 1. Gráfico S1 con valores encima de las barras
