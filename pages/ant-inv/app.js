@@ -1388,13 +1388,13 @@ function renderSlide1(data) {
   }
 
   document.getElementById('tfootS1Top10').innerHTML = `
-    <tr>
-      <td colspan="4" style="text-align:left; font-weight:900;">Total Top 10 SKUs</td>
-      <td style="color:#2563eb; font-weight:900;">${formatNumber(sumTopLpns)}</td>
-      <td style="color:#dc2626; font-size:0.90rem; font-weight:900;">S/ ${formatNumber(sumTopCost)}</td>
-      <td style="font-weight:800;">${formatNumber(sumTopBultos)}</td>
-      <td style="font-weight:700; color:#64748b;">${formatNumber(sumTopOnHand)}</td>
-      <td colspan="2" style="text-align:center; color:#64748b; font-weight:700;">Concentración crítica</td>
+    <tr style="background:#f1f5f9; font-weight:900; border-top:2px solid #0f172a;">
+      <td colspan="4" style="text-align:left; font-weight:900; color:#0f172a; padding:4px 6px;">Total Top 10 SKUs</td>
+      <td style="color:#2563eb; font-weight:900; padding:4px 6px;">${formatNumber(sumTopLpns)}</td>
+      <td style="color:#dc2626; font-size:0.90rem; font-weight:900; padding:4px 6px;">S/ ${formatNumber(sumTopCost)}</td>
+      <td style="font-weight:900; color:#0f172a; padding:4px 6px;">${formatNumber(sumTopBultos)}</td>
+      <td style="font-weight:800; color:#475569; padding:4px 6px;">${formatNumber(sumTopOnHand)}</td>
+      <td colspan="2" style="text-align:center; color:#0f172a; font-weight:800; padding:4px 6px; background:#e2e8f0;">Concentración crítica</td>
     </tr>
   `;
 }
