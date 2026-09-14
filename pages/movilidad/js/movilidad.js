@@ -21,6 +21,7 @@ const AppState = {
   paraderosData: [],
   paraderosSource: 'DRIVE', // Exclusivamente dinámico desde Google Drive
   paraderosTabName: '',
+  sentidoRutaMapa: 'INGRESO', // 'INGRESO' (06:30 AM) o 'SALIDA' (04:30 PM)
   mapInstance: null,
   mapLines: {},
   mapMarkers: {},
@@ -56,6 +57,168 @@ const RUTAS_OFICIALES = new Set([
   'RUTA 1', 'RUTA 2', 'RUTA 3', 'RUTA 4A', 'RUTA 4B', 'RUTA 5A',
   'RUTA 5B', 'RUTA 5C', 'RUTA 6A', 'RUTA 6B', 'RUTA 6C', 'RUTA 7', 'RUTA 8', 'RUTA 9'
 ]);
+
+// ==========================================================================
+// Catálogo Maestro de Horarios Oficiales de Rutas (Turno Mañana / Salida)
+// Fuente oficial de operación CD Huachipa
+// ==========================================================================
+const HORARIOS_OFICIALES_RUTAS = {
+  '1': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /ferreter[ií]a/i, horaIngreso: '06:10 a.m.' },
+      { patron: /saracoto/i, horaIngreso: '06:13 a.m.' },
+      { patron: /fame/i, soloSalida: true },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '2': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /arco.*san.*antonio|san\s*antonio/i, horaIngreso: '06:00 a.m.' },
+      { patron: /para[ií]so/i, horaIngreso: '06:05 a.m.' },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '3': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /sta\.?\s*rosa|santa\s*rosa/i, horaIngreso: '05:15 a.m.' },
+      { patron: /aurora/i, horaIngreso: '05:20 a.m.' },
+      { patron: /15\s*de\s*julio/i, horaIngreso: '05:25 a.m.' },
+      { patron: /villa\s*hermosa/i, horaIngreso: '05:28 a.m.' },
+      { patron: /kimberly/i, soloSalida: true },
+      { patron: /rompemuelle/i, horaIngreso: '05:30 a.m.' },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '4A': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /santa\s*anita|municipalidad.*santa\s*anita/i, horaIngreso: '05:35 a.m.' },
+      { patron: /colectora/i, horaIngreso: '05:37 a.m.' },
+      { patron: /huarochir[ií]/i, horaIngreso: '05:39 a.m.' },
+      { patron: /la\s*cultura|cultura/i, horaIngreso: '05:41 a.m.' },
+      { patron: /puruchuco/i, horaIngreso: '05:50 a.m.' },
+      { patron: /berl[ií]n/i, horaIngreso: '05:53 a.m.', soloIngreso: true },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '4B': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /panader[ií]a\s*marcela|marcela/i, horaIngreso: '05:47 a.m.' },
+      { patron: /c[eé]sar\s*vallejo|vallejo/i, horaIngreso: '05:50 a.m.' },
+      { patron: /esperanza/i, horaIngreso: '05:52 a.m.' },
+      { patron: /la\s*cruz|cruz/i, horaIngreso: '05:54 a.m.' },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '5A': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /puente.*[aá]ngeles|[aá]ngeles/i, horaIngreso: '05:25 a.m.' },
+      { patron: /ramiro\s*prial[eé]|prial[eé]/i, horaIngreso: '05:28 a.m.' },
+      { patron: /girasoles/i, horaIngreso: '05:30 a.m.' },
+      { patron: /ñaña/i, horaIngreso: '05:38 a.m.' },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '5B': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /huayc[aá]n/i, horaIngreso: '05:35 a.m.' },
+      { patron: /horacio/i, horaIngreso: '05:40 a.m.' },
+      { patron: /gloria\s*grande/i, horaIngreso: '05:43 a.m.' },
+      { patron: /san\s*juan/i, horaIngreso: '05:45 a.m.' },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '5C': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /sta\.?\s*clara|santa\s*clara/i, horaIngreso: '05:55 a.m.' },
+      { patron: /estadio.*huachipa|estadio/i, horaIngreso: '06:05 a.m.' },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '6A': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /bay[oó]var/i, horaIngreso: '05:30 a.m.' },
+      { patron: /san\s*mart[ií]n/i, horaIngreso: '05:35 a.m.' },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '6B': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /canto\s*rey/i, horaIngreso: '05:37 a.m.' },
+      { patron: /san\s*carlos/i, horaIngreso: '05:45 a.m.' },
+      { patron: /17.*pr[oó]ceres|pr[oó]ceres/i, horaIngreso: '05:48 a.m.' },
+      { patron: /hacienda/i, horaIngreso: '05:50 a.m.' },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  },
+  '6C': {
+    salidaCD: '04:30 p.m.',
+    llegadaCD: '06:30 a.m.',
+    paraderos: [
+      { patron: /celima/i, horaIngreso: '05:45 a.m.' },
+      { patron: /puente\s*nuevo/i, horaIngreso: '05:55 a.m.' },
+      { patron: /pajat[eé]n/i, horaIngreso: '05:58 a.m.' },
+      { patron: /campoy/i, horaIngreso: '06:02 a.m.' },
+      { patron: /calle\s*8/i, horaIngreso: '06:06 a.m.' },
+      { patron: /tottus.*huachipa|huachipa/i, horaIngreso: '06:30 a.m.', horaSalida: '04:30 p.m.' }
+    ]
+  }
+};
+
+function obtenerInfoHorarioParadero(rutaId, nombreParadero, rawHora) {
+  const normRuta = String(rutaId || '').trim().toUpperCase().replace(/^RUTA\s+/i, '');
+  const configRuta = HORARIOS_OFICIALES_RUTAS[normRuta];
+
+  // Si en la hoja de Google Sheet viene una hora explícita, la usamos preferencialmente
+  let horaIngreso = rawHora ? String(rawHora).trim() : '';
+  let soloSalida = false;
+  let soloIngreso = false;
+  let horaSalida = '';
+
+  const nombreNorm = String(nombreParadero || '').toLowerCase();
+  if (nombreNorm.includes('solo salida')) soloSalida = true;
+  if (nombreNorm.includes('solo ingreso')) soloIngreso = true;
+
+  if (configRuta && configRuta.paraderos) {
+    for (const p of configRuta.paraderos) {
+      if (p.patron && p.patron.test(nombreNorm)) {
+        if (!horaIngreso && p.horaIngreso) horaIngreso = p.horaIngreso;
+        if (p.soloSalida) soloSalida = true;
+        if (p.soloIngreso) soloIngreso = true;
+        if (p.horaSalida) horaSalida = p.horaSalida;
+        break;
+      }
+    }
+  }
+
+  // Identificar si es el CD Tottus Huachipa
+  const esCD = /tottus.*huachipa|huachipa|cd\s*huachipa/i.test(nombreNorm);
+  if (esCD) {
+    if (!horaIngreso) horaIngreso = '06:30 a.m.';
+    if (!horaSalida) horaSalida = '04:30 p.m.';
+  }
+
+  return { horaIngreso, horaSalida, soloSalida, soloIngreso, esCD };
+}
 
 // Matriz oficial de tarifas unitarias (TAX) y capacidades por tipo de unidad (BD BUSES)
 const TARIFARIO_BD_BUSES = {
@@ -739,6 +902,27 @@ function initUIEvents() {
     });
   }
 
+  // Control de Sentido de Ruta en Mapa (Ingreso al CD vs Salida del CD)
+  const chipsSentido = document.querySelectorAll('#chipSentidoRuta .chip-sentido-btn');
+  chipsSentido.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const nuevoSentido = btn.dataset.sentido;
+      if (!nuevoSentido || nuevoSentido === AppState.sentidoRutaMapa) return;
+
+      AppState.sentidoRutaMapa = nuevoSentido;
+      chipsSentido.forEach(b => b.classList.toggle('active', b === btn));
+
+      // Re-dibujar rutas y paraderos con el nuevo sentido
+      if (AppState.mapInstance) {
+        const rutaActual = document.getElementById('selectFiltroRutaMapa')?.value || 'TODAS';
+        dibujarRutasEnMapa();
+        if (rutaActual && rutaActual !== 'TODAS') {
+          setTimeout(() => resaltarRutaEnMapa(rutaActual), 50);
+        }
+      }
+    });
+  });
+
   const btnTogglePanel = document.getElementById('btnTogglePanelRutas');
   if (btnTogglePanel) {
     btnTogglePanel.addEventListener('click', () => {
@@ -1296,6 +1480,7 @@ async function loadAllSheets(sheetId) {
         const rawLat = getRowVal(row, ['LAT', 'LATITUD', 'LATITUDE', 'Y', 'COORD Y', 'COORDENADA Y', 'LAT-TRAB', 'LAT PARADERO']);
         const rawLng = getRowVal(row, ['LNG', 'LON', 'LONG', 'LONGITUD', 'LONGITUDE', 'X', 'COORD X', 'COORDENADA X', 'LON-TRAB', 'LON PARADERO']);
         const rawSec = getRowVal(row, ['SECUENCIA', 'ORDEN', 'PASO', 'NUMERO', 'ITEM', 'SEQ', 'ORD', 'NRO', 'N°']);
+        const rawHora = getRowVal(row, ['HORA', 'HORARIO', 'TIME', 'HORA_PARADERO', 'HORA PARADERO', 'HORA ESTIMADA', 'HORA LLEGADA', 'HORA SALIDA']);
         const secuencia = parseInt(rawSec, 10) || (idx + 1);
         const nombre = String(getRowVal(row, ['NOMBRE', 'PARADERO', 'NOMBRE PARADERO', 'NOMBRE_PARADERO', 'PARADERO MÁS CERCANO', 'PARADERO MAS CERCANO', 'DESCRIPCION', 'PUNTO', 'ESTACION', 'STOP_NAME', 'REFERENCIA']) || '').trim() || `Paradero ${secuencia}`;
 
@@ -1303,7 +1488,14 @@ async function loadAllSheets(sheetId) {
           const lat = parseFloat(String(rawLat).replace(',', '.'));
           const lng = parseFloat(String(rawLng).replace(',', '.'));
           if (!isNaN(lat) && !isNaN(lng)) {
-            parsedParaderos.push({ ruta: rutaVal, lat, lng, nombre, secuencia });
+            parsedParaderos.push({
+              ruta: rutaVal,
+              lat,
+              lng,
+              nombre,
+              secuencia,
+              rawHora: rawHora ? String(rawHora).trim() : ''
+            });
           }
         }
       });
@@ -2350,6 +2542,12 @@ function openMapModal() {
   if (!modal) return;
   modal.classList.remove('hidden');
 
+  // Sincronizar botones de sentido según AppState.sentidoRutaMapa
+  const sentido = AppState.sentidoRutaMapa || 'INGRESO';
+  document.querySelectorAll('#chipSentidoRuta .chip-sentido-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sentido === sentido);
+  });
+
   updateParaderosSourceBadge();
   initRoutesMap();
 
@@ -2384,13 +2582,23 @@ function initRoutesMap() {
     wheelPxPerZoomLevel: 100
   });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
-    keepBuffer: 6,
-    updateWhenZooming: false,
-    updateWhenIdle: true
-  }).addTo(map);
+  // Capa base oscura en alta definición con fallback a OpenStreetMap
+  if (AppState.mapboxToken) {
+    L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${AppState.mapboxToken}`, {
+      attribution: '© Mapbox © OpenStreetMap',
+      tileSize: 512,
+      zoomOffset: -1,
+      maxZoom: 19
+    }).addTo(map);
+  } else {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
+      keepBuffer: 6,
+      updateWhenZooming: false,
+      updateWhenIdle: true
+    }).addTo(map);
+  }
 
   map.on('click', function (e) {
     if (e.originalEvent.target.id === 'mapaRutas' || e.originalEvent.target.classList.contains('leaflet-container')) {
@@ -2437,6 +2645,7 @@ function dibujarRutasEnMapa() {
   AppState.mapMarkers = {};
   AppState.mapCards = {};
 
+  const sentido = AppState.sentidoRutaMapa || 'INGRESO';
   const rutasAgrupadas = {};
   const allLatLngs = [];
 
@@ -2454,27 +2663,64 @@ function dibujarRutasEnMapa() {
     const lng = parseFloat(punto.lng);
     if (isNaN(lat) || isNaN(lng)) return;
 
+    const infoHorario = obtenerInfoHorarioParadero(rId, punto.nombre, punto.rawHora);
+
+    // Filtrar paraderos según sentido:
+    // Si estamos en INGRESO, excluir los que sean SOLO SALIDA (ej: Kimberly, FAME)
+    if (sentido === 'INGRESO' && infoHorario.soloSalida) return;
+    // Si estamos en SALIDA, excluir los que sean SOLO INGRESO (ej: Berlín)
+    if (sentido === 'SALIDA' && infoHorario.soloIngreso) return;
+
     rutasAgrupadas[rId].push({
       lat,
       lng,
       nombre: punto.nombre || `Paradero`,
-      secuencia: parseInt(punto.secuencia, 10) || (rutasAgrupadas[rId].length + 1)
+      secuencia: parseInt(punto.secuencia, 10) || (rutasAgrupadas[rId].length + 1),
+      horaIngreso: infoHorario.horaIngreso,
+      horaSalida: infoHorario.horaSalida,
+      soloSalida: infoHorario.soloSalida,
+      soloIngreso: infoHorario.soloIngreso,
+      esCD: infoHorario.esCD
     });
     allLatLngs.push([lat, lng]);
   });
 
-  // Ordenar paraderos por secuencia dentro de cada ruta
+  // Ordenar paraderos dentro de cada ruta según el Sentido activo
+  const isCdStop = (p) => p.esCD || /tottus.*huachipa|huachipa|cd\s*huachipa/i.test(p.nombre);
+
   Object.keys(rutasAgrupadas).forEach(rId => {
-    rutasAgrupadas[rId].sort((a, b) => a.secuencia - b.secuencia);
+    const lista = rutasAgrupadas[rId];
+    // Ordenar de forma base por columna secuencia
+    lista.sort((a, b) => a.secuencia - b.secuencia);
+
+    if (lista.length >= 2) {
+      if (sentido === 'INGRESO') {
+        // En INGRESO, el bus culmina en el CD (Tottus Huachipa debe ser la última parada)
+        if (isCdStop(lista[0]) && !isCdStop(lista[lista.length - 1])) {
+          lista.reverse();
+        }
+      } else {
+        // En SALIDA, el bus inicia en el CD (Tottus Huachipa debe ser el origen de partida)
+        if (isCdStop(lista[lista.length - 1]) && !isCdStop(lista[0])) {
+          lista.reverse();
+        }
+      }
+    }
+
+    // Asignar número visual de secuencia correlativo (1..N)
+    lista.forEach((p, idx) => {
+      p.numVisual = idx + 1;
+    });
   });
 
   // Poblar dropdown de rutas
   const selectRuta = document.getElementById('selectFiltroRutaMapa');
   const sortedRutas = Object.keys(rutasAgrupadas).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const rutaSeleccionadaPrevia = selectRuta ? selectRuta.value : 'TODAS';
   if (selectRuta) {
     selectRuta.innerHTML = `<option value="TODAS">Todas las Rutas (${sortedRutas.length})</option>` +
       sortedRutas.map(r => `<option value="${r}">Ruta ${r}</option>`).join('');
-    selectRuta.value = 'TODAS';
+    selectRuta.value = (sortedRutas.includes(rutaSeleccionadaPrevia) ? rutaSeleccionadaPrevia : 'TODAS');
   }
 
   // Ajustar límites iniciales
@@ -2483,16 +2729,31 @@ function dibujarRutasEnMapa() {
     AppState.mapInstance.fitBounds(AppState.mapBounds, { padding: [40, 40] });
   }
 
-  // Dibujar Pines con Tooltips eficientes (solo al hover o al seleccionar ruta)
+  // Dibujar Pines con Tooltips inteligentes y horarios
   sortedRutas.forEach(rId => {
     const puntos = rutasAgrupadas[rId];
     const color = getRutaColor(rId);
 
     puntos.forEach(p => {
+      let tooltipDetalle = '';
+      if (sentido === 'INGRESO') {
+        const esFin = p.numVisual === puntos.length;
+        const h = p.horaIngreso || (esFin ? '06:30 a.m.' : '');
+        tooltipDetalle = h ? `<br><small style="color: #60a5fa;"><i class="fa-regular fa-clock"></i> Recojo: <b>${h}</b></small>` : '';
+      } else {
+        if (p.numVisual === 1) {
+          tooltipDetalle = `<br><small style="color: #fb923c;"><i class="fa-solid fa-flag-checkered"></i> Salida CD: <b>04:30 p.m.</b></small>`;
+        } else if (p.numVisual === puntos.length) {
+          tooltipDetalle = `<br><small style="color: #34d399;"><i class="fa-solid fa-stop"></i> Fin de Ruta</small>`;
+        } else {
+          tooltipDetalle = `<br><small style="color: #94a3b8;"><i class="fa-solid fa-person-walking-arrow-right"></i> Desembarque</small>`;
+        }
+      }
+
       const marcador = L.marker([p.lat, p.lng], { icon: crearIconoDePinColoreado(color) })
         .addTo(AppState.mapInstance)
-        .bindTooltip(`<b>Ruta ${rId}</b>: ${p.nombre}`, {
-          permanent: false, // Solo visible en hover o al filtrar ruta -> 100% fluido y sin sobrecargar la pantalla
+        .bindTooltip(`<b>Ruta ${rId}</b> [${p.numVisual}/${puntos.length}]: ${p.nombre}${tooltipDetalle}`, {
+          permanent: false, // Solo visible en hover o al filtrar ruta -> 100% fluido
           direction: 'top',
           className: 'etiqueta-paradero',
           offset: [0, -18]
@@ -2517,15 +2778,20 @@ function dibujarRutasEnMapa() {
     const coordsGoogle = puntos.map(p => `${p.lat},${p.lng}`);
 
     let botonesGPS = '';
+    const btnClass = sentido === 'INGRESO' ? 'btn-gps btn-gps-ingreso' : 'btn-gps btn-gps-salida';
+    const labelGPS = sentido === 'INGRESO'
+      ? '<i class="fa-solid fa-location-arrow"></i> Navegar Ingreso al CD'
+      : '<i class="fa-solid fa-route"></i> Navegar Salida del CD';
+
     if (coordsGoogle.length <= 10) {
-      botonesGPS = `<a href="${generarLinkGoogle(coordsGoogle)}" target="_blank" rel="noopener" class="btn-gps"><i class="fa-solid fa-location-arrow"></i> Abrir en Google Maps</a>`;
+      botonesGPS = `<a href="${generarLinkGoogle(coordsGoogle)}" target="_blank" rel="noopener" class="${btnClass}">${labelGPS}</a>`;
     } else {
       const parte1 = coordsGoogle.slice(0, 10);
       const parte2 = coordsGoogle.slice(9);
       botonesGPS = `
         <div style="display:flex; gap:6px;">
-          <a href="${generarLinkGoogle(parte1)}" target="_blank" rel="noopener" class="btn-gps" style="flex:1;"><i class="fa-solid fa-location-arrow"></i> GPS Parte 1</a>
-          <a href="${generarLinkGoogle(parte2)}" target="_blank" rel="noopener" class="btn-gps" style="flex:1; background-color:#16a34a;"><i class="fa-solid fa-location-arrow"></i> GPS Parte 2</a>
+          <a href="${generarLinkGoogle(parte1)}" target="_blank" rel="noopener" class="${btnClass}" style="flex:1;"><i class="fa-solid fa-location-arrow"></i> GPS Parte 1</a>
+          <a href="${generarLinkGoogle(parte2)}" target="_blank" rel="noopener" class="${btnClass}" style="flex:1; background-color:#16a34a !important;"><i class="fa-solid fa-location-arrow"></i> GPS Parte 2</a>
         </div>
       `;
     }
@@ -2535,25 +2801,49 @@ function dibujarRutasEnMapa() {
     tarjetaRuta.style.borderLeft = `5px solid ${colorAsignado}`;
     tarjetaRuta.dataset.ruta = nombreRuta;
 
+    const badgeSentido = sentido === 'INGRESO'
+      ? `<span class="badge-sentido-ingreso"><i class="fa-solid fa-arrow-right-to-bracket"></i> Ingreso 06:30 AM</span>`
+      : `<span class="badge-sentido-salida"><i class="fa-solid fa-arrow-right-from-bracket"></i> Salida 04:30 PM</span>`;
+
     const listaParaderosHtml = `
-      <div class="tarjeta-paraderos-preview" style="margin: 8px 0 10px 0; max-height: 110px; overflow-y: auto; background: rgba(15, 23, 42, 0.6); border-radius: 8px; padding: 6px 10px; border: 1px solid rgba(51, 65, 85, 0.4);">
-        ${puntos.map(p => `
-          <div style="font-size: 0.76rem; color: #cbd5e1; padding: 2px 0; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            <span style="color: ${colorAsignado}; font-weight: 700; font-size: 0.72rem; min-width: 16px;">${p.secuencia}.</span>
-            <span title="${p.nombre}" style="overflow: hidden; text-overflow: ellipsis;">${p.nombre}</span>
-          </div>
-        `).join('')}
+      <div class="tarjeta-paraderos-preview" style="margin: 8px 0 10px 0; max-height: 140px; overflow-y: auto; background: rgba(15, 23, 42, 0.65); border-radius: 8px; padding: 6px 10px; border: 1px solid rgba(51, 65, 85, 0.4);">
+        ${puntos.map(p => {
+          let badgeHora = '';
+          if (sentido === 'INGRESO') {
+            const esFin = p.numVisual === puntos.length;
+            const h = p.horaIngreso || (esFin ? '06:30 a.m.' : '--:--');
+            badgeHora = `<span class="paradero-hora badge-hora-ingreso" title="Hora de recojo"><i class="fa-regular fa-clock"></i> ${h}</span>`;
+          } else {
+            if (p.numVisual === 1) {
+              badgeHora = `<span class="paradero-hora badge-hora-salida" title="Salida del CD"><i class="fa-solid fa-flag-checkered"></i> 04:30 p.m.</span>`;
+            } else if (p.soloSalida) {
+              badgeHora = `<span class="paradero-hora badge-hora-salida-solo" title="Exclusivo salida"><i class="fa-solid fa-arrow-right-from-bracket"></i> Solo Salida</span>`;
+            } else if (p.numVisual === puntos.length) {
+              badgeHora = `<span class="paradero-hora badge-hora-fin" title="Fin de recorrido"><i class="fa-solid fa-stop"></i> Fin de Ruta</span>`;
+            } else {
+              badgeHora = `<span class="paradero-hora badge-hora-desembarque" title="Punto de bajada"><i class="fa-solid fa-person-walking-arrow-right"></i> Bajada</span>`;
+            }
+          }
+          return `
+            <div class="tarjeta-paradero-fila">
+              <span class="paradero-num" style="color: ${colorAsignado};">${p.numVisual}.</span>
+              <span class="paradero-nombre" title="${p.nombre}">${p.nombre}</span>
+              ${badgeHora}
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
 
     tarjetaRuta.innerHTML = `
-      <div class="tarjeta-ruta-title" style="color: ${colorAsignado};">
+      <div class="tarjeta-ruta-title" style="color: ${colorAsignado}; display: flex; justify-content: space-between; align-items: center;">
         <span><i class="fa-solid fa-bus"></i> RUTA ${nombreRuta}</span>
-        <span style="font-size: 0.75rem; color: #94a3b8; font-weight: normal;">${puntos.length} paraderos</span>
+        ${badgeSentido}
       </div>
       <div class="tarjeta-stats" id="stats-ruta-${nombreRuta}">
         <span><i class="fa-solid fa-road"></i> Calculando...</span>
         <span><i class="fa-regular fa-clock"></i> ...</span>
+        <span style="font-size: 0.72rem; color: #94a3b8;">${puntos.length} paraderos</span>
       </div>
       ${listaParaderosHtml}
       ${botonesGPS}
@@ -2575,7 +2865,7 @@ function dibujarRutasEnMapa() {
 
       const statsEl = document.getElementById(`stats-ruta-${nombreRuta}`);
       if (statsEl) {
-        statsEl.innerHTML = `<span><i class="fa-solid fa-road"></i> ${distKM} km</span><span><i class="fa-regular fa-clock"></i> ~${durMin} min</span>`;
+        statsEl.innerHTML = `<span><i class="fa-solid fa-road"></i> ${distKM} km</span><span><i class="fa-regular fa-clock"></i> ~${durMin} min</span><span style="font-size: 0.72rem; color: #94a3b8;">${puntos.length} paraderos</span>`;
       }
 
       const layer = L.geoJSON(rutaData.geometry, {
@@ -2613,7 +2903,7 @@ function dibujarRutasEnMapa() {
     };
 
     const stringCoordenadas = puntos.map(p => `${p.lng},${p.lat}`).join(';');
-    const cacheKey = nombreRuta + '_' + stringCoordenadas;
+    const cacheKey = nombreRuta + '_' + sentido + '_' + stringCoordenadas;
 
     // Si ya lo tenemos en caché, dibujar al instante (0ms)
     if (AppState.routeDirectionsCache && AppState.routeDirectionsCache[cacheKey]) {
