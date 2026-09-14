@@ -191,30 +191,30 @@ const paraderos = [
     },
     {
         "ruta": "5A",
-        "lat": -11.98918,
-        "lng": -76.81841,
+        "lat": -11.988911,
+        "lng": -76.818314,
         "nombre": "Entrada Ñaña",
         "secuencia": 2
     },
     {
         "ruta": "5A",
-        "lat": -11.9764721,
-        "lng": -76.7724935,
+        "lat": -11.978712,
+        "lng": -76.784157,
         "nombre": "Paradero Girasoles - Chaclacayo",
         "secuencia": 3
     },
     {
         "ruta": "5A",
-        "lat": -11.9775165,
-        "lng": -76.7780423,
+        "lat": -11.977850,
+        "lng": -76.778145,
         "nombre": "Mercado Ramiro Prialé",
         "secuencia": 4
     },
     {
         "ruta": "5A",
-        "lat": -12.0328871,
-        "lng": -77.0704907,
-        "nombre": "Paradero Puente Los Ángeles",
+        "lat": -11.968410,
+        "lng": -76.746323,
+        "nombre": "Puente Los Ángeles",
         "secuencia": 5
     },
     {
