@@ -96,8 +96,8 @@ function processFile(file) {
 
       let defaultSheet = rawWorkbook.SheetNames[0];
 
-      // Priorizar hojas clave del tutorial: 'Data general', 'DATA', 'PICKING FOLIOS', 'Consolidado'
-      const keySheets = ['data general', 'data', 'consolidado', 'picking folios', 'hoja1'];
+      // Priorizar hojas clave del tutorial: 'Data general', 'DATA_PBI_IMPORT', 'DATA', 'Consolidado'
+      const keySheets = ['data general', 'data_pbi_import', 'data pbi', 'data', 'consolidado', 'picking folios', 'hoja1'];
       for (const name of rawWorkbook.SheetNames) {
         const opt = document.createElement('option');
         opt.value = name;
