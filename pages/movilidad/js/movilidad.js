@@ -2903,13 +2903,13 @@ function dibujarRutasEnMapa() {
     };
 
     const stringCoordenadas = puntos.map(p => `${p.lng},${p.lat}`).join(';');
-    const cacheKey = nombreRuta + '_' + sentido + '_' + stringCoordenadas;
+    const cacheKey = nombreRuta + '_' + sentido + '_full_' + stringCoordenadas;
 
     // Si ya lo tenemos en caché, dibujar al instante (0ms)
     if (AppState.routeDirectionsCache && AppState.routeDirectionsCache[cacheKey]) {
       aplicarTrazadoGeoJSON(AppState.routeDirectionsCache[cacheKey]);
     } else {
-      const urlMapbox = `https://api.mapbox.com/directions/v5/mapbox/driving/${stringCoordenadas}?geometries=geojson&access_token=${AppState.mapboxToken}`;
+      const urlMapbox = `https://api.mapbox.com/directions/v5/mapbox/driving/${stringCoordenadas}?geometries=geojson&overview=full&access_token=${AppState.mapboxToken}`;
       fetch(urlMapbox)
         .then(r => r.json())
         .then(data => {
