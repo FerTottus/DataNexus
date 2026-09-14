@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataNexus - Días a Tienda (DTI) Evolutivos</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏱️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- SheetJS para procesar Excel localmente -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  
+  <!-- Chart.js + Datalabels -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Barra de Navegación -->
+  <header class="navbar-dit">
+    <div class="brand-container">
+      <div class="brand-icon">
+        <i class="fa-solid fa-truck-ramp-box"></i>
+      </div>
+      <div class="brand-text">
+        <h1>Días a Tienda (DTI) - Gráficos Evolutivos</h1>
+        <p>CD 655 Secos & CD 676 Frescos | Control de Gestión Logística</p>
+      </div>
+    </div>
+    
+    <div class="nav-actions">
+      <a href="../../index.html" class="btn-nav">
+        <i class="fa-solid fa-house"></i> Ir a Inicio
+      </a>
+      <button id="btnLoadDemo" class="btn-nav" title="Cargar datos de prueba representativos del tutorial">
+        <i class="fa-solid fa-flask"></i> Cargar Datos Demo
+      </button>
+    </div>
+  </header>
+
+  <main class="main-wrapper">
+
+    <!-- Tarjeta de Carga de Archivo -->
+    <section class="upload-card">
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <i class="fa-solid fa-file-excel drop-zone-icon"></i>
+        <div class="drop-zone-title">Selecciona o arrastra tu archivo de trabajo Excel</div>
+        <div class="drop-zone-subtitle">
+          Compatible con <span class="badge-sample">Días internos 2026 VS 2025.xlsx</span>, <span class="badge-sample">Consolidado ST.xlsx</span>, <span class="badge-sample">Folios_Recorrido con DO.xlsx</span> o <span class="badge-sample">Consolidado.csv</span>
+        </div>
+        <input type="file" id="fileInput" style="display:none" accept=".xlsx, .xls, .xlsm, .csv">
+      </div>
+
+      <!-- Banner de Archivo Cargado -->
+      <div id="fileBanner" class="file-loaded-banner hidden">
+        <div class="file-loaded-info">
+          <i class="fa-solid fa-circle-check"></i>
+          <div>
+            <strong id="fileNameDisplay">archivo.xlsx</strong>
+            <span id="fileRowsDisplay" style="color: #047857; margin-left: 8px;">(0 registros procesados)</span>
+          </div>
+        </div>
+
+        <div class="sheet-selector-group">
+          <label for="sheetSelect" style="font-size: 0.85rem; font-weight: 600; color: #065f46;">Pestaña:</label>
+          <select id="sheetSelect" class="form-select"></select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Barra de Filtros y Control -->
+    <section id="filtersSection" class="filters-bar hidden">
+      <div class="filter-group">
+        <label class="filter-label">Centro de Distribución</label>
+        <select id="filterCD" class="filter-control">
+          <option value="ALL">Todos los CDs (655 y 676)</option>
+          <option value="655" selected>CD 655 (Secos Huachipa)</option>
+          <option value="676">CD 676 (Frescos VES)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">Destino / Zona</label>
+        <select id="filterZona" class="filter-control">
+          <option value="ALL">Todos (Local y Provincia)</option>
+          <option value="Local" selected>Local (Meta: 1.5d)</option>
+          <option value="Provincia">Provincia (Meta: 2.5d)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">Año</label>
+        <select id="filterAnio" class="filter-control">
+          <option value="ALL">Comparativa (Todos los Años)</option>
+          <option value="2026" selected>2026</option>
+          <option value="2025">2025</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">Cálculo de DTI</label>
+        <select id="filterMetrica" class="filter-control">
+          <option value="ponderado" selected>Ponderado por Cajas</option>
+          <option value="simple">Promedio Simple</option>
+        </select>
+      </div>
+
+      <div class="filter-group" style="max-width: 130px;">
+        <label class="filter-label">Meta SLA (Días)</label>
+        <input type="number" id="inputMeta" class="filter-control" step="0.1" value="1.5">
+      </div>
+
+      <div class="filter-group" style="flex-grow: 0;">
+        <button id="btnResetFilters" class="btn-nav" style="height: 38px;">
+          <i class="fa-solid fa-rotate-left"></i> Restablecer
+        </button>
+      </div>
+    </section>
+
+    <!-- Estado Inicial Vacío -->
+    <div id="emptyState" class="empty-state">
+      <i class="fa-solid fa-chart-line"></i>
+      <h3>Sube tu archivo de Días a Tienda para visualizar los gráficos</h3>
+      <p>El sistema detectará automáticamente las columnas de CD, Semana, Destino, Ope. Interna, Ope. Salida y DTI para calcular los evolutivos de gerencia.</p>
+    </div>
+
+    <!-- Dashboard Content (Oculto hasta cargar) -->
+    <div id="dashboardContent" class="hidden" style="display: flex; flex-direction: column; gap: 24px;">
+
+      <!-- Grid de Tarjetas KPI -->
+      <section class="kpi-grid">
+        <div class="kpi-card secos">
+          <div class="kpi-header">
+            <span class="kpi-title" id="kpiTitle1">DTI Última Semana</span>
+            <i class="fa-solid fa-stopwatch kpi-icon"></i>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpiDtiActual">0.00</span>
+            <span class="kpi-unit">días</span>
+          </div>
+          <div id="kpiBadgeSla" class="kpi-badge success">
+            <i class="fa-solid fa-circle-check"></i> <span id="kpiSlaText">Cumple Meta</span>
+          </div>
+        </div>
+
+        <div class="kpi-card local">
+          <div class="kpi-header">
+            <span class="kpi-title">Promedio Acumulado</span>
+            <i class="fa-solid fa-calendar-check kpi-icon"></i>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpiDtiPromedio">0.00</span>
+            <span class="kpi-unit">días</span>
+          </div>
+          <div class="kpi-badge neutral">
+            <span id="kpiSemanasCount">0 semanas analizadas</span>
+          </div>
+        </div>
+
+        <div class="kpi-card frescos">
+          <div class="kpi-header">
+            <span class="kpi-title">Desglose Operativo</span>
+            <i class="fa-solid fa-arrows-split-up-and-left kpi-icon"></i>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" style="font-size: 1.25rem;" id="kpiDesgloseTiempos">Int: 0.0d | Sal: 0.0d</span>
+          </div>
+          <div class="kpi-badge neutral">
+            <span>Operación Interna vs Salida</span>
+          </div>
+        </div>
+
+        <div class="kpi-card provincia">
+          <div class="kpi-header">
+            <span class="kpi-title">Volumen Movilizado</span>
+            <i class="fa-solid fa-boxes-packing kpi-icon"></i>
+          </div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpiTotalCajas">0</span>
+            <span class="kpi-unit">cajas</span>
+          </div>
+          <div class="kpi-badge neutral">
+            <span id="kpiTotalRegistros">0 despachos</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Grid de Gráficos (Chart.js) -->
+      <section class="charts-grid">
+        
+        <!-- Gráfico 1: Evolutivo Semanal de DTI con Meta (SLA) -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title-area">
+              <h3 id="chart1Title">Evolutivo Semanal DTI vs Meta</h3>
+              <p>Tendencia cronológica semanal por Centro y Zona contra línea objetivo</p>
+            </div>
+            <div class="chart-actions">
+              <button class="btn-chart-action" onclick="copyChartImage('chartDtiEvolutivo')">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+              <button class="btn-chart-action" onclick="downloadChartImage('chartDtiEvolutivo', 'DTI_Evolutivo_Semanal')">
+                <i class="fa-solid fa-download"></i> PNG
+              </button>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="chartDtiEvolutivo"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 2: Comparativo Interanual 2025 vs 2026 -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title-area">
+              <h3>Comparativo Interanual (2025 vs 2026)</h3>
+              <p>Desempeño semanal frente al mismo periodo del año anterior</p>
+            </div>
+            <div class="chart-actions">
+              <button class="btn-chart-action" onclick="copyChartImage('chartDtiComparativo')">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+              <button class="btn-chart-action" onclick="downloadChartImage('chartDtiComparativo', 'DTI_Comparativo_Anual')">
+                <i class="fa-solid fa-download"></i> PNG
+              </button>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="chartDtiComparativo"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 3: Desglose Lead Time (Ope. Interna vs Ope. Salida) -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title-area">
+              <h3>Composición del Lead Time por Semana</h3>
+              <p>Días de Operación Interna (Picking -> PSL) y Operación Salida (PSL -> Cargas)</p>
+            </div>
+            <div class="chart-actions">
+              <button class="btn-chart-action" onclick="copyChartImage('chartLeadTime')">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+              <button class="btn-chart-action" onclick="downloadChartImage('chartLeadTime', 'DTI_Desglose_Operativo')">
+                <i class="fa-solid fa-download"></i> PNG
+              </button>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="chartLeadTime"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 4: Matriz Local vs Provincia -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-title-area">
+              <h3>Comparativa Local vs Provincia por Semana</h3>
+              <p>Seguimiento simultáneo de ambas zonas operativas</p>
+            </div>
+            <div class="chart-actions">
+              <button class="btn-chart-action" onclick="copyChartImage('chartLocalProvincia')">
+                <i class="fa-regular fa-copy"></i> Copiar
+              </button>
+              <button class="btn-chart-action" onclick="downloadChartImage('chartLocalProvincia', 'DTI_Local_vs_Provincia')">
+                <i class="fa-solid fa-download"></i> PNG
+              </button>
+            </div>
+          </div>
+          <div class="chart-body">
+            <canvas id="chartLocalProvincia"></canvas>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Tabla Resumen Semanal -->
+      <section class="table-card">
+        <div class="table-header">
+          <div>
+            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700;">Resumen Consolidado por Semana</h3>
+            <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: var(--text-muted);">Tabla de apoyo para validación cruzada y auditoría de cifras</p>
+          </div>
+          <button id="btnExportCsv" class="btn-nav">
+            <i class="fa-solid fa-file-csv"></i> Exportar a CSV
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="summaryTable">
+            <thead>
+              <tr>
+                <th>Semana</th>
+                <th>Año</th>
+                <th>CD</th>
+                <th>Zona</th>
+                <th class="text-right">Cajas Totales</th>
+                <th class="text-right">Ope. Interna</th>
+                <th class="text-right">Ope. Salida</th>
+                <th class="text-right">DTI Promedio</th>
+                <th class="text-right">Meta SLA</th>
+                <th class="text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody id="summaryTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
