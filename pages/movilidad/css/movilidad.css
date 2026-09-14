@@ -1342,6 +1342,180 @@ body {
   transform: translateY(-1px);
 }
 
+.btn-gps-ingreso {
+  background-color: #2563eb;
+}
+.btn-gps-ingreso:hover {
+  background-color: #1d4ed8;
+}
+
+.btn-gps-salida {
+  background-color: #ea580c !important;
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.3) !important;
+}
+.btn-gps-salida:hover {
+  background-color: #c2410c !important;
+  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.5) !important;
+}
+
+/* ========================================================
+   Selector de Sentido (Ingreso al CD vs Salida del CD)
+   ======================================================== */
+.sentido-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sentido-label {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip-group-sentido {
+  display: flex;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 3px;
+}
+
+.chip-sentido-btn {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  color: #94a3b8;
+}
+
+.chip-sentido-btn:hover {
+  color: #f8fafc;
+  background: rgba(51, 65, 85, 0.4);
+}
+
+.chip-sentido-btn.active[data-sentido="INGRESO"] {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.45);
+}
+
+.chip-sentido-btn.active[data-sentido="SALIDA"] {
+  background: #ea580c;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.45);
+}
+
+/* Badges de Sentido en Tarjetas */
+.badge-sentido-ingreso {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-sentido-salida {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(234, 88, 12, 0.2);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Filas y Badges de Horarios en Paraderos */
+.tarjeta-paradero-fila {
+  font-size: 0.76rem;
+  color: #cbd5e1;
+  padding: 3px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.25);
+}
+.tarjeta-paradero-fila:last-child {
+  border-bottom: none;
+}
+
+.paradero-num {
+  font-weight: 700;
+  font-size: 0.72rem;
+  min-width: 16px;
+}
+
+.paradero-nombre {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.paradero-hora {
+  font-size: 0.68rem;
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.badge-hora-ingreso {
+  background: rgba(37, 99, 235, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.badge-hora-salida {
+  background: rgba(234, 88, 12, 0.25);
+  color: #fdba74;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+}
+
+.badge-hora-desembarque {
+  background: rgba(51, 65, 85, 0.5);
+  color: #94a3b8;
+  border: 1px solid rgba(71, 85, 105, 0.4);
+  font-size: 0.64rem;
+}
+
+.badge-hora-salida-solo {
+  background: rgba(168, 85, 247, 0.2);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  font-size: 0.65rem;
+}
+
+.badge-hora-fin {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  font-size: 0.65rem;
+}
+
 .etiqueta-paradero {
   background: rgba(15, 23, 42, 0.94);
   backdrop-filter: blur(4px);
