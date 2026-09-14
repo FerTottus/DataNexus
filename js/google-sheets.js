@@ -242,6 +242,11 @@ const GoogleSheetsService = {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        this.clearLocalSession();
+        if (typeof updateAuthUI === 'function') updateAuthUI(false);
+        throw new Error('Tu sesión de Google ha expirado o requiere validación. Por favor haz clic en "Acceder con Google" para renovarla.');
+      }
       const errorJson = await response.json().catch(() => ({}));
       let message = errorJson.error?.message || `Error HTTP ${response.status}: No se pudo leer el archivo. Verifica que haya sido compartido.`;
       if (response.status === 400) {
@@ -283,6 +288,11 @@ const GoogleSheetsService = {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        this.clearLocalSession();
+        if (typeof updateAuthUI === 'function') updateAuthUI(false);
+        throw new Error('Tu sesión de Google ha expirado o requiere validación. Por favor haz clic en "Acceder con Google" para renovarla.');
+      }
       const errorJson = await response.json().catch(() => ({}));
       let message = errorJson.error?.message || `Error al obtener datos de la hoja "${tabName}".`;
       if (response.status === 400) {
@@ -436,7 +446,16 @@ const GoogleSheetsService = {
         const data = await res.json();
         return data.files || [];
       } else {
-        console.warn('Error fetching Drive files:', res.status, res.statusText);
+        if (res.status === 401) {
+          console.warn('Google Drive token expirado (401). Limpiando sesión...');
+          this.clearLocalSession();
+          if (typeof updateAuthUI === 'function') updateAuthUI(false);
+          if (window.ClipboardUtil) {
+            window.ClipboardUtil.showToast('Tu sesión de Google expiró. Por favor vuelve a conectar con el botón de Google.', 'warning', 5000);
+          }
+        } else {
+          console.warn('Error fetching Drive files:', res.status, res.statusText);
+        }
         return null;
       }
     } catch (e) {

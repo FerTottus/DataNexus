@@ -1141,6 +1141,34 @@ async function openDriveModal() {
   loading.classList.add('hidden');
   
   if (!files || files.length === 0) {
+    if (!GoogleSheetsService.isAuthenticated()) {
+      empty.innerHTML = `
+        <div style="text-align: center; padding: 25px 15px;">
+          <i class="fa-solid fa-lock text-warning" style="font-size: 2.2rem; margin-bottom: 12px; display: block;"></i>
+          <h4 style="color: #f8fafc; margin-bottom: 6px; font-size: 1rem;">Sesión de Google expirada</h4>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 16px;">
+            Tu token de acceso venció o Google requiere verificación de identidad.<br>
+            Haz clic abajo para renovar el acceso a tus archivos de Drive.
+          </p>
+          <button id="btnReconectarGoogleDrive" class="btn btn-primary btn-sm" style="padding: 7px 16px; font-weight: 600;">
+            <i class="fa-brands fa-google"></i> Conectar con Google
+          </button>
+        </div>
+      `;
+      document.getElementById('btnReconectarGoogleDrive')?.addEventListener('click', () => {
+        GoogleSheetsService.requestAccessToken(async (success) => {
+          if (success) {
+            updateAuthUI(true);
+            openDriveModal();
+          }
+        });
+      });
+    } else {
+      empty.innerHTML = `
+        <i class="fa-solid fa-folder-open text-muted" style="font-size: 2rem; margin-bottom: 10px;"></i>
+        <p>No se encontraron hojas de cálculo recientes.</p>
+      `;
+    }
     empty.classList.remove('hidden');
     return;
   }
