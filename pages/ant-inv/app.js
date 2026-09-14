@@ -1664,29 +1664,29 @@ function renderSlide2(data) {
     };
 
     tfootZones.innerHTML = `
-      <tr style="background:#f1f5f9; font-weight:900; border-top:2px solid #94a3b8;">
-        <td colspan="2" style="text-align:left; font-weight:900; color:#0f172a;">Total COSTOS</td>
-        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.costos[0])}</td>
-        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.costos[1])}</td>
-        <td style="text-align:right; font-weight:900; color:#ea580c;">${formatNumber(zTot.costos[2])}</td>
-        <td style="text-align:right; font-weight:900; color:#dc2626;">${formatNumber(zTot.costos[3])}</td>
-        <td style="text-align:right; font-weight:900; color:#0f172a; background:#e2e8f0;">${formatNumber(zTot.costos[4])}</td>
+      <tr style="background:#f1f5f9; font-weight:900; border-top:2px solid #1e4620; font-size:0.84rem;">
+        <td colspan="2" style="text-align:left; font-weight:900; color:#0f172a; padding:5px 10px;">Total COSTOS</td>
+        <td style="text-align:right; font-weight:900; padding:5px 10px;">${formatNumber(zTot.costos[0])}</td>
+        <td style="text-align:right; font-weight:900; padding:5px 10px;">${formatNumber(zTot.costos[1])}</td>
+        <td style="text-align:right; font-weight:900; color:#ea580c; padding:5px 10px;">${formatNumber(zTot.costos[2])}</td>
+        <td style="text-align:right; font-weight:900; color:#dc2626; padding:5px 10px;">${formatNumber(zTot.costos[3])}</td>
+        <td style="text-align:right; font-weight:900; color:#0f172a; background:#e2e8f0; padding:5px 10px;">${formatNumber(zTot.costos[4])}</td>
       </tr>
-      <tr style="background:#f1f5f9; font-weight:900;">
-        <td colspan="2" style="text-align:left; font-weight:900; color:#2563eb;">Total LPN</td>
-        <td style="text-align:right; font-weight:900; color:#2563eb;">${formatNumber(zTot.lpn[0])}</td>
-        <td style="text-align:right; font-weight:900; color:#2563eb;">${formatNumber(zTot.lpn[1])}</td>
-        <td style="text-align:right; font-weight:900; color:#2563eb;">${formatNumber(zTot.lpn[2])}</td>
-        <td style="text-align:right; font-weight:900; color:#dc2626;">${formatNumber(zTot.lpn[3])}</td>
-        <td style="text-align:right; font-weight:900; color:#2563eb; background:#e2e8f0;">${formatNumber(zTot.lpn[4])}</td>
+      <tr style="background:#f1f5f9; font-weight:900; font-size:0.84rem;">
+        <td colspan="2" style="text-align:left; font-weight:900; color:#2563eb; padding:5px 10px;">Total LPN</td>
+        <td style="text-align:right; font-weight:900; color:#2563eb; padding:5px 10px;">${formatNumber(zTot.lpn[0])}</td>
+        <td style="text-align:right; font-weight:900; color:#2563eb; padding:5px 10px;">${formatNumber(zTot.lpn[1])}</td>
+        <td style="text-align:right; font-weight:900; color:#2563eb; padding:5px 10px;">${formatNumber(zTot.lpn[2])}</td>
+        <td style="text-align:right; font-weight:900; color:#dc2626; padding:5px 10px;">${formatNumber(zTot.lpn[3])}</td>
+        <td style="text-align:right; font-weight:900; color:#2563eb; background:#e2e8f0; padding:5px 10px;">${formatNumber(zTot.lpn[4])}</td>
       </tr>
-      <tr style="background:#f1f5f9; font-weight:900;">
-        <td colspan="2" style="text-align:left; font-weight:900; color:#475569;">Total BULTOS</td>
-        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.bultos[0])}</td>
-        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.bultos[1])}</td>
-        <td style="text-align:right; font-weight:900;">${formatNumber(zTot.bultos[2])}</td>
-        <td style="text-align:right; font-weight:900; color:#dc2626;">${formatNumber(zTot.bultos[3])}</td>
-        <td style="text-align:right; font-weight:900; color:#0f172a; background:#e2e8f0;">${formatNumber(zTot.bultos[4])}</td>
+      <tr style="background:#f1f5f9; font-weight:900; font-size:0.84rem;">
+        <td colspan="2" style="text-align:left; font-weight:900; color:#475569; padding:5px 10px;">Total BULTOS</td>
+        <td style="text-align:right; font-weight:900; padding:5px 10px;">${formatNumber(zTot.bultos[0])}</td>
+        <td style="text-align:right; font-weight:900; padding:5px 10px;">${formatNumber(zTot.bultos[1])}</td>
+        <td style="text-align:right; font-weight:900; padding:5px 10px;">${formatNumber(zTot.bultos[2])}</td>
+        <td style="text-align:right; font-weight:900; color:#dc2626; padding:5px 10px;">${formatNumber(zTot.bultos[3])}</td>
+        <td style="text-align:right; font-weight:900; color:#0f172a; background:#e2e8f0; padding:5px 10px;">${formatNumber(zTot.bultos[4])}</td>
       </tr>
     `;
   }
@@ -1768,13 +1768,13 @@ function renderZoneTopCardHtml(zData) {
 
       const bg = (idx % 2 === 1) ? '#f4faf6' : '#ffffff';
       rowsHtml += `
-        <tr style="background: ${bg};">
-          <td style="font-family:'JetBrains Mono',monospace; font-weight:800; color:#0f172a; text-align:left; padding:3px 6px;">${s.sku}</td>
-          <td style="text-align:left; font-weight:700; color:#1e293b; max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:3px 6px;" title="${s.desc}">${s.desc}</td>
-          <td style="text-align:center; color:#64748b; font-size:0.70rem; padding:3px 4px;">${s.fv || '-'}</td>
-          <td style="text-align:right; font-weight:800; color:#0f172a; padding:3px 6px;">${formatNumber(s.lpns)}</td>
-          <td style="text-align:right; font-weight:800; color:${s.cost > 20000 ? '#dc2626' : '#0f172a'}; padding:3px 6px;">${formatNumber(s.cost)}</td>
-          <td style="text-align:right; font-weight:600; padding:3px 6px;">${formatNumber(s.bultos)}</td>
+        <tr style="background: ${bg}; font-size: 0.78rem;">
+          <td style="font-family:'JetBrains Mono',monospace; font-weight:800; color:#0f172a; text-align:left; padding:4.5px 6px;">${s.sku}</td>
+          <td style="text-align:left; font-weight:700; color:#1e293b; max-width:210px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:4.5px 6px;" title="${s.desc}">${s.desc}</td>
+          <td style="text-align:center; color:#64748b; font-size:0.74rem; padding:4.5px 4px;">${s.fv || '-'}</td>
+          <td style="text-align:right; font-weight:800; color:#0f172a; padding:4.5px 6px;">${formatNumber(s.lpns)}</td>
+          <td style="text-align:right; font-weight:800; color:${s.cost > 20000 ? '#dc2626' : '#0f172a'}; padding:4.5px 6px;">${formatNumber(s.cost)}</td>
+          <td style="text-align:right; font-weight:600; padding:4.5px 6px;">${formatNumber(s.bultos)}</td>
         </tr>
       `;
     });
@@ -1786,29 +1786,29 @@ function renderZoneTopCardHtml(zData) {
 
   return `
     <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 8px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-      <div style="background: #2d6a4f; color: #ffffff; text-align: center; font-weight: 900; font-size: 0.86rem; padding: 4px; border-radius: 5px 5px 0 0; margin-bottom: 4px; letter-spacing: 0.5px;">
+      <div style="background: #2d6a4f; color: #ffffff; text-align: center; font-weight: 900; font-size: 0.90rem; padding: 5px; border-radius: 5px 5px 0 0; margin-bottom: 4px; letter-spacing: 0.5px;">
         ${zone}
       </div>
       <table class="exec-table exec-table-sm exec-table-green" style="width: 100%; border-collapse: collapse;">
         <thead>
           <tr style="background: #2d6a4f !important;">
-            <th style="width: 70px; text-align: left; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.74rem; padding: 4px 6px;">SKU</th>
-            <th style="text-align: left; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.74rem; padding: 4px 6px;">DESCRIPCION</th>
-            <th style="text-align: center; font-size: 0.70rem; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; padding: 4px 4px;">RNG-FV</th>
-            <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.74rem; padding: 4px 6px;">LPN's</th>
-            <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.74rem; padding: 4px 6px;">COSTOS</th>
-            <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.74rem; padding: 4px 6px;">BULTOS</th>
+            <th style="width: 70px; text-align: left; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.78rem; padding: 5px 6px;">SKU</th>
+            <th style="text-align: left; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.78rem; padding: 5px 6px;">DESCRIPCION</th>
+            <th style="text-align: center; font-size: 0.74rem; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; padding: 5px 4px;">RNG-FV</th>
+            <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.78rem; padding: 5px 6px;">LPN's</th>
+            <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.78rem; padding: 5px 6px;">COSTOS</th>
+            <th style="text-align: right; background: #2d6a4f !important; color: #ffffff !important; font-weight: 800; font-size: 0.78rem; padding: 5px 6px;">BULTOS</th>
           </tr>
         </thead>
         <tbody>
           ${rowsHtml}
         </tbody>
         <tfoot>
-          <tr style="background: #f8fafc; font-weight: 900; border-top: 2px solid #cbd5e1;">
-            <td colspan="3" style="text-align: left; font-weight: 900; color: #0f172a; padding: 4px 6px;">Total general</td>
-            <td style="text-align: right; color: #0f172a; font-weight: 900; padding: 4px 6px;">${formatNumber(finalLpns)}</td>
-            <td style="text-align: right; color: #dc2626; font-weight: 900; padding: 4px 6px;">${formatNumber(finalCost)}</td>
-            <td style="text-align: right; font-weight: 900; color: #0f172a; padding: 4px 6px;">${formatNumber(finalBultos)}</td>
+          <tr style="background: #f8fafc; font-weight: 900; border-top: 2px solid #cbd5e1; font-size: 0.82rem;">
+            <td colspan="3" style="text-align: left; font-weight: 900; color: #0f172a; padding: 5px 6px;">Total general</td>
+            <td style="text-align: right; color: #0f172a; font-weight: 900; padding: 5px 6px;">${formatNumber(finalLpns)}</td>
+            <td style="text-align: right; color: #dc2626; font-weight: 900; padding: 5px 6px;">${formatNumber(finalCost)}</td>
+            <td style="text-align: right; font-weight: 900; color: #0f172a; padding: 5px 6px;">${formatNumber(finalBultos)}</td>
           </tr>
         </tfoot>
       </table>
