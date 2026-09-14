@@ -385,12 +385,13 @@
       height: 900px !important;
       max-width: 1600px !important;
       max-height: 900px !important;
-      padding: 22px 28px !important;
+      padding: 12px 20px !important;
       margin: 0 auto !important;
       overflow: hidden !important;
       display: flex !important;
       flex-direction: column !important;
-      justify-content: space-between !important;
+      justify-content: flex-start !important;
+      gap: 6px !important;
       background: #ffffff !important;
       border: none !important;
       border-radius: 0 !important;
@@ -398,63 +399,95 @@
       box-sizing: border-box !important;
     }
 
+    .capturing-16-9 .slide-header {
+      padding-bottom: 2px !important;
+      margin-bottom: 4px !important;
+    }
+    .capturing-16-9 h2 {
+      font-size: 1.25rem !important;
+    }
+    .capturing-16-9 .subtitle {
+      font-size: 0.74rem !important;
+    }
+
     .capturing-16-9 .kpi-row {
-      margin-bottom: 12px !important;
-      gap: 12px !important;
+      margin-bottom: 4px !important;
+      gap: 8px !important;
     }
     .capturing-16-9 .kpi-box {
-      padding: 10px 14px !important;
+      padding: 5px 10px !important;
     }
     .capturing-16-9 .kpi-number {
-      font-size: 1.80rem !important;
-      margin: 2px 0 !important;
+      font-size: 1.40rem !important;
+      margin: 1px 0 !important;
     }
     .capturing-16-9 .kpi-label {
-      font-size: 0.76rem !important;
+      font-size: 0.70rem !important;
     }
     .capturing-16-9 .kpi-sub {
-      font-size: 0.82rem !important;
-    }
-    .capturing-16-9 .exec-table th {
-      padding: 4px 6px !important;
       font-size: 0.74rem !important;
     }
-    .capturing-16-9 .exec-table td {
-      padding: 3px 6px !important;
-      font-size: 0.77rem !important;
+
+    .capturing-16-9 .slide1-middle-grid {
+      margin-bottom: 4px !important;
+      gap: 10px !important;
     }
-    .capturing-16-9 .exec-table tfoot td {
-      padding: 4px 6px !important;
-      font-size: 0.80rem !important;
+    .capturing-16-9 .s1-card {
+      padding: 5px 8px !important;
+      border-radius: 8px !important;
     }
-    .capturing-16-9 .exec-table-sm th {
-      padding: 2.5px 4px !important;
+    .capturing-16-9 .chart-s1-container {
+      height: 110px !important;
+      margin-bottom: 4px !important;
+    }
+    .capturing-16-9 .s1-bottom-card {
+      padding: 5px 8px !important;
+      border-radius: 8px !important;
+    }
+    .capturing-16-9 .s1-bottom-card h3 {
+      font-size: 0.84rem !important;
+    }
+
+    .capturing-16-9 .exec-table th {
+      padding: 2.5px 5px !important;
       font-size: 0.68rem !important;
     }
+    .capturing-16-9 .exec-table td {
+      padding: 1.5px 5px !important;
+      font-size: 0.70rem !important;
+      line-height: 1.2 !important;
+    }
+    .capturing-16-9 .exec-table tfoot td {
+      padding: 2.5px 5px !important;
+      font-size: 0.74rem !important;
+      font-weight: 900 !important;
+      background: #f1f5f9 !important;
+      border-top: 2px solid #0f172a !important;
+    }
+    .capturing-16-9 .exec-table-sm th {
+      padding: 1.8px 4px !important;
+      font-size: 0.65rem !important;
+    }
     .capturing-16-9 .exec-table-sm td {
-      padding: 2px 4px !important;
-      font-size: 0.72rem !important;
+      padding: 1.2px 4px !important;
+      font-size: 0.67rem !important;
+      line-height: 1.18 !important;
     }
     .capturing-16-9 .exec-table-sm tfoot td {
-      padding: 2.5px 4px !important;
-      font-size: 0.74rem !important;
+      padding: 2px 4px !important;
+      font-size: 0.70rem !important;
+      background: #f1f5f9 !important;
+      border-top: 2px solid #0f172a !important;
     }
     .capturing-16-9 .exec-table-green thead th {
       background: #2d6a4f !important;
       color: #ffffff !important;
-      padding: 3.5px 4px !important;
-      font-size: 0.70rem !important;
+      padding: 3px 4px !important;
+      font-size: 0.68rem !important;
       border-bottom: 2px solid #1e4620 !important;
     }
     .capturing-16-9 .exec-table-green tbody tr:nth-child(even) { background: #f4faf6 !important; }
     .capturing-16-9 .exec-table-green tbody tr:nth-child(odd) { background: #ffffff !important; }
-    .capturing-16-9 h2 {
-      font-size: 1.40rem !important;
-    }
-    .capturing-16-9 .slide-header {
-      padding-bottom: 8px !important;
-      margin-bottom: 10px !important;
-    }
 
     /* Modal de Confirmación de Copia */
     .modal-backdrop {
@@ -757,10 +790,10 @@
       </div>
 
       <!-- Fila Intermedia: Gráfico de Rangos con Valores Encima + Matriz Comercial -->
-      <div style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; margin-bottom: 16px;">
+      <div class="slide1-middle-grid" style="display: grid; grid-template-columns: 1fr 1.15fr; gap: 16px; margin-bottom: 16px;">
         
         <!-- Columna Izquierda: Gráfico de Barras + Tabla de Rangos -->
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="s1-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
             <h3 id="chartS1Title" style="font-size: 0.94rem; font-weight: 800; margin: 0; color: #0f172a;">Distribución de Bultos por Antigüedad</h3>
             <div style="display: flex; gap: 4px; background: #e2e8f0; padding: 2px; border-radius: 7px;">
@@ -770,7 +803,7 @@
           </div>
           
           <!-- Gráfico con Datalabels encima de cada barra -->
-          <div style="height: 175px; position: relative; margin-bottom: 10px;">
+          <div class="chart-s1-container" style="height: 175px; position: relative; margin-bottom: 10px;">
             <canvas id="chartS1Ranges"></canvas>
           </div>
 
@@ -799,7 +832,7 @@
         </div>
 
         <!-- Columna Derecha: Matriz Comercial por División -->
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; overflow-x: auto;">
+        <div class="s1-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; overflow-x: auto;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
             <h3 style="font-size: 0.94rem; font-weight: 800; margin: 0; color: #0f172a;">Costo de Inventario por División y Antigüedad</h3>
             <span style="font-size: 0.76rem; font-weight: 800; color: #b45309; background: #fef3c7; padding: 2px 7px; border-radius: 5px;">Detalle Comercial Completo</span>
@@ -837,7 +870,7 @@
       </div>
 
       <!-- Fila Inferior: Top 10 SKU en Riesgo Mayor a 52 Semanas -->
-      <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px;">
+      <div class="s1-card s1-bottom-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 14px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
           <div>
             <h3 style="font-size: 0.96rem; font-weight: 900; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px;">
