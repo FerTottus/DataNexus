@@ -668,6 +668,26 @@
           </div>
         </div>
 
+        <!-- NIVEL 2.5: Trazabilidad y Fluctuación de Pasajeros durante la Semana -->
+        <div class="clay-card mt-4" id="cardTrazabilidadPasajerosSemana">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 0.85rem; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h3 style="border-bottom: none; margin-bottom: 0.35rem; padding-bottom: 0;">
+                <i class="fa-solid fa-chart-line" style="color: #38bdf8;"></i> Trazabilidad de Pasajeros durante la Semana
+              </h3>
+              <span class="kpi-subtitle" style="font-size: 0.78rem; color: #94a3b8; display: block;" id="subtituloTrazabilidadSemana">
+                Fluctuación del volumen diario de colaboradores (Lunes a Domingo) por turno y comparativo operativo
+              </span>
+            </div>
+            <div id="badgeTrazabilidadSemana" style="display: flex; gap: 8px; align-items: center;">
+              <span class="badge badge-info" id="badgeSemanaTrazabilidad">Semana -</span>
+            </div>
+          </div>
+          <div class="chart-wrapper" style="height: 330px;">
+            <canvas id="chartTrazabilidadSemana"></canvas>
+          </div>
+        </div>
+
         <!-- NIVEL 3: Tabla Detalle por Ruta de la Semana -->
         <div class="clay-card mt-4">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 10px;">
@@ -1057,6 +1077,6 @@
   <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 
   <!-- Script Específico de Movilidad -->
-  <script src="js/movilidad.js?v=4.7"></script>
+  <script src="js/movilidad.js?v=4.8"></script>
 </body>
 </html>

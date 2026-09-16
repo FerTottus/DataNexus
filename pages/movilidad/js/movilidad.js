@@ -3412,6 +3412,9 @@ function switchDashboardTab(tabName) {
       if (AppState.charts && AppState.charts['chartCostoPasajerosRutas']) {
         AppState.charts['chartCostoPasajerosRutas'].resize();
       }
+      if (AppState.charts && AppState.charts['chartTrazabilidadSemana']) {
+        AppState.charts['chartTrazabilidadSemana'].resize();
+      }
     }, 60);
   } else if (tabName === 'mapacalor') {
     if (btnOp) btnOp.classList.remove('active');
@@ -3864,31 +3867,77 @@ function renderAnalisisCostos() {
     `;
   }
 
-  // 8. Rankings Top 3 Más y Menos Eficientes
+  // 8. Rankings Top 3 Más y Menos Eficientes (solo rutas con bus contratado)
   const validRutas = rutasArray.filter(r => r.viajes > 0 && r.capacidad > 0);
-  const top3Mas = [...validRutas].sort((a, b) => b.pctOcup - a.pctOcup).slice(0, 3);
-  const top3Menos = [...validRutas].sort((a, b) => a.pctOcup - b.pctOcup).slice(0, 3);
-
   const tbTop = document.getElementById('tbodyTopEficientes');
-  if (tbTop) {
-    tbTop.innerHTML = top3Mas.map((r, i) => `
-      <tr>
-        <td style="font-weight: 600; color: #4ade80;">${r.ruta}</td>
-        <td style="text-align: center; font-weight: 700;">${(r.pctOcup * 100).toFixed(0)}%</td>
-        <td style="text-align: right; color: #cbd5e1;">S/ ${r.costoViaje.toFixed(0)}</td>
-      </tr>
-    `).join('');
-  }
-
   const tbBottom = document.getElementById('tbodyBottomEficientes');
-  if (tbBottom) {
-    tbBottom.innerHTML = top3Menos.map((r, i) => `
-      <tr>
-        <td style="font-weight: 600; color: #f87171;">${r.ruta}</td>
-        <td style="text-align: center; font-weight: 700; color: #f87171;">${(r.pctOcup * 100).toFixed(0)}%</td>
-        <td style="text-align: right; color: #cbd5e1;">S/ ${r.costoViaje.toFixed(0)}</td>
-      </tr>
-    `).join('');
+
+  if (validRutas.length === 0) {
+    if (tbTop) tbTop.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #94a3b8; padding: 14px;"><i class="fa-solid fa-circle-info"></i> Sin rutas vehiculares registradas</td></tr>`;
+    if (tbBottom) tbBottom.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #94a3b8; padding: 14px;"><i class="fa-solid fa-circle-info"></i> Sin rutas vehiculares registradas</td></tr>`;
+  } else if (validRutas.length === 1) {
+    const single = validRutas[0];
+    if (single.pctOcup >= 0.7) {
+      if (tbTop) {
+        tbTop.innerHTML = `
+          <tr>
+            <td style="font-weight: 600; color: #4ade80;">${single.ruta}</td>
+            <td style="text-align: center; font-weight: 700;">${(single.pctOcup * 100).toFixed(0)}%</td>
+            <td style="text-align: right; color: #cbd5e1;">S/ ${single.costoViaje.toFixed(0)}</td>
+          </tr>
+        `;
+      }
+      if (tbBottom) {
+        tbBottom.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #4ade80; padding: 14px;"><i class="fa-solid fa-circle-check"></i> Sin rutas críticas (&lt; 70%)</td></tr>`;
+      }
+    } else {
+      if (tbTop) {
+        tbTop.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #94a3b8; padding: 14px;"><i class="fa-solid fa-circle-info"></i> Ninguna ruta supera la meta operativa (≥ 70%)</td></tr>`;
+      }
+      if (tbBottom) {
+        tbBottom.innerHTML = `
+          <tr>
+            <td style="font-weight: 600; color: #f87171;">${single.ruta}</td>
+            <td style="text-align: center; font-weight: 700; color: #f87171;">${(single.pctOcup * 100).toFixed(0)}%</td>
+            <td style="text-align: right; color: #cbd5e1;">S/ ${single.costoViaje.toFixed(0)}</td>
+          </tr>
+        `;
+      }
+    }
+  } else {
+    // Si hay 2 o más rutas vehiculares
+    const ordenadasDesc = [...validRutas].sort((a, b) => b.pctOcup - a.pctOcup);
+    const top3Mas = ordenadasDesc.filter(r => r.pctOcup >= 0.5).slice(0, 3);
+    const ordenadasAsc = [...validRutas].sort((a, b) => a.pctOcup - b.pctOcup);
+    const top3Menos = ordenadasAsc.filter(r => r.pctOcup < 0.7).slice(0, 3);
+
+    if (tbTop) {
+      if (top3Mas.length === 0) {
+        tbTop.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #94a3b8; padding: 14px;"><i class="fa-solid fa-circle-info"></i> Ninguna ruta alcanza ocupación aceptable (≥ 50%)</td></tr>`;
+      } else {
+        tbTop.innerHTML = top3Mas.map(r => `
+          <tr>
+            <td style="font-weight: 600; color: #4ade80;">${r.ruta}</td>
+            <td style="text-align: center; font-weight: 700;">${(r.pctOcup * 100).toFixed(0)}%</td>
+            <td style="text-align: right; color: #cbd5e1;">S/ ${r.costoViaje.toFixed(0)}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    if (tbBottom) {
+      if (top3Menos.length === 0) {
+        tbBottom.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #4ade80; padding: 14px;"><i class="fa-solid fa-circle-check"></i> Todas las rutas cumplen la meta (≥ 70%)</td></tr>`;
+      } else {
+        tbBottom.innerHTML = top3Menos.map(r => `
+          <tr>
+            <td style="font-weight: 600; color: #f87171;">${r.ruta}</td>
+            <td style="text-align: center; font-weight: 700; color: #f87171;">${(r.pctOcup * 100).toFixed(0)}%</td>
+            <td style="text-align: right; color: #cbd5e1;">S/ ${r.costoViaje.toFixed(0)}</td>
+          </tr>
+        `).join('');
+      }
+    }
   }
 
   // 9. Recomendaciones de Toma de Decisiones
@@ -3987,6 +4036,7 @@ function renderAnalisisCostos() {
   const viewCostosEl = document.getElementById('viewAnalisisCostos');
   if (viewCostosEl && !viewCostosEl.classList.contains('hidden')) {
     renderGraficosCostos(rutasArray);
+    renderChartTrazabilidadSemana(rawRows, valSem, isVerTodas, isDemographicFiltered, filteredDniSet);
   }
 
   if (typeof updateAiContextBanner === 'function') {
@@ -4116,6 +4166,332 @@ function renderGraficosCostos(rutasArray) {
       }
     });
   }
+}
+
+// =========================================================
+// Gráfico de Líneas: Trazabilidad y Fluctuación de Pasajeros durante la Semana
+// =========================================================
+
+function renderChartTrazabilidadSemana(rawRows, valSem, isVerTodas, isDemographicFiltered, filteredDniSet) {
+  const canvasEl = document.getElementById('chartTrazabilidadSemana');
+  if (!canvasEl) return;
+
+  const DIAS_OFICIALES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+  if (!rawRows || rawRows.length === 0) {
+    if (AppState.charts['chartTrazabilidadSemana']) {
+      AppState.charts['chartTrazabilidadSemana'].destroy();
+      delete AppState.charts['chartTrazabilidadSemana'];
+    }
+    return;
+  }
+
+  // Agrupar filas por semana y por día de la semana
+  const weekDayMap = {};
+  const allWeeksSet = new Set();
+
+  rawRows.forEach(r => {
+    const rawFecha = getRowVal(r, ['FECHA', 'FECHA DE VIAJE', 'DATE', 'DIA FECHA']);
+    const fechaSoloDia = normalizeDateStr(rawFecha);
+
+    const s = parseInt(getRowVal(r, ['SEMANA', 'SEM']), 10);
+    if (isNaN(s) || s <= 0) return;
+    allWeeksSet.add(s);
+
+    const rawDia = getRowVal(r, ['DÍA', 'DIA', 'DAY']);
+    const diaNorm = normalizeDiaStr(rawDia, fechaSoloDia);
+    if (!diaNorm || !DIAS_OFICIALES.includes(diaNorm)) return;
+
+    // Filtro demográfico
+    const rawRowDni = getRowVal(r, ['DNI', 'USERID', 'USER ID', 'DOCUMENTO', 'ID', 'CODIGO']);
+    const dniClean = cleanDni(rawRowDni);
+    const rawNombre = String(getRowVal(r, ['APELLIDOS Y NOMBRES', 'NOMBRE Y APELLIDO', 'NOMBRE', 'COLABORADOR', 'EMPLEADO', 'NAME']) || '').trim();
+
+    const isPassengerRow = Boolean(
+      (dniClean && dniClean.length >= 4 && !['TOTAL', 'SUBTOTAL', 'NONE', 'N/D', '0'].includes(dniClean)) ||
+      (rawNombre && rawNombre.length >= 3 && !rawNombre.toUpperCase().includes('TOTAL'))
+    );
+    const rawPasajCol = getRowVal(r, ['PASAJEROS', 'TOTAL PASAJEROS', 'PASAJ', 'CANTIDAD PASAJEROS', 'CANT_PASAJEROS']);
+    const numPasajCol = parseFloat(String(rawPasajCol || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    if (!isPassengerRow && numPasajCol <= 0) return;
+
+    if (isDemographicFiltered) {
+      let matches = false;
+      if (dniClean && filteredDniSet.has(dniClean)) matches = true;
+      else if (rawRowDni && filteredDniSet.has(String(rawRowDni).trim().toUpperCase())) matches = true;
+      if (!matches) return;
+    }
+
+    const cant = isPassengerRow ? 1 : numPasajCol;
+    const turnoVal = extractTurnoFromRow(r, rawFecha);
+    const isAM = turnoVal.includes('A.M') || turnoVal.includes('AM') || turnoVal.includes('MAÑ') || turnoVal.includes('MAN') || turnoVal.includes('INGRESO');
+
+    if (!weekDayMap[s]) weekDayMap[s] = {};
+    if (!weekDayMap[s][diaNorm]) {
+      weekDayMap[s][diaNorm] = { total: 0, am: 0, pm: 0, fechas: new Set() };
+    }
+    const bucket = weekDayMap[s][diaNorm];
+    bucket.total += cant;
+    if (isAM) bucket.am += cant;
+    else bucket.pm += cant;
+    if (fechaSoloDia) bucket.fechas.add(fechaSoloDia);
+  });
+
+  const semanasArr = Array.from(allWeeksSet).sort((a, b) => a - b);
+  let labels = [...DIAS_OFICIALES];
+  const datasets = [];
+  let maxPasajeros = 0;
+
+  const badgeSemEl = document.getElementById('badgeSemanaTrazabilidad');
+  const subEl = document.getElementById('subtituloTrazabilidadSemana');
+
+  if (!isVerTodas) {
+    // 1. Vista de Semana Seleccionada (detallada por turno y total)
+    const targetSem = parseInt(valSem, 10);
+    if (badgeSemEl) badgeSemEl.innerHTML = `<i class="fa-regular fa-calendar-check"></i> Semana ${valSem}`;
+    if (subEl) subEl.innerText = `Fluctuación diaria de pasajeros (Lunes a Domingo) desglosada por Turno Mañana y Turno Tarde para la Semana ${valSem}.`;
+
+    const semData = weekDayMap[targetSem] || {};
+
+    labels = DIAS_OFICIALES.map(d => {
+      const dayInfo = semData[d];
+      if (dayInfo && dayInfo.fechas && dayInfo.fechas.size > 0) {
+        const fStr = Array.from(dayInfo.fechas)[0];
+        const fShort = fStr.split('/').slice(0, 2).join('/');
+        return `${d} (${fShort})`;
+      }
+      return d;
+    });
+
+    const dataTotal = DIAS_OFICIALES.map(d => {
+      const val = semData[d] ? semData[d].total : null;
+      if (val !== null && val > maxPasajeros) maxPasajeros = val;
+      return val;
+    });
+
+    const dataAM = DIAS_OFICIALES.map(d => {
+      const val = semData[d] ? semData[d].am : null;
+      return val;
+    });
+
+    const dataPM = DIAS_OFICIALES.map(d => {
+      const val = semData[d] ? semData[d].pm : null;
+      return val;
+    });
+
+    datasets.push({
+      label: `Total Pasajeros (Semana ${valSem})`,
+      data: dataTotal,
+      borderColor: '#38bdf8',
+      backgroundColor: 'rgba(56, 189, 248, 0.14)',
+      fill: true,
+      borderWidth: 3,
+      pointBackgroundColor: '#38bdf8',
+      pointBorderColor: '#ffffff',
+      pointBorderWidth: 2,
+      pointRadius: 6,
+      pointHoverRadius: 9,
+      pointHitRadius: 12,
+      tension: 0.35,
+      spanGaps: false
+    });
+
+    datasets.push({
+      label: `Ingreso CD (Turno Mañana)`,
+      data: dataAM,
+      borderColor: '#10b981',
+      backgroundColor: 'transparent',
+      borderDash: [5, 4],
+      borderWidth: 2,
+      pointBackgroundColor: '#10b981',
+      pointBorderColor: '#ffffff',
+      pointBorderWidth: 1.5,
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      pointHitRadius: 10,
+      tension: 0.35,
+      spanGaps: false
+    });
+
+    datasets.push({
+      label: `Salida CD (Turno Tarde)`,
+      data: dataPM,
+      borderColor: '#f59e0b',
+      backgroundColor: 'transparent',
+      borderDash: [5, 4],
+      borderWidth: 2,
+      pointBackgroundColor: '#f59e0b',
+      pointBorderColor: '#ffffff',
+      pointBorderWidth: 1.5,
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      pointHitRadius: 10,
+      tension: 0.35,
+      spanGaps: false
+    });
+
+    // Comparativa con Promedio de Otras Semanas si existen
+    const otrasSemanas = semanasArr.filter(s => s !== targetSem);
+    if (otrasSemanas.length > 0) {
+      const dataPromOtras = DIAS_OFICIALES.map(d => {
+        let sum = 0, count = 0;
+        otrasSemanas.forEach(s => {
+          if (weekDayMap[s] && weekDayMap[s][d] && weekDayMap[s][d].total > 0) {
+            sum += weekDayMap[s][d].total;
+            count++;
+          }
+        });
+        return count > 0 ? Math.round(sum / count) : null;
+      });
+
+      if (dataPromOtras.some(v => v !== null)) {
+        datasets.push({
+          label: `Promedio Otras Semanas`,
+          data: dataPromOtras,
+          borderColor: '#94a3b8',
+          backgroundColor: 'transparent',
+          borderDash: [3, 3],
+          borderWidth: 1.5,
+          pointBackgroundColor: '#94a3b8',
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.35,
+          spanGaps: false
+        });
+      }
+    }
+  } else {
+    // 2. Vista "Todas las Semanas": Trazabilidad comparativa por cada semana
+    if (badgeSemEl) badgeSemEl.innerHTML = `<i class="fa-solid fa-layer-group"></i> Todas las Semanas (${semanasArr.length})`;
+    if (subEl) subEl.innerText = `Comparativa de trazabilidad de cada semana sobre cómo fluctúa el volumen de colaboradores de Lunes a Domingo.`;
+
+    const colorPalette = ['#38bdf8', '#a855f7', '#f59e0b', '#10b981', '#ec4899', '#06b6d4', '#f97316', '#6366f1'];
+
+    semanasArr.forEach((s, idx) => {
+      const semData = weekDayMap[s] || {};
+      const dataW = DIAS_OFICIALES.map(d => {
+        const val = semData[d] ? semData[d].total : null;
+        if (val !== null && val > maxPasajeros) maxPasajeros = val;
+        return val;
+      });
+      const color = colorPalette[idx % colorPalette.length];
+      const isLatest = (idx === semanasArr.length - 1);
+
+      datasets.push({
+        label: `Semana ${s}`,
+        data: dataW,
+        borderColor: color,
+        backgroundColor: 'transparent',
+        borderWidth: isLatest ? 3 : 2,
+        pointBackgroundColor: color,
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 1.5,
+        pointRadius: isLatest ? 6 : 4,
+        pointHoverRadius: 8,
+        pointHitRadius: 10,
+        tension: 0.35,
+        spanGaps: false
+      });
+    });
+
+    if (semanasArr.length > 1) {
+      const dataProm = DIAS_OFICIALES.map(d => {
+        let sum = 0, count = 0;
+        semanasArr.forEach(s => {
+          if (weekDayMap[s] && weekDayMap[s][d] && weekDayMap[s][d].total > 0) {
+            sum += weekDayMap[s][d].total;
+            count++;
+          }
+        });
+        return count > 0 ? Math.round(sum / count) : null;
+      });
+
+      datasets.unshift({
+        label: `Promedio General`,
+        data: dataProm,
+        borderColor: '#f8fafc',
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderDash: [4, 4],
+        borderWidth: 2,
+        pointBackgroundColor: '#f8fafc',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        tension: 0.35,
+        spanGaps: false
+      });
+    }
+  }
+
+  if (AppState.charts['chartTrazabilidadSemana']) {
+    AppState.charts['chartTrazabilidadSemana'].destroy();
+  }
+
+  AppState.charts['chartTrazabilidadSemana'] = new Chart(canvasEl, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          suggestedMax: maxPasajeros > 0 ? Math.ceil(maxPasajeros * 1.25) : 10,
+          ticks: {
+            precision: 0,
+            color: '#94a3b8',
+            callback: (v) => v + ' colab.'
+          },
+          grid: {
+            color: 'rgba(255, 255, 255, 0.08)'
+          }
+        },
+        x: {
+          ticks: {
+            color: '#cbd5e1',
+            font: { weight: '600', size: 12 }
+          },
+          grid: {
+            color: 'rgba(255, 255, 255, 0.04)'
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            color: '#cbd5e1',
+            usePointStyle: true,
+            boxWidth: 8,
+            padding: 14,
+            font: { size: 12, weight: '500' }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          titleColor: '#38bdf8',
+          bodyColor: '#f8fafc',
+          borderColor: '#334155',
+          borderWidth: 1,
+          padding: 12,
+          boxPadding: 6,
+          usePointStyle: true,
+          callbacks: {
+            label: (ctx) => {
+              if (ctx.parsed.y === null || isNaN(ctx.parsed.y)) return '';
+              return ` ${ctx.dataset.label}: ${ctx.parsed.y} colaboradores`;
+            }
+          }
+        }
+      }
+    }
+  });
 }
 
 // =========================================================
