@@ -554,25 +554,16 @@ function validarEnCatalogoRutas(rStr) {
 function resolveRutaFromRow(row, cleanPassengerDni, rawDni, dominantMap, fechaSoloDia, turnoVal) {
   const rutaRaw = String(getRowVal(row, ['RUTA', 'RUTA ASIGNADA', 'LINEA']) || '').trim();
 
-  // 1. Si la fila tiene ruta explícita escrita
-  if (rutaRaw) {
-    const valid = validarEnCatalogoRutas(rutaRaw);
-    if (valid) return valid;
-    // Si la ruta escrita no figura en el catálogo de BD RUTAS
+  // 1. Si en Registro Diario la celda RUTA viene en blanco o vacía, clasificar como Desconocido (Sin Ruta Asignada)
+  if (!rutaRaw || ['SIN RUTA', 'N/D', 'DESCONOCIDO', 'DESCONOCIDA', '-', '0', 'NONE', 'NULL'].includes(rutaRaw.toUpperCase())) {
     return 'Desconocido';
   }
 
-  // 2. Si la ruta viene en blanco, buscar en BD Maestra de empleados por DNI
-  if (AppState && AppState.employeeMap) {
-    const emp = AppState.employeeMap.get(cleanPassengerDni) || (rawDni ? AppState.employeeMap.get(String(rawDni).trim().toUpperCase()) : null);
-    if (emp) {
-      const empRuta = String(emp.ruta || emp.linea || '').trim();
-      const validEmpRuta = validarEnCatalogoRutas(empRuta);
-      if (validEmpRuta) return validEmpRuta;
-    }
-  }
+  // 2. Si viene escrita, validar contra el catálogo oficial (BD RUTAS)
+  const valid = validarEnCatalogoRutas(rutaRaw);
+  if (valid) return valid;
 
-  // 3. No encontrada en BD ni en fila -> Desconocido
+  // 3. Si tiene un texto no reconocido o fuera de catálogo
   return 'Desconocido';
 }
 
@@ -2246,7 +2237,7 @@ function renderTables() {
           else estCap = '🔴 Muy Bajo';
 
           const rutaDisplay = isDesc 
-            ? `<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid #64748b; padding: 4px 8px; border-radius: 6px;">Desconocido</span>` 
+            ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); padding: 3px 8px; border-radius: 6px;"><i class="fa-solid fa-circle-question"></i> Sin Ruta Asignada</span>` 
             : r.ruta;
 
           return `<tr>
@@ -3837,7 +3828,7 @@ function renderAnalisisCostos() {
       tbodyDetalle.innerHTML = rutasArray.map(r => {
         const isDesc = (r.ruta === 'Desconocido');
         const rutaDisplay = isDesc 
-          ? `<span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid #64748b; padding: 4px 8px; border-radius: 6px;">Desconocido</span>` 
+          ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); padding: 3px 8px; border-radius: 6px;"><i class="fa-solid fa-circle-question"></i> Sin Ruta Asignada</span>` 
           : `<span class="ruta-badge" style="background: ${getRutaColor(r.ruta)}22; color: ${getRutaColor(r.ruta)}; border: 1px solid ${getRutaColor(r.ruta)}44; padding: 3px 8px; border-radius: 4px;">${r.ruta}</span>`;
 
         return `
@@ -4008,12 +3999,13 @@ function renderAnalisisCostos() {
 // =========================================================
 
 function renderGraficosCostos(rutasArray) {
-  // Gráfico 1: % Ocupación por Ruta
+  // Gráfico 1: % Ocupación por Ruta (solo rutas con bus/asientos contratados)
   const ctxOcup = document.getElementById('chartOcupacionRutasCostos');
   if (ctxOcup) {
-    const labels = rutasArray.map(r => r.ruta.replace('RUTA ', 'R.'));
-    const dataOcup = rutasArray.map(r => Math.round(r.pctOcup * 100));
-    const colorsOcup = rutasArray.map(r => {
+    const rutasOcup = rutasArray.filter(r => r.ruta !== 'Desconocido' && r.capacidad > 0);
+    const labels = rutasOcup.map(r => r.ruta.replace('RUTA ', 'R.'));
+    const dataOcup = rutasOcup.map(r => Math.round(r.pctOcup * 100));
+    const colorsOcup = rutasOcup.map(r => {
       if (r.pctOcup >= 0.9) return '#22c55e'; // verde
       if (r.pctOcup >= 0.7) return '#3b82f6'; // azul
       if (r.pctOcup >= 0.5) return '#eab308'; // amarillo
@@ -4066,7 +4058,7 @@ function renderGraficosCostos(rutasArray) {
   // Gráfico 2: Costo Total vs Pasajeros por Ruta
   const ctxCostoPasaj = document.getElementById('chartCostoPasajerosRutas');
   if (ctxCostoPasaj) {
-    const labels = rutasArray.map(r => r.ruta.replace('RUTA ', 'R.'));
+    const labels = rutasArray.map(r => r.ruta === 'Desconocido' ? 'Sin Ruta' : r.ruta.replace('RUTA ', 'R.'));
     const dataCosto = rutasArray.map(r => r.costo);
     const dataPasaj = rutasArray.map(r => r.pasajeros);
 
