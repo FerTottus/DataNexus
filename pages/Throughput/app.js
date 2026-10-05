@@ -2405,7 +2405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderTableMonth(prefix, monthsToRender, monthDataMap, currentYear, prevYear);
 
     // 10. Tabla de Movimientos de División Mensual
-    renderDivisionsTableMonth(prefix, monthsToRender, currentYear, dataMap, dataMonths);
+    renderDivisionsTableMonth(prefix, monthsToRender, currentYear, dataMap, dataMonths, lastDataWeek);
 
     // Guardar contexto activo para exportación de diapositivas
     window._cdContext = window._cdContext || {};
@@ -2655,7 +2655,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ══════════════════════════════════════════════
   // TABLA MOVIMIENTOS POR DIVISIÓN (MENSUAL)
   // ══════════════════════════════════════════════
-  function renderDivisionsTableMonth(prefix, monthsToRender, currentYear, dataMap, dataMonths) {
+  function renderDivisionsTableMonth(prefix, monthsToRender, currentYear, dataMap, dataMonths, lastDataWeek) {
     const container = document.getElementById(`tableDivisions${prefix}Container`);
     if (!container) return;
 
@@ -2763,8 +2763,8 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       tablesHtml += `
-                  <th style="min-width:115px; background:#f8fafc;" title="Tendencia comparativa ${MONTH_NAMES_SHORT[M_last]} vs ${MONTH_NAMES_SHORT[M_prev]}">
-                    <div>Tendencia</div>
+                  <th style="min-width:115px; background:#f8fafc;" title="Varianza comparativa ${MONTH_NAMES_SHORT[M_last]} vs ${MONTH_NAMES_SHORT[M_prev]}">
+                    <div>Varianza</div>
                     <div style="font-size:0.68rem; font-weight:700; color:#64748b;">${MONTH_NAMES_SHORT[M_last]} vs ${MONTH_NAMES_SHORT[M_prev]}</div>
                   </th>
                 </tr>
@@ -2793,17 +2793,26 @@ document.addEventListener('DOMContentLoaded', () => {
           let val = 0;
 
           if (isDataMonth) {
-            // Obtener semanas cerradas del mes m
+            // Obtener semanas cerradas del mes m (solo semanas con datos reales <= lastDataWeek)
+            const maxW = lastDataWeek || 53;
             const weeksInMonth = [];
-            for (let w = 1; w <= 53; w++) {
+            for (let w = 1; w <= maxW; w++) {
               if (getMonthForWeek(w, currentYear) === m) {
                 if (dataMap[`${currentYear}-${w}`]) weeksInMonth.push(w);
               }
             }
 
             if (isInv) {
-              // Inventario: stock de cierre (última semana cerrada)
-              if (weeksInMonth.length > 0) {
+              // Inventario: stock de cierre (foto del stock) de la última semana cerrada disponible con datos
+              for (let i = weeksInMonth.length - 1; i >= 0; i--) {
+                const w = weeksInMonth[i];
+                const v = getDivVal(prefix, code, 'inventario', `${currentYear}-${w}`, dataMap);
+                if (v > 0) {
+                  val = v;
+                  break;
+                }
+              }
+              if (val === 0 && weeksInMonth.length > 0) {
                 const lastW = weeksInMonth[weeksInMonth.length - 1];
                 val = getDivVal(prefix, code, 'inventario', `${currentYear}-${lastW}`, dataMap);
               }
