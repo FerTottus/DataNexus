@@ -725,8 +725,16 @@ document.addEventListener('DOMContentLoaded', () => {
     icon.className = isClosed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
   });
 
-  // Estado del modo KPI: 'periodo' = rango completo, 'semana' = última semana con data
-  let kpiMode = 'periodo';
+  // ══════════════════════════════════════════════
+  // ESTADOS Y CONTROLES DE KPI Y GRANULARIDAD (SEMANAL / MENSUAL)
+  // ══════════════════════════════════════════════
+  let kpiMode = 'periodo'; // 'periodo' | 'semana'
+  let kpiModeMonth = 'periodo'; // 'periodo' | 'mes'
+  let timeGranularity = 'week'; // 'week' | 'month'
+  const selectedMonths = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  let availableDataMonths = [];
+
+  // Toggle KPI Semanal
   document.getElementById('btnKpiPeriodo')?.addEventListener('click', () => {
     kpiMode = 'periodo';
     document.getElementById('btnKpiPeriodo').classList.add('kpi-mode-active');
@@ -740,17 +748,167 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
   });
 
+  // Toggle KPI Mensual
+  document.getElementById('btnKpiPeriodoMonth')?.addEventListener('click', () => {
+    kpiModeMonth = 'periodo';
+    document.getElementById('btnKpiPeriodoMonth').classList.add('kpi-mode-active');
+    document.getElementById('btnKpiSemanaMonth').classList.remove('kpi-mode-active');
+    renderAll();
+  });
+  document.getElementById('btnKpiSemanaMonth')?.addEventListener('click', () => {
+    kpiModeMonth = 'mes';
+    document.getElementById('btnKpiSemanaMonth').classList.add('kpi-mode-active');
+    document.getElementById('btnKpiPeriodoMonth').classList.remove('kpi-mode-active');
+    renderAll();
+  });
+
+  // Toggle Granularidad Semanal / Mensual
+  function setGranularity(mode) {
+    timeGranularity = mode;
+    const isM = mode === 'month';
+    document.getElementById('btnGranularityWeek')?.classList.toggle('active', !isM);
+    document.getElementById('btnGranularityMonth')?.classList.toggle('active', isM);
+
+    const weekGrp = document.getElementById('weeklyFilterGroup');
+    const monthGrp = document.getElementById('monthlyFilterGroup');
+    const monthSelector = document.getElementById('monthSelectorContainer');
+
+    if (weekGrp) weekGrp.style.display = isM ? 'none' : 'flex';
+    if (monthGrp) monthGrp.style.display = isM ? 'flex' : 'none';
+    if (monthSelector) monthSelector.style.display = isM ? 'block' : 'none';
+
+    // Subtítulos informativos
+    const subSecos = document.getElementById('subtitleSecos');
+    const subFrescos = document.getElementById('subtitleFrescos');
+    if (subSecos) subSecos.textContent = isM ? 'Comparativa Evolutiva Mensual (2025 vs 2026) + Planes' : 'Comparativa Evolutiva Semanal (2025 vs 2026) + Planes';
+    if (subFrescos) subFrescos.textContent = isM ? 'Comparativa Evolutiva Mensual (2025 vs 2026) + Planes' : 'Comparativa Evolutiva Semanal (2025 vs 2026) + Planes';
+
+    // Badges en tarjetas de gráficos
+    const badgeTextReciboDesp = isM ? 'Cajas / Mes' : 'Cajas / Semana';
+    const badgeTextInv = isM ? 'Stock Cierre de Mes' : 'Stock en Cajas';
+    ['Secos', 'Frescos'].forEach(p => {
+      const bR = document.getElementById(`badge${p}Recibo`);
+      const bD = document.getElementById(`badge${p}Despacho`);
+      const bI = document.getElementById(`badge${p}Inventario`);
+      if (bR) bR.textContent = badgeTextReciboDesp;
+      if (bD) bD.textContent = badgeTextReciboDesp;
+      if (bI) bI.textContent = badgeTextInv;
+    });
+
+    renderAll();
+  }
+
+  document.getElementById('btnGranularityWeek')?.addEventListener('click', () => setGranularity('week'));
+  document.getElementById('btnGranularityMonth')?.addEventListener('click', () => setGranularity('month'));
+
+  // Presets de Meses
+  document.getElementById('monthsPresetFilter')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (val === 'all') {
+      selectedMonths.clear();
+      for (let i = 0; i < 12; i++) selectedMonths.add(i);
+    } else if (val === 'ytd') {
+      selectedMonths.clear();
+      if (availableDataMonths.length > 0) {
+        availableDataMonths.forEach(m => selectedMonths.add(m));
+      } else {
+        for (let i = 0; i < 12; i++) selectedMonths.add(i);
+      }
+    } else if (val === 'last6') {
+      selectedMonths.clear();
+      const list = availableDataMonths.length > 0 ? availableDataMonths : [0, 1, 2, 3, 4, 5, 6, 7];
+      const start = Math.max(0, list.length - 6);
+      list.slice(start).forEach(m => selectedMonths.add(m));
+    } else if (val === 'last3') {
+      selectedMonths.clear();
+      const list = availableDataMonths.length > 0 ? availableDataMonths : [0, 1, 2, 3, 4, 5, 6, 7];
+      const start = Math.max(0, list.length - 3);
+      list.slice(start).forEach(m => selectedMonths.add(m));
+    }
+    updateMonthPillsUI();
+    renderAll();
+  });
+
+  document.getElementById('btnSelectAllMonths')?.addEventListener('click', () => {
+    selectedMonths.clear();
+    for (let i = 0; i < 12; i++) selectedMonths.add(i);
+    const sel = document.getElementById('monthsPresetFilter');
+    if (sel) sel.value = 'all';
+    updateMonthPillsUI();
+    renderAll();
+  });
+
+  document.getElementById('btnSelectDataMonths')?.addEventListener('click', () => {
+    selectedMonths.clear();
+    if (availableDataMonths.length > 0) {
+      availableDataMonths.forEach(m => selectedMonths.add(m));
+    } else {
+      for (let i = 0; i < 12; i++) selectedMonths.add(i);
+    }
+    const sel = document.getElementById('monthsPresetFilter');
+    if (sel) sel.value = 'ytd';
+    updateMonthPillsUI();
+    renderAll();
+  });
+
+  document.getElementById('toggleDataLabelsMonth')?.addEventListener('change', renderAll);
+
+  function updateMonthPillsUI() {
+    const wrap = document.getElementById('monthPillsWrap');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+
+    for (let m = 0; m < 12; m++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'month-pill-btn';
+      if (selectedMonths.has(m)) btn.classList.add('active');
+      if (availableDataMonths.includes(m)) btn.classList.add('has-data');
+      else btn.classList.add('future-month');
+
+      btn.textContent = MONTH_NAMES_SHORT[m];
+      btn.title = `${MONTH_NAMES_FULL[m]} · ${availableDataMonths.includes(m) ? 'Con datos cerrados' : 'Sin datos cerrados'}`;
+
+      btn.addEventListener('click', () => {
+        if (selectedMonths.has(m)) {
+          if (selectedMonths.size > 1) {
+            selectedMonths.delete(m);
+          } else {
+            showToast('Debes mantener al menos un mes seleccionado', 'info', 2000);
+            return;
+          }
+        } else {
+          selectedMonths.add(m);
+        }
+        const presetSel = document.getElementById('monthsPresetFilter');
+        if (presetSel) presetSel.value = 'custom';
+        updateMonthPillsUI();
+        renderAll();
+      });
+      wrap.appendChild(btn);
+    }
+
+    const badge = document.getElementById('monthCountBadge');
+    if (badge) {
+      badge.textContent = `${selectedMonths.size} Mes${selectedMonths.size === 1 ? '' : 'es'} seleccionado${selectedMonths.size === 1 ? '' : 's'}`;
+    }
+  }
+
   function renderAll() {
     if (!window.dataFrescos || !window.dataSecos) return;
     const numWeeks = document.getElementById('weeksFilter')?.value || 'current_plus_4';
-    const showLabels = document.getElementById('toggleDataLabels')?.checked ?? true;
+    const showLabelsWeek = document.getElementById('toggleDataLabels')?.checked ?? true;
+    const showLabelsMonth = document.getElementById('toggleDataLabelsMonth')?.checked ?? true;
+    const showLabels = timeGranularity === 'month' ? showLabelsMonth : showLabelsWeek;
     const includeFuture = document.getElementById('toggleFutureWeeks')?.checked ?? true;
 
-    // CD Frescos
-    renderSection('Frescos', window.dataFrescos, resolveColumns(window.dataFrescos.headers, window.dataFrescos.rows), numWeeks, showLabels, includeFuture);
-
-    // CD Secos
-    renderSection('Secos', window.dataSecos, resolveColumns(window.dataSecos.headers, window.dataSecos.rows), numWeeks, showLabels, includeFuture);
+    if (timeGranularity === 'month') {
+      renderSectionMonth('Frescos', window.dataFrescos, resolveColumns(window.dataFrescos.headers, window.dataFrescos.rows), showLabels);
+      renderSectionMonth('Secos', window.dataSecos, resolveColumns(window.dataSecos.headers, window.dataSecos.rows), showLabels);
+    } else {
+      renderSectionWeek('Frescos', window.dataFrescos, resolveColumns(window.dataFrescos.headers, window.dataFrescos.rows), numWeeks, showLabels, includeFuture);
+      renderSectionWeek('Secos', window.dataSecos, resolveColumns(window.dataSecos.headers, window.dataSecos.rows), numWeeks, showLabels, includeFuture);
+    }
   }
 
   // ══════════════════════════════════════════════
@@ -802,10 +960,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════
-  // CORE PROCESSING & SECTION RENDERER
+  // CORE PROCESSING & SECTION RENDERER (SEMANAL)
   // ══════════════════════════════════════════════
 
-  function renderSection(prefix, data, cols, filterValue, showLabels, includeFuture = true) {
+  function renderSectionWeek(prefix, data, cols, filterValue, showLabels, includeFuture = true) {
     if (!data.rows || data.rows.length === 0) return;
 
     // Determinar si hay filtro de división activo
@@ -1052,6 +1210,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Guardar contexto activo para exportación de diapositivas
     window._cdContext = window._cdContext || {};
     window._cdContext[prefix] = {
+      isMonth: false,
       filterValue,
       baseFilter,
       weekNumbers,
@@ -1992,6 +2151,791 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ══════════════════════════════════════════════
+  // RENDERIZADOR MENSUAL (SUMA TOTAL DE CAJAS DEL MES)
+  // ══════════════════════════════════════════════
+  function renderSectionMonth(prefix, data, cols, showLabels) {
+    if (!data.rows || data.rows.length === 0) return;
+
+    // Determinar si hay filtro de división activo
+    const countDivs = selectedDivisions.size;
+    const isFilteringDivisions = countDivs > 0 && countDivs < 12;
+
+    // Banner de división en este tab
+    const bannerEl = document.getElementById(`divFilterBanner${prefix}`);
+    if (bannerEl) {
+      if (isFilteringDivisions) {
+        bannerEl.style.display = 'flex';
+        const sortedCodes = Array.from(selectedDivisions).sort();
+        const pillsHtml = sortedCodes.map(c => `
+          <span class="filter-pill-tag">
+            <strong>${c}</strong> <span style="opacity:0.9;">${DIVISION_NAMES[c] || ''}</span>
+            <i class="fa-solid fa-xmark remove-div-pill" data-code="${c}" title="Deseleccionar ${c}"></i>
+          </span>
+        `).join('');
+
+        bannerEl.innerHTML = `
+          <div class="banner-text" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:6px; font-weight:700;">
+              <i class="fa-solid fa-filter text-primary"></i>
+              <span>Filtrando ${countDivs} ${countDivs === 1 ? 'división' : 'divisiones'} en CD ${prefix.toUpperCase()} (Mensual):</span>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+              ${pillsHtml}
+            </div>
+          </div>
+          <button class="btn-clear-banner" onclick="window.clearDivisionFilter()">
+            <i class="fa-solid fa-xmark"></i> Quitar filtros (${countDivs})
+          </button>
+        `;
+
+        bannerEl.querySelectorAll('.remove-div-pill').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            window.toggleDivisionFilter(btn.dataset.code);
+          });
+        });
+      } else {
+        bannerEl.style.display = 'none';
+        bannerEl.innerHTML = '';
+      }
+    }
+
+    // Participación acumulada de las divisiones seleccionadas en este CD
+    let combinedShare = 1;
+    if (isFilteringDivisions) {
+      combinedShare = 0;
+      selectedDivisions.forEach(code => {
+        combinedShare += (DIVISION_SHARE[prefix]?.[code] || 0);
+      });
+    }
+
+    // 1. Extraer y estructurar datos de semanas
+    const allParsed = [];
+    data.rows.forEach(row => {
+      const label = row[cols.timeCol];
+      if (!label) return;
+      const parsed = parseWeekLabel(label);
+      if (!parsed || isNaN(parsed.week) || isNaN(parsed.year)) return;
+
+      const weekKey = `${parsed.year}-${parsed.week}`;
+      const baseRec = parseFloat(row[cols.recibo]) || 0;
+      const baseDesp = parseFloat(row[cols.despacho]) || 0;
+      const baseInv = parseFloat(row[cols.inventario]) || 0;
+      const basePlanRec = parseFloat(row[cols.planRecibo]) || 0;
+      const basePlanDesp = parseFloat(row[cols.planDespacho]) || 0;
+      const basePlanInv = parseFloat(row[cols.planInv]) || 0;
+
+      let rRec = baseRec;
+      let rDesp = baseDesp;
+      let rInv = baseInv;
+      let pRec = basePlanRec;
+      let pDesp = basePlanDesp;
+      let pInv = basePlanInv;
+
+      if (isFilteringDivisions) {
+        let sumRec = 0;
+        let sumDesp = 0;
+        let sumInv = 0;
+
+        selectedDivisions.forEach(code => {
+          const vRec = getDivVal(prefix, code, 'recibo', weekKey, null);
+          const vDesp = getDivVal(prefix, code, 'despacho', weekKey, null);
+          const vInv = getDivVal(prefix, code, 'inventario', weekKey, null);
+
+          const hasDataSource = !!(window.parsedBasesData || window.parsedDivisionData);
+          const divShare = DIVISION_SHARE[prefix]?.[code] || 0;
+
+          sumRec += (vRec > 0 || hasDataSource) ? vRec : (baseRec * divShare);
+          sumDesp += (vDesp > 0 || hasDataSource) ? vDesp : (baseDesp * divShare);
+          sumInv += (vInv > 0 || hasDataSource) ? vInv : (baseInv * divShare);
+        });
+
+        rRec = sumRec;
+        rDesp = sumDesp;
+        rInv = sumInv;
+        pRec = basePlanRec * combinedShare;
+        pDesp = basePlanDesp * combinedShare;
+        pInv = basePlanInv * combinedShare;
+      }
+
+      allParsed.push({
+        label,
+        week: parsed.week,
+        year: parsed.year,
+        recibo: rRec,
+        despacho: rDesp,
+        inventario: rInv,
+        planRecibo: pRec,
+        planDespacho: pDesp,
+        planInv: pInv
+      });
+    });
+
+    if (allParsed.length === 0) return;
+
+    // 2. Determinar año actual (el más reciente con data)
+    const currentYear = Math.max(...allParsed.map(r => r.year));
+    const prevYear = currentYear - 1;
+
+    // 3. Encontrar última semana con movimientos reales en el año actual
+    const currentYearRows = allParsed
+      .filter(r => r.year === currentYear)
+      .sort((a, b) => a.week - b.week);
+
+    let lastDataWeek = 0;
+    for (let i = currentYearRows.length - 1; i >= 0; i--) {
+      const r = currentYearRows[i];
+      if (r.recibo > 0 || r.despacho > 0 || r.inventario > 0) {
+        lastDataWeek = r.week;
+        break;
+      }
+    }
+    if (lastDataWeek === 0 && currentYearRows.length > 0) {
+      lastDataWeek = currentYearRows[currentYearRows.length - 1].week;
+    }
+
+    // 4. Identificar meses con datos reales (cerrados) en el año actual
+    const dataMonthsSet = new Set();
+    currentYearRows.forEach(r => {
+      if (r.week <= lastDataWeek && (r.recibo > 0 || r.despacho > 0 || r.inventario > 0)) {
+        const m = getMonthForWeek(r.week, currentYear);
+        dataMonthsSet.add(m);
+      }
+    });
+    const dataMonths = Array.from(dataMonthsSet).sort((a, b) => a - b);
+    if (dataMonths.length > 0) {
+      availableDataMonths = dataMonths;
+    }
+    updateMonthPillsUI();
+
+    // 5. Meses a graficar según selección del usuario
+    const monthsToRender = Array.from(selectedMonths).sort((a, b) => a - b);
+    if (monthsToRender.length === 0) return;
+
+    // 6. Construir mapa y agregados mensuales exactos (Suma total de cajas del mes)
+    const dataMap = {};
+    allParsed.forEach(r => {
+      dataMap[`${r.year}-${r.week}`] = r;
+    });
+
+    const monthDataMap = {};
+    for (let m = 0; m < 12; m++) {
+      const w2026 = currentYearRows.filter(r => getMonthForWeek(r.week, currentYear) === m);
+      const closed2026 = w2026.filter(r => r.week <= lastDataWeek);
+
+      let rec2026 = null;
+      let desp2026 = null;
+      let inv2026 = null;
+      let hasData2026 = closed2026.length > 0;
+
+      if (hasData2026) {
+        // Recibo y Despacho: SUMA TOTAL DE CAJAS DEL MES (de semanas cerradas)
+        rec2026 = closed2026.reduce((acc, r) => acc + r.recibo, 0);
+        desp2026 = closed2026.reduce((acc, r) => acc + r.despacho, 0);
+
+        // Inventario: Stock de cierre del mes (última semana cerrada de este mes)
+        const sortedClosed = [...closed2026].sort((a, b) => a.week - b.week);
+        inv2026 = sortedClosed[sortedClosed.length - 1].inventario;
+      }
+
+      // Metas Plan 2026 (suma total de metas para Recibo y Despacho; meta de cierre para Inventario)
+      const planRec = w2026.reduce((acc, r) => acc + r.planRecibo, 0);
+      const planDesp = w2026.reduce((acc, r) => acc + r.planDespacho, 0);
+      const sortedW2026 = [...w2026].sort((a, b) => a.week - b.week);
+      const planInvVal = sortedW2026.length > 0 ? sortedW2026[sortedW2026.length - 1].planInv : 0;
+
+      // Año anterior (2025)
+      const w2025 = allParsed.filter(r => r.year === prevYear && getMonthForWeek(r.week, prevYear) === m);
+      const rec2025 = w2025.reduce((acc, r) => acc + r.recibo, 0);
+      const desp2025 = w2025.reduce((acc, r) => acc + r.despacho, 0);
+      const sortedW2025 = [...w2025].sort((a, b) => a.week - b.week);
+      const inv2025 = sortedW2025.length > 0 ? sortedW2025[sortedW2025.length - 1].inventario : 0;
+
+      monthDataMap[m] = {
+        month: m,
+        hasData2026,
+        recibo2026: rec2026,
+        despacho2026: desp2026,
+        inv2026: inv2026,
+        planRecibo: planRec,
+        planDespacho: planDesp,
+        planInv: planInvVal,
+        recibo2025: rec2025,
+        despacho2025: desp2025,
+        inv2025: inv2025,
+        weeks2026: w2026.map(r => r.week),
+        closedWeeks2026: closed2026.map(r => r.week)
+      };
+    }
+
+    const labels = monthsToRender.map(m => MONTH_NAMES_SHORT[m]);
+
+    const prevRecibo = monthsToRender.map(m => monthDataMap[m].recibo2025);
+    const currRecibo = monthsToRender.map(m => monthDataMap[m].recibo2026);
+    const planRecibo = monthsToRender.map(m => monthDataMap[m].planRecibo);
+
+    const prevDespacho = monthsToRender.map(m => monthDataMap[m].despacho2025);
+    const currDespacho = monthsToRender.map(m => monthDataMap[m].despacho2026);
+    const planDespacho = monthsToRender.map(m => monthDataMap[m].planDespacho);
+
+    const prevInventario = monthsToRender.map(m => monthDataMap[m].inv2025);
+    const currInventario = monthsToRender.map(m => monthDataMap[m].inv2026);
+    const planInv = monthsToRender.map(m => monthDataMap[m].planInv);
+
+    // 7. Renderizar KPIs Ejecutivos Mensuales
+    renderKPIsMonth(prefix, monthsToRender, monthDataMap, currentYear, prevYear, dataMonths);
+
+    // 8. Renderizar Gráficos Mensuales
+    renderBarChart(`chart${prefix}Recibo`, labels, [
+      { label: `Recibo ${prevYear}`, data: prevRecibo, bg: 'rgba(147, 197, 253, 0.75)', border: '#60a5fa' },
+      { label: `Recibo ${currentYear}`, data: currRecibo, bg: '#2563eb', border: '#1d4ed8' },
+    ], planRecibo.some(v => v > 0) ? { label: 'PLAN RECIBO', data: planRecibo, color: '#0284c7' } : null, showLabels, currentYear);
+
+    renderBarChart(`chart${prefix}Despacho`, labels, [
+      { label: `Despacho ${prevYear}`, data: prevDespacho, bg: 'rgba(253, 186, 116, 0.75)', border: '#fb923c' },
+      { label: `Despacho ${currentYear}`, data: currDespacho, bg: '#ea580c', border: '#c2410c' },
+    ], planDespacho.some(v => v > 0) ? { label: 'PLAN DESPACHO', data: planDespacho, color: '#e11d48' } : null, showLabels, currentYear);
+
+    renderBarChart(`chart${prefix}Inventario`, labels, [
+      { label: `Inventario ${prevYear}`, data: prevInventario, bg: 'rgba(148, 163, 184, 0.65)', border: '#94a3b8' },
+      { label: `Inventario ${currentYear}`, data: currInventario, bg: '#059669', border: '#047857' },
+    ], planInv.some(v => v > 0) ? { label: 'PLAN INV', data: planInv, color: '#0d9488' } : null, showLabels, currentYear);
+
+    // 9. Tabla Corporativa Mensual
+    renderTableMonth(prefix, monthsToRender, monthDataMap, currentYear, prevYear);
+
+    // 10. Tabla de Movimientos de División Mensual
+    renderDivisionsTableMonth(prefix, monthsToRender, currentYear, dataMap, dataMonths);
+
+    // Guardar contexto activo para exportación de diapositivas
+    window._cdContext = window._cdContext || {};
+    window._cdContext[prefix] = {
+      isMonth: true,
+      monthsToRender,
+      monthDataMap,
+      currentYear,
+      prevYear,
+      dataMap,
+      lastDataWeek,
+      dataMonths
+    };
+  }
+
+  // ══════════════════════════════════════════════
+  // KPI EXECUTIVE SUMMARY RENDERER (MENSUAL)
+  // ══════════════════════════════════════════════
+  function renderKPIsMonth(prefix, monthsToRender, monthDataMap, currentYear, prevYear, dataMonths) {
+    const container = document.getElementById(`kpi${prefix}Container`);
+    if (!container) return;
+
+    const calcYoY = (curr, prev) => {
+      if (!prev || prev === 0) return { pct: '0.0%', isUp: true };
+      const diff = ((curr - prev) / prev) * 100;
+      return { pct: (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%', isUp: diff >= 0 };
+    };
+    const fmt = n => Math.round(n).toLocaleString('es-PE');
+
+    let divTag = '';
+    if (selectedDivisions.size > 0 && selectedDivisions.size < 12) {
+      const sorted = Array.from(selectedDivisions).sort();
+      if (sorted.length === 1) {
+        divTag = ` [División: ${sorted[0]} · ${DIVISION_NAMES[sorted[0]] || ''}]`;
+      } else {
+        divTag = ` [${sorted.length} Divisiones: ${sorted.join(', ')}]`;
+      }
+    }
+
+    const dataMonthsRendered = monthsToRender.filter(m => monthDataMap[m]?.hasData2026);
+    const lastM = dataMonths.length > 0 ? dataMonths[dataMonths.length - 1] : (dataMonthsRendered[dataMonthsRendered.length - 1] ?? 0);
+
+    let reciboCurr, reciboPrev, despachoCurr, despachoPrev, invCurr, invPrev;
+    let kpiLabel, invLabel, reciboLabel, despachoLabel;
+
+    if (kpiModeMonth === 'mes') {
+      // ── MODO ÚLTIMO MES CERRADO ──
+      const curData = monthDataMap[lastM] || {};
+      reciboCurr = curData.recibo2026 || 0;
+      reciboPrev = curData.recibo2025 || 0;
+      despachoCurr = curData.despacho2026 || 0;
+      despachoPrev = curData.despacho2025 || 0;
+      invCurr = curData.inv2026 || 0;
+      invPrev = curData.inv2025 || 0;
+
+      reciboLabel = `Recibo ${MONTH_NAMES_SHORT[lastM]}`;
+      despachoLabel = `Despacho ${MONTH_NAMES_SHORT[lastM]}`;
+      invLabel = `Stock Cierre ${MONTH_NAMES_SHORT[lastM]}`;
+      kpiLabel = `Mes de ${MONTH_NAMES_FULL[lastM]} con datos (${currentYear} vs ${prevYear})${divTag}`;
+    } else {
+      // ── MODO PERÍODO COMPLETO (Suma de los meses seleccionados con datos) ──
+      let totReciboCurr = 0, totReciboPrev = 0;
+      let totDespachoCurr = 0, totDespachoPrev = 0;
+      let lastInvCurr = 0, lastInvPrev = 0;
+
+      dataMonthsRendered.forEach(m => {
+        const md = monthDataMap[m];
+        if (md) {
+          totReciboCurr += md.recibo2026 || 0;
+          totReciboPrev += md.recibo2025 || 0;
+          totDespachoCurr += md.despacho2026 || 0;
+          totDespachoPrev += md.despacho2025 || 0;
+          if (md.inv2026 > 0) lastInvCurr = md.inv2026;
+          if (md.inv2025 > 0) lastInvPrev = md.inv2025;
+        }
+      });
+
+      reciboCurr = totReciboCurr;
+      reciboPrev = totReciboPrev;
+      despachoCurr = totDespachoCurr;
+      despachoPrev = totDespachoPrev;
+      invCurr = lastInvCurr;
+      invPrev = lastInvPrev;
+
+      reciboLabel = 'Total Entradas (Recibo)';
+      despachoLabel = 'Total Salidas (Despacho)';
+      invLabel = 'Stock Cierre Período';
+      kpiLabel = `Período Mensual Seleccionado: ${dataMonthsRendered.length} Mes${dataMonthsRendered.length === 1 ? '' : 'es'} con datos (${currentYear} vs ${prevYear})${divTag}`;
+    }
+
+    const yoyRecibo = calcYoY(reciboCurr, reciboPrev);
+    const yoyDespacho = calcYoY(despachoCurr, despachoPrev);
+    const yoyInv = calcYoY(invCurr, invPrev);
+
+    container.innerHTML = `
+      <div style="grid-column:1/-1; font-size:0.78rem; font-weight:700; color:#64748b; margin-bottom:-6px; padding-left:2px; display:flex; align-items:center; gap:8px;">
+        <i class="fa-solid fa-chart-pie" style="color:#2563eb;"></i> ${kpiLabel}
+      </div>
+
+      <div class="kpi-card kpi-recibo">
+        <div class="kpi-title"><i class="fa-solid fa-boxes-packing text-primary"></i> ${reciboLabel}</div>
+        <div class="kpi-value">${fmt(reciboCurr)}</div>
+        <div class="kpi-sub">
+          <span class="kpi-badge ${yoyRecibo.isUp ? 'badge-up' : 'badge-down'}">
+            <i class="fa-solid fa-arrow-${yoyRecibo.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyRecibo.pct}
+          </span>
+          <span>vs ${fmt(reciboPrev)} (${prevYear})</span>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-despacho">
+        <div class="kpi-title"><i class="fa-solid fa-truck-fast" style="color:#ea580c;"></i> ${despachoLabel}</div>
+        <div class="kpi-value">${fmt(despachoCurr)}</div>
+        <div class="kpi-sub">
+          <span class="kpi-badge ${yoyDespacho.isUp ? 'badge-up' : 'badge-down'}">
+            <i class="fa-solid fa-arrow-${yoyDespacho.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyDespacho.pct}
+          </span>
+          <span>vs ${fmt(despachoPrev)} (${prevYear})</span>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-inventario">
+        <div class="kpi-title"><i class="fa-solid fa-warehouse" style="color:#059669;"></i> ${invLabel}</div>
+        <div class="kpi-value">${fmt(invCurr)}</div>
+        <div class="kpi-sub">
+          <span class="kpi-badge ${yoyInv.isUp ? 'badge-up' : 'badge-down'}">
+            <i class="fa-solid fa-arrow-${yoyInv.isUp ? 'trend-up' : 'trend-down'}"></i> ${yoyInv.pct}
+          </span>
+          <span>vs ${fmt(invPrev)} (${prevYear})</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // ══════════════════════════════════════════════
+  // TABLA DETALLE CORPORATIVO (MENSUAL)
+  // ══════════════════════════════════════════════
+  function renderTableMonth(prefix, monthsToRender, monthDataMap, currentYear, prevYear) {
+    const container = document.getElementById(`table${prefix}Container`);
+    if (!container) return;
+
+    const isFiltering = selectedDivisions.size > 0 && selectedDivisions.size < 12;
+    const sortedCodes = Array.from(selectedDivisions).sort();
+    const divTableTag = isFiltering
+      ? ` · Filtrando ${sortedCodes.length} ${sortedCodes.length === 1 ? 'División' : 'Divisiones'} (${sortedCodes.join(', ')})`
+      : '';
+
+    let html = `
+      <div class="table-card-header">
+        <div class="table-wrapper-title">
+          <i class="fa-solid fa-table-list text-primary"></i>
+          <span>Detalle Corporativo Mensual (${currentYear} vs ${prevYear}) · ${monthsToRender.length} Meses Seleccionados${divTableTag}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <button class="btn-table-copy" onclick="window.copyCorporateSummarySlideImage('${prefix}')" title="Copiar diapositiva ejecutiva completa (Título + KPIs + Tabla) para PowerPoint" style="background: linear-gradient(135deg, #1d4ed8, #2563eb); color:#ffffff; border-color:#1e40af; font-weight:700; box-shadow: 0 2px 6px rgba(37,99,235,0.25);">
+            <i class="fa-solid fa-file-powerpoint"></i> Copiar Diapositiva (Título + KPIs + Tabla)
+          </button>
+          <button class="btn-table-copy" onclick="window.copyCorporateTableImage('${prefix}')" title="Copiar solo la tabla desde 'Área' como imagen para PowerPoint">
+            <i class="fa-solid fa-table"></i> Copiar Solo Tabla (desde Área)
+          </button>
+          <span class="table-scroll-hint">
+            <i class="fa-solid fa-arrows-left-right text-primary"></i> Desliza para ver más meses
+          </span>
+        </div>
+      </div>
+      <div class="table-scroll-wrapper">
+        <table class="data-table" id="tableCorporateWeekly_${prefix}">
+          <thead>
+            <tr>
+              <th class="col-sticky">Área</th>
+    `;
+
+    monthsToRender.forEach(m => {
+      const mShort = MONTH_NAMES_SHORT[m];
+      const mFull = MONTH_NAMES_FULL[m];
+      html += `
+        <th title="${mFull} ${currentYear}">
+          <div class="th-week">${mShort}</div>
+          <div class="th-month">${currentYear}</div>
+        </th>`;
+    });
+    html += `<th class="col-promedio">Total Acum.</th></tr></thead><tbody>`;
+
+    const metrics = [
+      { keyCurr: 'recibo2026', keyPlan: 'planRecibo', keyPrev: 'recibo2025', isInv: false, label: '📦 RECIBO', color: '#2563eb' },
+      { keyCurr: 'despacho2026', keyPlan: 'planDespacho', keyPrev: 'despacho2025', isInv: false, label: '🚛 DESPACHO', color: '#ea580c' },
+      { keyCurr: 'inv2026', keyPlan: 'planInv', keyPrev: 'inv2025', isInv: true, label: '📊 INVENTARIO', color: '#059669' }
+    ];
+
+    metrics.forEach(m => {
+      // 1. Fila Actual (Real)
+      html += `<tr><td class="col-sticky" style="color:${m.color}; font-weight:700;" title="${m.label} (Real ${currentYear})">${m.label}</td>`;
+      let sumCurr = 0;
+      let lastVal = 0;
+      monthsToRender.forEach(mIdx => {
+        const val = monthDataMap[mIdx] ? monthDataMap[mIdx][m.keyCurr] : null;
+        if (val !== null && val > 0) {
+          sumCurr += val;
+          lastVal = val;
+          html += `<td style="font-weight:600;">${Math.round(val).toLocaleString('es-PE')}</td>`;
+        } else {
+          html += `<td style="color:#94a3b8;">--</td>`;
+        }
+      });
+      const endValCurr = m.isInv ? lastVal : sumCurr;
+      html += `<td class="col-promedio" style="font-weight:800; background:#f1f5f9;">${endValCurr > 0 ? Math.round(endValCurr).toLocaleString('es-PE') : '--'}</td></tr>`;
+
+      // 2. Fila Plan Objetivo
+      html += `<tr style="color:#0284c7; background:rgba(239, 246, 255, 0.35);"><td class="col-sticky" style="font-weight:600; padding-left: 14px; color:#0284c7; background:#eff6ff;" title="Plan Objetivo ${currentYear}">└ Plan Objetivo</td>`;
+      let sumPlan = 0;
+      let lastPlan = 0;
+      monthsToRender.forEach(mIdx => {
+        const val = monthDataMap[mIdx] ? monthDataMap[mIdx][m.keyPlan] : 0;
+        if (val > 0) {
+          sumPlan += val;
+          lastPlan = val;
+          html += `<td>${Math.round(val).toLocaleString('es-PE')}</td>`;
+        } else {
+          html += `<td style="color:#94a3b8;">--</td>`;
+        }
+      });
+      const endValPlan = m.isInv ? lastPlan : sumPlan;
+      html += `<td class="col-promedio" style="font-weight:700; background:#eff6ff;">${endValPlan > 0 ? Math.round(endValPlan).toLocaleString('es-PE') : '--'}</td></tr>`;
+
+      // 3. Fila Año Anterior
+      html += `<tr style="color:#64748b;"><td class="col-sticky" style="font-weight:600; padding-left: 14px; color:#64748b; background:#f8fafc;" title="Real ${prevYear}">└ Real ${prevYear}</td>`;
+      let sumPrev = 0;
+      let lastPrev = 0;
+      monthsToRender.forEach(mIdx => {
+        const val = monthDataMap[mIdx] ? monthDataMap[mIdx][m.keyPrev] : 0;
+        if (val > 0) {
+          sumPrev += val;
+          lastPrev = val;
+          html += `<td>${Math.round(val).toLocaleString('es-PE')}</td>`;
+        } else {
+          html += `<td style="color:#94a3b8;">--</td>`;
+        }
+      });
+      const endValPrev = m.isInv ? lastPrev : sumPrev;
+      html += `<td class="col-promedio" style="font-weight:700; background:#f8fafc;">${endValPrev > 0 ? Math.round(endValPrev).toLocaleString('es-PE') : '--'}</td></tr>`;
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  }
+
+  // ══════════════════════════════════════════════
+  // TABLA MOVIMIENTOS POR DIVISIÓN (MENSUAL)
+  // ══════════════════════════════════════════════
+  function renderDivisionsTableMonth(prefix, monthsToRender, currentYear, dataMap, dataMonths) {
+    const container = document.getElementById(`tableDivisions${prefix}Container`);
+    if (!container) return;
+
+    const currentView = divTableProcess[prefix] || 'all';
+    const isFiltering = selectedDivisions.size > 0 && selectedDivisions.size < 12;
+
+    const defaultDivs = prefix === 'Frescos'
+      ? ['J01', 'J03', 'J04', 'J05', 'J06', 'J07']
+      : ['J01', 'J02', 'J05', 'J06', 'J07', 'J08', 'J09', 'J10', 'J11', 'J12'];
+
+    let divCodes = [...defaultDivs];
+    if (isFiltering) {
+      const activeInCd = defaultDivs.filter(c => selectedDivisions.has(c));
+      if (activeInCd.length > 0) {
+        divCodes = activeInCd;
+      }
+    }
+
+    // Meses de comparación para tendencia
+    const dataMonthsInRender = monthsToRender.filter(m => dataMonths.includes(m));
+    const M_last = dataMonthsInRender.length > 0 ? dataMonthsInRender[dataMonthsInRender.length - 1] : (dataMonths[dataMonths.length - 1] ?? 0);
+    const M_prev = dataMonthsInRender.length > 1 ? dataMonthsInRender[dataMonthsInRender.length - 2] : Math.max(0, M_last - 1);
+
+    const procConfigs = [
+      { key: 'recibo', title: 'Recibo (Entradas)', icon: '📦', color: '#2563eb', cardCls: 'division-process-recibo', badge: 'Cajas / Mes' },
+      { key: 'despacho', title: 'Despacho (Salidas)', icon: '🚛', color: '#ea580c', cardCls: 'division-process-despacho', badge: 'Cajas / Mes' },
+      { key: 'inventario', title: 'Inventario (Stock)', icon: '📊', color: '#059669', cardCls: 'division-process-inventario', badge: 'Stock Cierre de Mes' }
+    ];
+
+    const procsToRender = currentView === 'all'
+      ? procConfigs
+      : procConfigs.filter(p => p.key === currentView);
+
+    let topHeaderHtml = `
+      <div class="table-card-header" style="flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+        <div class="table-wrapper-title">
+          <i class="fa-solid fa-boxes-stacked text-primary"></i>
+          <span>Movimiento de Cajas por División · Año ${currentYear} · ${monthsToRender.length} Meses Seleccionados</span>
+          ${isFiltering ? `<span style="font-size:0.75rem; background:#eff6ff; color:#1d4ed8; padding:2px 8px; border-radius:12px; border:1px solid #bfdbfe; font-weight:700;">Filtrando ${divCodes.length} div.</span>` : ''}
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <button class="btn-table-copy" onclick="window.copyActiveDivisionTableImage('${prefix}')" title="Copiar tabla de división como imagen para PowerPoint">
+            <i class="fa-solid fa-camera"></i> ${currentView === 'all' ? 'Diapositiva 3 Tablas (16:9)' : 'Copiar Imagen'}
+          </button>
+          <div class="division-view-pills">
+            <button class="division-view-pill ${currentView === 'all' ? 'active' : ''}" onclick="window.setDivTableProcessView('${prefix}', 'all')">
+              <i class="fa-solid fa-table-columns"></i> Todos (3 en 1)
+            </button>
+            <button class="division-view-pill ${currentView === 'recibo' ? 'active' : ''}" onclick="window.setDivTableProcessView('${prefix}', 'recibo')">
+              📦 Recibo
+            </button>
+            <button class="division-view-pill ${currentView === 'despacho' ? 'active' : ''}" onclick="window.setDivTableProcessView('${prefix}', 'despacho')">
+              🚛 Despacho
+            </button>
+            <button class="division-view-pill ${currentView === 'inventario' ? 'active' : ''}" onclick="window.setDivTableProcessView('${prefix}', 'inventario')">
+              📊 Inventario
+            </button>
+          </div>
+          <span class="table-scroll-hint">
+            <i class="fa-solid fa-arrows-left-right text-primary"></i> Desliza para ver más meses
+          </span>
+        </div>
+      </div>
+    `;
+
+    let tablesHtml = '';
+    if (currentView === 'all') {
+      tablesHtml += `<div class="divisions-multi-table-wrap">`;
+    }
+
+    procsToRender.forEach(proc => {
+      const cardId = `divProcCard_${prefix}_${proc.key}`;
+      const isInv = proc.key === 'inventario';
+      tablesHtml += `
+        <div class="division-process-table-card" id="${cardId}" style="${currentView !== 'all' ? 'width:100%;' : ''}">
+          <div class="division-process-header ${proc.cardCls}">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span>${proc.icon}</span>
+              <span>${proc.title} ${currentYear}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:0.72rem; font-weight:700; opacity:0.85;">
+                ${proc.badge}
+              </span>
+              <button class="btn-chart-copy" onclick="window.copyDivisionProcessCardImage('${cardId}', '${proc.title} ${currentYear}')" title="Copiar esta tabla de ${proc.title} como imagen para PowerPoint">
+                <i class="fa-solid fa-camera"></i> Copiar Imagen
+              </button>
+            </div>
+          </div>
+          <div class="table-scroll-wrapper">
+            <table class="data-table" id="divProcTable_${prefix}_${proc.key}">
+              <thead>
+                <tr>
+                  <th class="col-sticky col-division-code">Div.</th>
+      `;
+
+      monthsToRender.forEach(m => {
+        const mShort = MONTH_NAMES_SHORT[m];
+        const isLast = (m === M_last);
+        tablesHtml += `
+          <th title="${MONTH_NAMES_FULL[m]} ${currentYear}" ${isLast ? 'style="background:#eff6ff;"' : ''}>
+            <div class="th-week" ${isLast ? 'style="color:#2563eb;"' : ''}>${mShort}</div>
+            <div class="th-month">${currentYear}</div>
+          </th>`;
+      });
+
+      tablesHtml += `
+                  <th style="min-width:115px; background:#f8fafc;" title="Tendencia comparativa ${MONTH_NAMES_SHORT[M_last]} vs ${MONTH_NAMES_SHORT[M_prev]}">
+                    <div>Tendencia</div>
+                    <div style="font-size:0.68rem; font-weight:700; color:#64748b;">${MONTH_NAMES_SHORT[M_last]} vs ${MONTH_NAMES_SHORT[M_prev]}</div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      // Acumuladores de totales por mes
+      const monthTotals = {};
+      monthsToRender.forEach(m => { monthTotals[m] = 0; });
+
+      divCodes.forEach(code => {
+        const fullName = DIVISION_NAMES[code] || '';
+        tablesHtml += `<tr>`;
+        tablesHtml += `
+          <td class="col-sticky col-division-code" title="${code} - ${fullName}">
+            ${code}
+          </td>
+        `;
+
+        let valLastM = 0;
+        let valPrevM = 0;
+
+        monthsToRender.forEach(m => {
+          const isDataMonth = dataMonths.includes(m);
+          let val = 0;
+
+          if (isDataMonth) {
+            // Obtener semanas cerradas del mes m
+            const weeksInMonth = [];
+            for (let w = 1; w <= 53; w++) {
+              if (getMonthForWeek(w, currentYear) === m) {
+                if (dataMap[`${currentYear}-${w}`]) weeksInMonth.push(w);
+              }
+            }
+
+            if (isInv) {
+              // Inventario: stock de cierre (última semana cerrada)
+              if (weeksInMonth.length > 0) {
+                const lastW = weeksInMonth[weeksInMonth.length - 1];
+                val = getDivVal(prefix, code, 'inventario', `${currentYear}-${lastW}`, dataMap);
+              }
+            } else {
+              // Recibo o Despacho: SUMA TOTAL DE CAJAS DEL MES
+              weeksInMonth.forEach(w => {
+                val += getDivVal(prefix, code, proc.key, `${currentYear}-${w}`, dataMap);
+              });
+            }
+          }
+
+          monthTotals[m] += val;
+          if (m === M_last) valLastM = val;
+          if (m === M_prev) valPrevM = val;
+
+          const isLastCol = (m === M_last);
+          tablesHtml += `<td style="font-weight:600; ${isLastCol ? 'background:rgba(239, 246, 255, 0.4);' : ''}">${val > 0 ? Math.round(val).toLocaleString('es-PE') : '-'}</td>`;
+        });
+
+        // Columna de Tendencia
+        let trendHtml = '<span style="color:#94a3b8; font-size:0.75rem;">--</span>';
+        if (valPrevM > 0 && valLastM > 0) {
+          const diff = ((valLastM - valPrevM) / valPrevM) * 100;
+          const isUp = diff >= 0;
+          const cls = isUp ? 'trend-pill-up' : 'trend-pill-down';
+          const icon = isUp ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
+          const sign = isUp ? '+' : '';
+          trendHtml = `
+            <span class="trend-pill ${cls}">
+              <i class="fa-solid ${icon}"></i> ${sign}${diff.toFixed(1)}%
+            </span>
+          `;
+        }
+        tablesHtml += `<td style="text-align:center; background:#f8fafc;">${trendHtml}</td>`;
+        tablesHtml += `</tr>`;
+      });
+
+      // Fila de TOTAL
+      tablesHtml += `</tbody><tfoot><tr class="row-total">`;
+      tablesHtml += `<td class="col-sticky col-division-code" style="font-weight:800; background:#f1f5f9;">Total</td>`;
+
+      let totLastM = 0;
+      let totPrevM = 0;
+
+      monthsToRender.forEach(m => {
+        const tVal = monthTotals[m];
+        if (m === M_last) totLastM = tVal;
+        if (m === M_prev) totPrevM = tVal;
+        const isLastCol = (m === M_last);
+        tablesHtml += `<td style="font-weight:800; ${isLastCol ? 'background:rgba(219, 234, 254, 0.5);' : ''}">${tVal > 0 ? Math.round(tVal).toLocaleString('es-PE') : '-'}</td>`;
+      });
+
+      let totTrendHtml = '<span style="color:#94a3b8;">--</span>';
+      if (totPrevM > 0 && totLastM > 0) {
+        const diff = ((totLastM - totPrevM) / totPrevM) * 100;
+        const isUp = diff >= 0;
+        const cls = isUp ? 'trend-pill-up' : 'trend-pill-down';
+        const icon = isUp ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down';
+        const sign = isUp ? '+' : '';
+        totTrendHtml = `
+          <span class="trend-pill ${cls}" style="font-size:0.75rem; padding:3px 8px;">
+            <i class="fa-solid ${icon}"></i> ${sign}${diff.toFixed(1)}%
+          </span>
+        `;
+      }
+      tablesHtml += `<td style="text-align:center; background:#f1f5f9;">${totTrendHtml}</td>`;
+      tablesHtml += `</tr></tfoot></table></div></div>`;
+    });
+
+    if (currentView === 'all') {
+      tablesHtml += `</div>`;
+    }
+
+    // Glosario lateral
+    let glossaryHtml = `
+      <div class="divisions-glossary-card" id="glossaryCard_${prefix}">
+        <div class="glossary-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-book-bookmark text-primary"></i>
+            <span>Glosario Divisiones</span>
+          </div>
+          <button class="btn-table-copy" onclick="window.copyGlossaryImage('${prefix}')" title="Copiar Glosario como imagen para PowerPoint" style="padding:4px 9px; font-size:0.75rem;">
+            <i class="fa-solid fa-camera"></i> Copiar
+          </button>
+        </div>
+        <div class="table-scroll-wrapper" style="max-height: 480px; overflow-y: auto;">
+          <table class="glossary-table">
+            <thead>
+              <tr>
+                <th style="width:50px; text-align:center;">Cód.</th>
+                <th>Nombre Oficial</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    defaultDivs.forEach(c => {
+      const name = DIVISION_NAMES[c] || '';
+      const isSel = selectedDivisions.has(c);
+      glossaryHtml += `
+        <tr class="${isSel ? 'glossary-row-highlight' : ''}">
+          <td style="text-align:center;">
+            <span class="div-code-badge" style="font-size:0.75rem; padding:2px 6px;">${c}</span>
+          </td>
+          <td style="font-weight:600; font-size:0.8rem; color:#1e293b;">
+            ${name}
+          </td>
+        </tr>
+      `;
+    });
+
+    glossaryHtml += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = `
+      ${topHeaderHtml}
+      <div class="division-section-content">
+        <div class="division-tables-main">
+          ${tablesHtml}
+        </div>
+        <div class="division-glossary-sidebar">
+          ${glossaryHtml}
+        </div>
+      </div>
+    `;
+  }
+
+  // ══════════════════════════════════════════════
   // NOTIFICACIONES FLOTANTES (TOAST)
   // ══════════════════════════════════════════════
   function showToast(msg, type = 'info', duration = 3500) {
@@ -2642,11 +3586,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 2. Título principal centrado ejecutiva
       const currentYear = window._cdContext?.[prefix]?.currentYear || 2026;
+      const isMonth = timeGranularity === 'month';
       ctx.fillStyle = '#0f172a';
       ctx.font = '800 28px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, 26);
+      ctx.fillText(`THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}${isMonth ? ' (MENSUAL)' : ''}`, W / 2, 26);
 
       // 3. Dibujar los 3 bloques apilados aprovechando al máximo la altura ("largo" y estilizado, jamás aplastado)
       const topMargin = 48;
@@ -2658,9 +3603,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const cardHeight = Math.floor((availableHeight - (gap * 2)) / 3); // 334px de altura por tarjeta
 
       const sections = [
-        { chartId: `chart${prefix}Recibo`, canvas: cRecibo, title: 'Entradas (Recibo)', color: '#2563eb', badge: 'Cajas / Semana' },
-        { chartId: `chart${prefix}Despacho`, canvas: cDespacho, title: 'Salidas (Despacho)', color: '#ea580c', badge: 'Cajas / Semana' },
-        { chartId: `chart${prefix}Inventario`, canvas: cInventario, title: 'Inventario Activo', color: '#059669', badge: 'Stock en Cajas' }
+        { chartId: `chart${prefix}Recibo`, canvas: cRecibo, title: 'Entradas (Recibo)', color: '#2563eb', badge: isMonth ? 'Cajas / Mes' : 'Cajas / Semana' },
+        { chartId: `chart${prefix}Despacho`, canvas: cDespacho, title: 'Salidas (Despacho)', color: '#ea580c', badge: isMonth ? 'Cajas / Mes' : 'Cajas / Semana' },
+        { chartId: `chart${prefix}Inventario`, canvas: cInventario, title: 'Inventario Activo', color: '#059669', badge: isMonth ? 'Stock Cierre de Mes' : 'Stock en Cajas' }
       ];
 
       sections.forEach((sec, idx) => {
@@ -3516,54 +4461,223 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const fmt = n => Math.round(n).toLocaleString('es-PE');
 
-    // 1. Métricas Semana Actual (última semana cerrada)
-    const cWeek = dataMap[`${currentYear}-${lastDataWeek}`] || {};
-    const pWeek = dataMap[`${prevYear}-${lastDataWeek}`] || {};
-    const reciboSemCurr = cWeek.recibo || 0;
-    const reciboSemPrev = pWeek.recibo || 0;
-    const despSemCurr = cWeek.despacho || 0;
-    const despSemPrev = pWeek.despacho || 0;
-    const invSemCurr = cWeek.inventario || 0;
-    const invSemPrev = pWeek.inventario || 0;
+    const isMonth = ctxData.isMonth || timeGranularity === 'month';
 
-    const yoyReciboSem = calcYoY(reciboSemCurr, reciboSemPrev);
-    const yoyDespSem = calcYoY(despSemCurr, despSemPrev);
-    const yoyInvSem = calcYoY(invSemCurr, invSemPrev);
+    let sec1Label = '';
+    let kpiCardsRow1 = [];
+    let sec2Label = '';
+    let kpiCardsRow2 = [];
 
-    // 2. Métricas Período Seleccionado (según filtro de semanas: 4, 8, 12, 16 o todas)
-    // Refleja las semanas seleccionadas por el usuario en la segunda fila de KPIs, mientras la tabla mantiene sus 8 semanas
-    const filterValue = ctxData.filterValue || '8';
-    const baseFilter = ctxData.baseFilter || '8';
-    const isAllWeeks = baseFilter === 'all' || filterValue === 'all';
-    const weeksToSum = (ctxData.closedWeeks && ctxData.closedWeeks.length > 0)
-      ? ctxData.closedWeeks
-      : (tableWeeks.length > 0 ? tableWeeks : [lastDataWeek]);
+    if (isMonth) {
+      const dataMonths = ctxData.dataMonths || [];
+      const monthsToRender = ctxData.monthsToRender || [];
+      const monthDataMap = ctxData.monthDataMap || {};
+      const renderedDataMonths = monthsToRender.filter(m => monthDataMap[m]?.hasData2026);
+      const lastMonthIdx = dataMonths.length > 0
+        ? dataMonths[dataMonths.length - 1]
+        : (renderedDataMonths.length > 0 ? renderedDataMonths[renderedDataMonths.length - 1] : 0);
+      const lastMonthName = MONTH_NAMES_FULL[lastMonthIdx] || 'Mes';
+      const lastMonthShort = MONTH_NAMES_SHORT[lastMonthIdx] || 'Mes';
 
-    let totReciboCurr = 0, totReciboPrev = 0;
-    let totDespCurr = 0, totDespPrev = 0;
-    let totInvCurr = 0, totInvPrev = 0, countInv = 0, countInvPrev = 0;
+      const mCur = monthDataMap[lastMonthIdx] || {};
+      const mReciboCurr = mCur.recibo2026 || 0;
+      const mReciboPrev = mCur.recibo2025 || 0;
+      const mDespCurr = mCur.despacho2026 || 0;
+      const mDespPrev = mCur.despacho2025 || 0;
+      const mInvCurr = mCur.inv2026 || 0;
+      const mInvPrev = mCur.inv2025 || 0;
 
-    weeksToSum.forEach(w => {
-      const c = dataMap[`${currentYear}-${w}`];
-      const p = dataMap[`${prevYear}-${w}`];
-      if (c) {
-        totReciboCurr += c.recibo || 0;
-        totDespCurr += c.despacho || 0;
-        if (c.inventario > 0) { totInvCurr += c.inventario; countInv++; }
+      const yoyReciboM = calcYoY(mReciboCurr, mReciboPrev);
+      const yoyDespM = calcYoY(mDespCurr, mDespPrev);
+      const yoyInvM = calcYoY(mInvCurr, mInvPrev);
+
+      sec1Label = `⚡ ÚLTIMO MES CON DATOS · ${lastMonthName.toUpperCase()} ${currentYear}`;
+      kpiCardsRow1 = [
+        {
+          icon: '📦',
+          label: `ENTRADAS (RECIBO) · ${lastMonthShort.toUpperCase()}`,
+          val: mReciboCurr,
+          prevVal: mReciboPrev,
+          yoy: yoyReciboM,
+          color: '#2563eb'
+        },
+        {
+          icon: '🚛',
+          label: `SALIDAS (DESPACHO) · ${lastMonthShort.toUpperCase()}`,
+          val: mDespCurr,
+          prevVal: mDespPrev,
+          yoy: yoyDespM,
+          color: '#ea580c'
+        },
+        {
+          icon: '📊',
+          label: `STOCK CIERRE · ${lastMonthShort.toUpperCase()}`,
+          val: mInvCurr,
+          prevVal: mInvPrev,
+          yoy: yoyInvM,
+          color: '#059669'
+        }
+      ];
+
+      let totReciboCurr = 0, totReciboPrev = 0;
+      let totDespCurr = 0, totDespPrev = 0;
+      let lastInvCurr = 0, lastInvPrev = 0;
+
+      renderedDataMonths.forEach(m => {
+        const md = monthDataMap[m];
+        if (md) {
+          totReciboCurr += md.recibo2026 || 0;
+          totReciboPrev += md.recibo2025 || 0;
+          totDespCurr += md.despacho2026 || 0;
+          totDespPrev += md.despacho2025 || 0;
+          if (md.inv2026 > 0) lastInvCurr = md.inv2026;
+          if (md.inv2025 > 0) lastInvPrev = md.inv2025;
+        }
+      });
+
+      const yoyReciboPer = calcYoY(totReciboCurr, totReciboPrev);
+      const yoyDespPer = calcYoY(totDespCurr, totDespPrev);
+      const yoyInvPer = calcYoY(lastInvCurr, lastInvPrev);
+
+      sec2Label = `📈 TOTAL ACUMULADO Y CIERRE · ${renderedDataMonths.length} MESES SELECCIONADOS`;
+      kpiCardsRow2 = [
+        {
+          icon: '📦',
+          label: `TOTAL ENTRADAS (RECIBO) · ACUM. ${renderedDataMonths.length} MESES`,
+          val: totReciboCurr,
+          prevVal: totReciboPrev,
+          yoy: yoyReciboPer,
+          color: '#2563eb'
+        },
+        {
+          icon: '🚛',
+          label: `TOTAL SALIDAS (DESPACHO) · ACUM. ${renderedDataMonths.length} MESES`,
+          val: totDespCurr,
+          prevVal: totDespPrev,
+          yoy: yoyDespPer,
+          color: '#ea580c'
+        },
+        {
+          icon: '📊',
+          label: `STOCK CIERRE PERÍODO · ${lastMonthShort.toUpperCase()}`,
+          val: lastInvCurr,
+          prevVal: lastInvPrev,
+          yoy: yoyInvPer,
+          color: '#059669'
+        }
+      ];
+    } else {
+      // 1. Métricas Semana Actual (última semana cerrada)
+      const cWeek = dataMap[`${currentYear}-${lastDataWeek}`] || {};
+      const pWeek = dataMap[`${prevYear}-${lastDataWeek}`] || {};
+      const reciboSemCurr = cWeek.recibo || 0;
+      const reciboSemPrev = pWeek.recibo || 0;
+      const despSemCurr = cWeek.despacho || 0;
+      const despSemPrev = pWeek.despacho || 0;
+      const invSemCurr = cWeek.inventario || 0;
+      const invSemPrev = pWeek.inventario || 0;
+
+      const yoyReciboSem = calcYoY(reciboSemCurr, reciboSemPrev);
+      const yoyDespSem = calcYoY(despSemCurr, despSemPrev);
+      const yoyInvSem = calcYoY(invSemCurr, invSemPrev);
+
+      // 2. Métricas Período Seleccionado (según filtro de semanas: 4, 8, 12, 16 o todas)
+      // Refleja las semanas seleccionadas por el usuario en la segunda fila de KPIs, mientras la tabla mantiene sus 8 semanas
+      const filterValue = ctxData.filterValue || '8';
+      const baseFilter = ctxData.baseFilter || '8';
+      const isAllWeeks = baseFilter === 'all' || filterValue === 'all';
+      const weeksToSum = (ctxData.closedWeeks && ctxData.closedWeeks.length > 0)
+        ? ctxData.closedWeeks
+        : (tableWeeks.length > 0 ? tableWeeks : [lastDataWeek]);
+
+      let totReciboCurr = 0, totReciboPrev = 0;
+      let totDespCurr = 0, totDespPrev = 0;
+      let totInvCurr = 0, totInvPrev = 0, countInv = 0, countInvPrev = 0;
+
+      weeksToSum.forEach(w => {
+        const c = dataMap[`${currentYear}-${w}`];
+        const p = dataMap[`${prevYear}-${w}`];
+        if (c) {
+          totReciboCurr += c.recibo || 0;
+          totDespCurr += c.despacho || 0;
+          if (c.inventario > 0) { totInvCurr += c.inventario; countInv++; }
+        }
+        if (p) {
+          totReciboPrev += p.recibo || 0;
+          totDespPrev += p.despacho || 0;
+          if (p.inventario > 0) { totInvPrev += p.inventario; countInvPrev++; }
+        }
+      });
+
+      const avgInvCurr = countInv > 0 ? totInvCurr / countInv : 0;
+      const avgInvPrev = countInvPrev > 0 ? totInvPrev / countInvPrev : 0;
+
+      const yoyReciboPer = calcYoY(totReciboCurr, totReciboPrev);
+      const yoyDespPer = calcYoY(totDespCurr, totDespPrev);
+      const yoyInvPer = calcYoY(avgInvCurr, avgInvPrev);
+
+      sec1Label = `⚡ SEMANA ACTUAL CERRADA · SEMANA ${lastDataWeek}`;
+      kpiCardsRow1 = [
+        {
+          icon: '📦',
+          label: `ENTRADAS (RECIBO) · SEMANA ${lastDataWeek}`,
+          val: reciboSemCurr,
+          prevVal: reciboSemPrev,
+          yoy: yoyReciboSem,
+          color: '#2563eb'
+        },
+        {
+          icon: '🚛',
+          label: `SALIDAS (DESPACHO) · SEMANA ${lastDataWeek}`,
+          val: despSemCurr,
+          prevVal: despSemPrev,
+          yoy: yoyDespSem,
+          color: '#ea580c'
+        },
+        {
+          icon: '📊',
+          label: `INVENTARIO FINAL · SEMANA ${lastDataWeek}`,
+          val: invSemCurr,
+          prevVal: invSemPrev,
+          yoy: yoyInvSem,
+          color: '#059669'
+        }
+      ];
+
+      sec2Label = `📈 ACUMULADO Y PROMEDIO · ÚLTIMAS ${weeksToSum.length} SEMANAS CERRADAS`;
+      if (isAllWeeks) {
+        sec2Label = `📈 ACUMULADO Y PROMEDIO · TODAS LAS SEMANAS CERRADAS (${weeksToSum.length} SEM.)`;
+      } else if (weeksToSum.length === 1) {
+        sec2Label = `📈 ACUMULADO Y PROMEDIO · SEMANA ${weeksToSum[0]} CERRADA`;
       }
-      if (p) {
-        totReciboPrev += p.recibo || 0;
-        totDespPrev += p.despacho || 0;
-        if (p.inventario > 0) { totInvPrev += p.inventario; countInvPrev++; }
-      }
-    });
 
-    const avgInvCurr = countInv > 0 ? totInvCurr / countInv : 0;
-    const avgInvPrev = countInvPrev > 0 ? totInvPrev / countInvPrev : 0;
-
-    const yoyReciboPer = calcYoY(totReciboCurr, totReciboPrev);
-    const yoyDespPer = calcYoY(totDespCurr, totDespPrev);
-    const yoyInvPer = calcYoY(avgInvCurr, avgInvPrev);
+      kpiCardsRow2 = [
+        {
+          icon: '📦',
+          label: isAllWeeks ? 'TOTAL ENTRADAS (RECIBO) · AÑO ACUMULADO' : `TOTAL ENTRADAS (RECIBO) · ACUM. ${weeksToSum.length} SEM.`,
+          val: totReciboCurr,
+          prevVal: totReciboPrev,
+          yoy: yoyReciboPer,
+          color: '#2563eb'
+        },
+        {
+          icon: '🚛',
+          label: isAllWeeks ? 'TOTAL SALIDAS (DESPACHO) · AÑO ACUMULADO' : `TOTAL SALIDAS (DESPACHO) · ACUM. ${weeksToSum.length} SEM.`,
+          val: totDespCurr,
+          prevVal: totDespPrev,
+          yoy: yoyDespPer,
+          color: '#ea580c'
+        },
+        {
+          icon: '📊',
+          label: isAllWeeks ? 'STOCK INVENTARIO · PROMEDIO ANUAL' : `STOCK INVENTARIO · PROMEDIO (${weeksToSum.length} SEM.)`,
+          val: avgInvCurr,
+          prevVal: avgInvPrev,
+          yoy: yoyInvPer,
+          color: '#059669'
+        }
+      ];
+    }
 
     // Dimensiones de la Diapositiva 16:9 Widescreen (1920x1080)
     const W = 1920;
@@ -3580,7 +4694,9 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillRect(0, 0, W, H);
 
     // ── TÍTULO PRINCIPAL ──
-    const titleText = `THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`;
+    const titleText = isMonth
+      ? `THROUGHPUT (MENSUAL) – CD ${prefix.toUpperCase()} ${currentYear}`
+      : `THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`;
     const titleY = 56;
     ctx.fillStyle = '#0f172a';
     ctx.font = '800 36px Inter, -apple-system, sans-serif';
@@ -3595,57 +4711,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const kpiCardW = Math.floor((kpiTotalW - (kpiGapX * 2)) / 3); // 570px
     const kpiCardH = 96;
 
-    // ── SECCIÓN 1: SEMANA ACTUAL CERRADA ──
+    // ── SECCIÓN 1 ──
     const sec1Y = 100;
+    ctx.font = 'bold 13px Inter, -apple-system, sans-serif';
+    const banner1W = Math.max(360, Math.round(ctx.measureText(sec1Label).width + 36));
     ctx.fillStyle = '#eff6ff';
     ctx.strokeStyle = '#bfdbfe';
     ctx.lineWidth = 1;
-    roundRect(ctx, kpiMarginX, sec1Y, 360, 28, 6);
+    roundRect(ctx, kpiMarginX, sec1Y, banner1W, 28, 6);
 
     ctx.fillStyle = '#1d4ed8';
-    ctx.font = 'bold 13px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`⚡ SEMANA ACTUAL CERRADA · SEMANA ${lastDataWeek}`, kpiMarginX + 14, sec1Y + 14);
+    ctx.fillText(sec1Label, kpiMarginX + 14, sec1Y + 14);
 
     const kpiRow1Y = 136;
 
-    const kpiCardsRow1 = [
-      {
-        icon: '📦',
-        label: `ENTRADAS (RECIBO) · SEMANA ${lastDataWeek}`,
-        val: reciboSemCurr,
-        prevVal: reciboSemPrev,
-        yoy: yoyReciboSem,
-        color: '#2563eb'
-      },
-      {
-        icon: '🚛',
-        label: `SALIDAS (DESPACHO) · SEMANA ${lastDataWeek}`,
-        val: despSemCurr,
-        prevVal: despSemPrev,
-        yoy: yoyDespSem,
-        color: '#ea580c'
-      },
-      {
-        icon: '📊',
-        label: `INVENTARIO FINAL · SEMANA ${lastDataWeek}`,
-        val: invSemCurr,
-        prevVal: invSemPrev,
-        yoy: yoyInvSem,
-        color: '#059669'
-      }
-    ];
-
-    // ── SECCIÓN 2: ACUMULADO Y PROMEDIO DEL PERÍODO ──
+    // ── SECCIÓN 2 ──
     const sec2Y = 248;
-    let sec2Label = `📈 ACUMULADO Y PROMEDIO · ÚLTIMAS ${weeksToSum.length} SEMANAS CERRADAS`;
-    if (isAllWeeks) {
-      sec2Label = `📈 ACUMULADO Y PROMEDIO · TODAS LAS SEMANAS CERRADAS (${weeksToSum.length} SEM.)`;
-    } else if (weeksToSum.length === 1) {
-      sec2Label = `📈 ACUMULADO Y PROMEDIO · SEMANA ${weeksToSum[0]} CERRADA`;
-    }
-
     ctx.font = 'bold 13px Inter, -apple-system, sans-serif';
     const bannerW = Math.max(460, Math.round(ctx.measureText(sec2Label).width + 36));
 
@@ -3660,33 +4743,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillText(sec2Label, kpiMarginX + 14, sec2Y + 14);
 
     const kpiRow2Y = 284;
-
-    const kpiCardsRow2 = [
-      {
-        icon: '📦',
-        label: isAllWeeks ? 'TOTAL ENTRADAS (RECIBO) · AÑO ACUMULADO' : `TOTAL ENTRADAS (RECIBO) · ACUM. ${weeksToSum.length} SEM.`,
-        val: totReciboCurr,
-        prevVal: totReciboPrev,
-        yoy: yoyReciboPer,
-        color: '#2563eb'
-      },
-      {
-        icon: '🚛',
-        label: isAllWeeks ? 'TOTAL SALIDAS (DESPACHO) · AÑO ACUMULADO' : `TOTAL SALIDAS (DESPACHO) · ACUM. ${weeksToSum.length} SEM.`,
-        val: totDespCurr,
-        prevVal: totDespPrev,
-        yoy: yoyDespPer,
-        color: '#ea580c'
-      },
-      {
-        icon: '📊',
-        label: isAllWeeks ? 'STOCK INVENTARIO · PROMEDIO ANUAL' : `STOCK INVENTARIO · PROMEDIO (${weeksToSum.length} SEM.)`,
-        val: avgInvCurr,
-        prevVal: avgInvPrev,
-        yoy: yoyInvPer,
-        color: '#059669'
-      }
-    ];
 
     const drawKpiCard = (card, x, y) => {
       // Fondo tarjeta y borde
@@ -4024,15 +5080,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // ── TÍTULO PRINCIPAL (THROUGHPUT – CD ...) Y SUBTÍTULO ──
       const currentYear = window._cdContext?.[prefix]?.currentYear || 2026;
+      const isMonth = timeGranularity === 'month';
       ctx.fillStyle = '#0f172a';
       ctx.font = '800 34px Inter, -apple-system, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, 48);
+      ctx.fillText(isMonth ? `THROUGHPUT (MENSUAL) – CD ${prefix.toUpperCase()} ${currentYear}` : `THROUGHPUT – CD ${prefix.toUpperCase()} ${currentYear}`, W / 2, 48);
 
       ctx.fillStyle = '#475569';
       ctx.font = '700 20px Inter, -apple-system, sans-serif';
-      ctx.fillText(`MOVIMIENTO DE CAJAS POR DIVISIÓN`, W / 2, 84);
+      ctx.fillText(isMonth ? `MOVIMIENTO DE CAJAS POR DIVISIÓN (MENSUAL)` : `MOVIMIENTO DE CAJAS POR DIVISIÓN`, W / 2, 84);
 
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
@@ -4162,11 +5219,13 @@ document.addEventListener('DOMContentLoaded', () => {
       roundRect(ctx, 20, 20, W - 40, H - 40, 12, true, true);
 
       // Cabecera
+      const isMonth = timeGranularity === 'month';
+      const displayLabel = isMonth ? `${label} (Mensual)` : label;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = colorMap[processKey] || '#1e293b';
       ctx.font = '800 28px Inter, -apple-system, sans-serif';
-      ctx.fillText(label, 42, 50);
+      ctx.fillText(displayLabel, 42, 50);
 
       // Leyenda centrada en la cabecera (sin colisión con barras ni líneas)
       drawSlideHeaderLegend(ctx, charts[targetCanvasId], W / 2, 50);
@@ -4175,7 +5234,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.textAlign = 'right';
       ctx.fillStyle = '#475569';
       ctx.font = '800 20px Inter, -apple-system, sans-serif';
-      ctx.fillText('Cajas / Semana', W - 42, 50);
+      const badgeText = isMonth
+        ? (processKey === 'inventario' ? 'Stock Cierre de Mes' : 'Cajas / Mes')
+        : (processKey === 'inventario' ? 'Stock en Cajas' : 'Cajas / Semana');
+      ctx.fillText(badgeText, W - 42, 50);
 
       // Dibujar gráfico con suavizado de alta calidad (sin estiramientos)
       ctx.imageSmoothingEnabled = true;
