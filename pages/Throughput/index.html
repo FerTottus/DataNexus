@@ -1962,21 +1962,27 @@
             <i class="fa-solid fa-calendar-week text-primary"></i> Rango Semanal:
           </label>
           <select id="weeksFilter" class="glass-select">
-            <option value="current_plus_4" selected>Semana actual + 4 proyectadas (Plan)</option>
-            <option value="4_plus_4">Últimas 4 semanas + 4 proyectadas</option>
-            <option value="8_plus_4">Últimas 8 semanas + 4 proyectadas</option>
+            <option value="current_plus_month" selected>Semana actual + proyectadas del mes (Plan)</option>
+            <option value="4_plus_month">Últimas 4 semanas + proyectadas del mes</option>
+            <option value="8_plus_month">Últimas 8 semanas + proyectadas del mes</option>
+            <option value="month_current">Mes actual completo (cerradas + proyectadas)</option>
             <option value="current">Semana actual (cerrada)</option>
             <option value="4">Últimas 4 semanas (cerradas)</option>
             <option value="8">Últimas 8 semanas (cerradas)</option>
             <option value="12">Últimas 12 semanas</option>
             <option value="16">Últimas 16 semanas</option>
             <option value="all">Todas las semanas registradas</option>
+            <optgroup label="Proyección fija (+4 semanas)">
+              <option value="current_plus_4">Semana actual + 4 fijas</option>
+              <option value="4_plus_4">Últimas 4 semanas + 4 fijas</option>
+              <option value="8_plus_4">Últimas 8 semanas + 4 fijas</option>
+            </optgroup>
           </select>
 
-          <!-- Toggle +4 Semanas Proyectadas -->
-          <label class="glass-toggle" id="lblToggleFuture" title="Muestra 4 semanas a futuro con las metas del Plan">
+          <!-- Toggle Semanas Proyectadas del Mes / Plan -->
+          <label class="glass-toggle" id="lblToggleFuture" title="Muestra las semanas proyectadas con las metas del Plan">
             <input type="checkbox" id="toggleFutureWeeks" checked>
-            <span><i class="fa-solid fa-wand-magic-sparkles text-primary"></i> +4 Sem. Proyectadas</span>
+            <span id="lblToggleFutureText"><i class="fa-solid fa-wand-magic-sparkles text-primary"></i> Proyectadas del Mes</span>
           </label>
 
           <label class="glass-toggle" title="Muestra las cifras directamente encima de cada barra y punto para captura fácil">
@@ -2039,14 +2045,24 @@
           </div>
         </div>
 
-        <!-- Interactive Month Pills Selector (visible only in monthly mode) -->
-        <div id="monthSelectorContainer" class="month-selector-bar" style="display: none; width: 100%; border-top: 1px solid rgba(226, 232, 240, 0.8); padding-top: 10px; margin-top: 6px;">
+        <!-- Interactive Month Pills Selector (activo en modo Semanal y Mensual) -->
+        <div id="monthSelectorContainer" class="month-selector-bar" style="display: block; width: 100%; border-top: 1px solid rgba(226, 232, 240, 0.8); padding-top: 10px; margin-top: 6px;">
           <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
-            <span style="font-size: 0.82rem; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;">
-              <i class="fa-solid fa-filter text-primary"></i> Selector de Meses a Graficar:
-              <span id="monthCountBadge" style="font-size: 0.74rem; background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 12px; font-weight: 700;">8 Meses seleccionados</span>
-            </span>
-            <span style="font-size: 0.75rem; color: #64748b;">Haz clic en cualquier mes para agregarlo o quitarlo del análisis.</span>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <span id="monthSelectorTitle" style="font-size: 0.82rem; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-filter text-primary"></i> <span id="monthSelectorTitleText">Filtrar Semanas por Mes:</span>
+                <span id="monthCountBadge" style="font-size: 0.74rem; background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 12px; font-weight: 700;">Semanas rodantes</span>
+              </span>
+              <div id="weeklyMonthQuickActions" style="display: flex; gap: 6px; align-items: center;">
+                <button id="btnQuickCurrentMonth" class="btn btn-sm btn-outline-primary" style="border-radius: 6px; font-weight: 700; font-size: 0.74rem; padding: 3px 9px;" title="Ver exclusivamente las semanas del mes en curso">
+                  <i class="fa-solid fa-calendar-check"></i> Mes Actual
+                </button>
+                <button id="btnResetRollingWeeks" class="btn btn-sm btn-outline-secondary" style="border-radius: 6px; font-weight: 600; font-size: 0.74rem; padding: 3px 9px;" title="Volver al rango de semanas rodantes seleccionado">
+                  <i class="fa-solid fa-arrow-rotate-left"></i> Semanas Rodantes
+                </button>
+              </div>
+            </div>
+            <span id="monthSelectorHint" style="font-size: 0.75rem; color: #64748b;">Haz clic en cualquier mes para ver sus semanas específicas (cerradas y proyectadas).</span>
           </div>
           <div class="month-pills-wrap" id="monthPillsWrap">
             <!-- 12 pills rendered dynamically -->

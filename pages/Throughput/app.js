@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('toggleDataLabels')?.addEventListener('change', renderAll);
 
   // ══════════════════════════════════════════════
-  // PROYECCIÓN A FUTURO (+4 SEMANAS PLAN)
+  // PROYECCIÓN A FUTURO (PROYECTADAS DEL MES / PLAN)
   // ══════════════════════════════════════════════
   const toggleFutureEl = document.getElementById('toggleFutureWeeks');
   const weeksFilterEl = document.getElementById('weeksFilter');
@@ -235,24 +235,30 @@ document.addEventListener('DOMContentLoaded', () => {
   toggleFutureEl?.addEventListener('change', (e) => {
     if (!weeksFilterEl) return;
     if (!e.target.checked) {
-      // Si desmarca el toggle y estaba en una opción "_plus_4", pasamos a la versión cerrada
-      if (weeksFilterEl.value === 'current_plus_4') weeksFilterEl.value = 'current';
-      else if (weeksFilterEl.value === '4_plus_4') weeksFilterEl.value = '4';
-      else if (weeksFilterEl.value === '8_plus_4') weeksFilterEl.value = '8';
+      // Si desmarca el toggle y estaba en una opción con proyección, pasamos a la versión cerrada correspondiente
+      if (weeksFilterEl.value === 'current_plus_month' || weeksFilterEl.value === 'current_plus_4') weeksFilterEl.value = 'current';
+      else if (weeksFilterEl.value === '4_plus_month' || weeksFilterEl.value === '4_plus_4') weeksFilterEl.value = '4';
+      else if (weeksFilterEl.value === '8_plus_month' || weeksFilterEl.value === '8_plus_4') weeksFilterEl.value = '8';
+      else if (weeksFilterEl.value === 'month_current') weeksFilterEl.value = 'current';
     } else {
-      // Si activa el toggle y tenía una opción cerrada simple, pasamos a la opción proyectada
-      if (weeksFilterEl.value === 'current') weeksFilterEl.value = 'current_plus_4';
-      else if (weeksFilterEl.value === '4') weeksFilterEl.value = '4_plus_4';
-      else if (weeksFilterEl.value === '8') weeksFilterEl.value = '8_plus_4';
+      // Si activa el toggle y tenía una opción cerrada simple, pasamos a la opción proyectada del mes
+      if (weeksFilterEl.value === 'current') weeksFilterEl.value = 'current_plus_month';
+      else if (weeksFilterEl.value === '4') weeksFilterEl.value = '4_plus_month';
+      else if (weeksFilterEl.value === '8') weeksFilterEl.value = '8_plus_month';
     }
     renderAll();
   });
 
   weeksFilterEl?.addEventListener('change', (e) => {
     if (toggleFutureEl) {
-      if (e.target.value.includes('plus_4')) {
+      if (e.target.value.includes('plus_') || e.target.value === 'month_current') {
         toggleFutureEl.checked = true;
       }
+    }
+    // Si el usuario cambia el selector de semanas rodantes, restablecemos el filtro de mes específico en modo semanal
+    if (selectedWeeklyMonths.size > 0) {
+      selectedWeeklyMonths.clear();
+      updateMonthPillsUI();
     }
     renderAll();
   });
@@ -732,6 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let kpiModeMonth = 'periodo'; // 'periodo' | 'mes'
   let timeGranularity = 'week'; // 'week' | 'month'
   const selectedMonths = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  const selectedWeeklyMonths = new Set(); // Meses específicos filtrados en modo semanal
   let availableDataMonths = [];
 
   // Toggle KPI Semanal
@@ -775,7 +782,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (weekGrp) weekGrp.style.display = isM ? 'none' : 'flex';
     if (monthGrp) monthGrp.style.display = isM ? 'flex' : 'none';
-    if (monthSelector) monthSelector.style.display = isM ? 'block' : 'none';
+    if (monthSelector) monthSelector.style.display = 'block'; // Siempre visible en semanal y mensual
+
+    // Actualizar encabezados del selector de meses
+    const selTitleText = document.getElementById('monthSelectorTitleText');
+    const selHint = document.getElementById('monthSelectorHint');
+    const quickActions = document.getElementById('weeklyMonthQuickActions');
+
+    if (selTitleText) selTitleText.textContent = isM ? 'Selector de Meses a Graficar:' : 'Filtrar Semanas por Mes:';
+    if (selHint) selHint.textContent = isM ? 'Haz clic en cualquier mes para agregarlo o quitarlo del análisis.' : 'Haz clic en un mes para ver sus semanas (cerradas y proyectadas) o usa "Semanas Rodantes".';
+    if (quickActions) quickActions.style.display = isM ? 'none' : 'flex';
 
     // Subtítulos informativos
     const subSecos = document.getElementById('subtitleSecos');
@@ -795,13 +811,31 @@ document.addEventListener('DOMContentLoaded', () => {
       if (bI) bI.textContent = badgeTextInv;
     });
 
+    updateMonthPillsUI();
     renderAll();
   }
 
   document.getElementById('btnGranularityWeek')?.addEventListener('click', () => setGranularity('week'));
   document.getElementById('btnGranularityMonth')?.addEventListener('click', () => setGranularity('month'));
 
-  // Presets de Meses
+  // Acciones rápidas del selector en modo semanal
+  document.getElementById('btnQuickCurrentMonth')?.addEventListener('click', () => {
+    const curM = availableDataMonths.length > 0 ? availableDataMonths[availableDataMonths.length - 1] : 9; // Octubre
+    selectedWeeklyMonths.clear();
+    selectedWeeklyMonths.add(curM);
+    showToast(`Mostrando semanas de ${MONTH_NAMES_FULL[curM]}`, 'info', 1800);
+    updateMonthPillsUI();
+    renderAll();
+  });
+
+  document.getElementById('btnResetRollingWeeks')?.addEventListener('click', () => {
+    selectedWeeklyMonths.clear();
+    showToast('Restablecido a rango de semanas rodantes', 'info', 1800);
+    updateMonthPillsUI();
+    renderAll();
+  });
+
+  // Presets de Meses (Modo Mensual)
   document.getElementById('monthsPresetFilter')?.addEventListener('change', (e) => {
     const val = e.target.value;
     if (val === 'all') {
@@ -858,30 +892,53 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!wrap) return;
     wrap.innerHTML = '';
 
+    const isMonthMode = timeGranularity === 'month';
+
     for (let m = 0; m < 12; m++) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'month-pill-btn';
-      if (selectedMonths.has(m)) btn.classList.add('active');
-      if (availableDataMonths.includes(m)) btn.classList.add('has-data');
+
+      const isDataMonth = availableDataMonths.includes(m);
+      if (isDataMonth) btn.classList.add('has-data');
       else btn.classList.add('future-month');
 
+      if (isMonthMode) {
+        if (selectedMonths.has(m)) btn.classList.add('active');
+      } else {
+        if (selectedWeeklyMonths.has(m)) btn.classList.add('active');
+      }
+
       btn.textContent = MONTH_NAMES_SHORT[m];
-      btn.title = `${MONTH_NAMES_FULL[m]} · ${availableDataMonths.includes(m) ? 'Con datos cerrados' : 'Sin datos cerrados'}`;
+      btn.title = `${MONTH_NAMES_FULL[m]} · ${isDataMonth ? 'Con datos cerrados' : 'Sin datos cerrados'}`;
 
       btn.addEventListener('click', () => {
-        if (selectedMonths.has(m)) {
-          if (selectedMonths.size > 1) {
-            selectedMonths.delete(m);
+        if (isMonthMode) {
+          if (selectedMonths.has(m)) {
+            if (selectedMonths.size > 1) {
+              selectedMonths.delete(m);
+            } else {
+              showToast('Debes mantener al menos un mes seleccionado', 'info', 2000);
+              return;
+            }
           } else {
-            showToast('Debes mantener al menos un mes seleccionado', 'info', 2000);
-            return;
+            selectedMonths.add(m);
           }
+          const presetSel = document.getElementById('monthsPresetFilter');
+          if (presetSel) presetSel.value = 'custom';
         } else {
-          selectedMonths.add(m);
+          // Modo Semanal:
+          if (selectedWeeklyMonths.has(m)) {
+            selectedWeeklyMonths.delete(m);
+            if (selectedWeeklyMonths.size === 0) {
+              showToast('Restablecido a rango de semanas rodantes', 'info', 1800);
+            }
+          } else {
+            selectedWeeklyMonths.clear();
+            selectedWeeklyMonths.add(m);
+            showToast(`Filtrando semanas de ${MONTH_NAMES_FULL[m]}`, 'info', 1800);
+          }
         }
-        const presetSel = document.getElementById('monthsPresetFilter');
-        if (presetSel) presetSel.value = 'custom';
         updateMonthPillsUI();
         renderAll();
       });
@@ -890,13 +947,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const badge = document.getElementById('monthCountBadge');
     if (badge) {
-      badge.textContent = `${selectedMonths.size} Mes${selectedMonths.size === 1 ? '' : 'es'} seleccionado${selectedMonths.size === 1 ? '' : 's'}`;
+      if (isMonthMode) {
+        badge.textContent = `${selectedMonths.size} Mes${selectedMonths.size === 1 ? '' : 'es'} seleccionado${selectedMonths.size === 1 ? '' : 's'}`;
+        badge.style.background = '#e0e7ff';
+        badge.style.color = '#3730a3';
+      } else {
+        if (selectedWeeklyMonths.size > 0) {
+          const mNames = Array.from(selectedWeeklyMonths).map(m => MONTH_NAMES_SHORT[m]).join(', ');
+          badge.textContent = `Mes: ${mNames} (Filtrando semanas)`;
+          badge.style.background = '#2563eb';
+          badge.style.color = '#ffffff';
+        } else {
+          badge.textContent = 'Semanas rodantes';
+          badge.style.background = '#e0e7ff';
+          badge.style.color = '#3730a3';
+        }
+      }
     }
   }
 
   function renderAll() {
     if (!window.dataFrescos || !window.dataSecos) return;
-    const numWeeks = document.getElementById('weeksFilter')?.value || 'current_plus_4';
+    const numWeeks = document.getElementById('weeksFilter')?.value || 'current_plus_month';
     const showLabelsWeek = document.getElementById('toggleDataLabels')?.checked ?? true;
     const showLabelsMonth = document.getElementById('toggleDataLabelsMonth')?.checked ?? true;
     const showLabels = timeGranularity === 'month' ? showLabelsMonth : showLabelsWeek;
@@ -1104,47 +1176,123 @@ document.addEventListener('DOMContentLoaded', () => {
       lastDataWeek = currentYearRows[currentYearRows.length - 1].week;
     }
 
-    // 4. Semanas a graficar (cerradas + proyección a 4 semanas futuras)
+    // Identificar meses con datos reales (cerrados) en el año actual para las pastillas
+    const dataMonthsSet = new Set();
+    currentYearRows.forEach(r => {
+      if (r.week <= lastDataWeek && (r.recibo > 0 || r.despacho > 0 || r.inventario > 0)) {
+        const m = getMonthForWeek(r.week, currentYear);
+        dataMonthsSet.add(m);
+      }
+    });
+    const dataMonths = Array.from(dataMonthsSet).sort((a, b) => a - b);
+    if (dataMonths.length > 0 && availableDataMonths.length === 0) {
+      availableDataMonths = dataMonths;
+      updateMonthPillsUI();
+    }
+
+    // 4. Semanas a graficar (cerradas + proyección del mes o fija)
+    const curMonth = getMonthForWeek(lastDataWeek, currentYear);
     let isProjectionActive = includeFuture;
     let baseFilter = filterValue;
+    let projectionMode = 'month'; // 'month' (resto del mes) | '4' (4 semanas fijas)
 
-    if (filterValue === 'current_plus_4') {
+    if (filterValue === 'current_plus_month') {
       baseFilter = 'current';
       isProjectionActive = true;
+      projectionMode = 'month';
+    } else if (filterValue === '4_plus_month') {
+      baseFilter = '4';
+      isProjectionActive = true;
+      projectionMode = 'month';
+    } else if (filterValue === '8_plus_month') {
+      baseFilter = '8';
+      isProjectionActive = true;
+      projectionMode = 'month';
+    } else if (filterValue === 'month_current') {
+      baseFilter = 'month_current';
+      isProjectionActive = true;
+      projectionMode = 'month';
+    } else if (filterValue === 'current_plus_4') {
+      baseFilter = 'current';
+      isProjectionActive = true;
+      projectionMode = '4';
     } else if (filterValue === '4_plus_4') {
       baseFilter = '4';
       isProjectionActive = true;
+      projectionMode = '4';
     } else if (filterValue === '8_plus_4') {
       baseFilter = '8';
       isProjectionActive = true;
+      projectionMode = '4';
     }
 
     let closedWeeks = [];
-    if (baseFilter === 'all') {
-      closedWeeks = currentYearRows
-        .filter(r => r.recibo > 0 || r.despacho > 0 || r.inventario > 0)
-        .map(r => r.week);
-    } else if (baseFilter === 'current') {
-      closedWeeks = [lastDataWeek];
-    } else {
-      const n = parseInt(baseFilter, 10) || 8;
-      const startWeek = Math.max(1, lastDataWeek - n + 1);
-      for (let w = startWeek; w <= lastDataWeek; w++) {
-        closedWeeks.push(w);
-      }
-    }
+    let futureWeeks = [];
 
-    const weekNumbers = [...closedWeeks];
-    if (isProjectionActive) {
-      // Agregar exactamente 4 semanas futuras a partir de la semana actual con data
-      for (let i = 1; i <= 4; i++) {
-        const nextW = lastDataWeek + i;
-        if (nextW <= 52 && !weekNumbers.includes(nextW)) {
-          weekNumbers.push(nextW);
+    // CASO A: Meses específicos seleccionados interactivamente con las pastillas en la vista semanal
+    if (selectedWeeklyMonths.size > 0) {
+      const targetMonths = selectedWeeklyMonths;
+      for (let w = 1; w <= 52; w++) {
+        const mW = getMonthForWeek(w, currentYear);
+        if (targetMonths.has(mW)) {
+          if (w <= lastDataWeek) {
+            closedWeeks.push(w);
+          } else if (isProjectionActive) {
+            futureWeeks.push(w);
+          }
+        }
+      }
+    } else if (baseFilter === 'month_current') {
+      // CASO B: Ver mes actual completo (cerradas de curMonth + proyecciones del Plan del mismo mes)
+      for (let w = 1; w <= 52; w++) {
+        if (getMonthForWeek(w, currentYear) === curMonth) {
+          if (w <= lastDataWeek) {
+            closedWeeks.push(w);
+          } else if (isProjectionActive) {
+            futureWeeks.push(w);
+          }
+        }
+      }
+    } else {
+      // CASO C: Rango rodante estándar por número de semanas
+      if (baseFilter === 'all') {
+        closedWeeks = currentYearRows
+          .filter(r => r.recibo > 0 || r.despacho > 0 || r.inventario > 0)
+          .map(r => r.week);
+      } else if (baseFilter === 'current') {
+        closedWeeks = [lastDataWeek];
+      } else {
+        const n = parseInt(baseFilter, 10) || 8;
+        const startWeek = Math.max(1, lastDataWeek - n + 1);
+        for (let w = startWeek; w <= lastDataWeek; w++) {
+          closedWeeks.push(w);
+        }
+      }
+
+      if (isProjectionActive) {
+        if (projectionMode === 'month') {
+          // Proyectadas del mes: agregar semanas futuras que pertenecen al MISMO mes en curso (curMonth)
+          for (let w = lastDataWeek + 1; w <= 53; w++) {
+            if (getMonthForWeek(w, currentYear) === curMonth) {
+              futureWeeks.push(w);
+            } else {
+              // Si cambia de mes (ej. S45 pasa a Noviembre), nos detenemos para NO invadir el mes siguiente
+              break;
+            }
+          }
+        } else {
+          // Proyección fija a 4 semanas futuras
+          for (let i = 1; i <= 4; i++) {
+            const nextW = lastDataWeek + i;
+            if (nextW <= 52) {
+              futureWeeks.push(nextW);
+            }
+          }
         }
       }
     }
 
+    const weekNumbers = [...closedWeeks, ...futureWeeks];
     if (weekNumbers.length === 0) return;
 
     // 5. Mapeo de datos por año y semana
@@ -1293,7 +1441,9 @@ document.addEventListener('DOMContentLoaded', () => {
       despachoPrev = totDespachoPrev;
       invCurr = countInv > 0 ? totInvCurr / countInv : 0;
       invPrev = closedWeeks.length > 0 ? totInvPrev / closedWeeks.length : 0;
-      const proyNote = futureWeeksCount > 0 ? ` + ${futureWeeksCount} proyectadas (Plan)` : '';
+      const curM = getMonthForWeek(lastDataWeek, currentYear);
+      const curMName = MONTH_NAMES_SHORT[curM] || '';
+      const proyNote = futureWeeksCount > 0 ? ` + ${futureWeeksCount} proyectadas (${curMName} · Plan)` : '';
       kpiLabel = `Últimas ${closedWeeks.length} semanas cerradas (${currentYear} vs ${prevYear})${divTag}${proyNote}`;
       semanaRef = null;
     }
@@ -5317,6 +5467,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.dataDivision = null;
     window.parsedBasesData = null;
     window.dataBases = null;
+    selectedWeeklyMonths.clear();
 
     document.getElementById('dashboardSection')?.classList.add('hidden');
     document.getElementById('connectBox')?.classList.remove('hidden');
