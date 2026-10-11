@@ -395,7 +395,7 @@ function extractEvolutivoBlock(ws, dataStartRow, range) {
 
   if (validCols.length === 0) return null;
 
-  const lastCols = validCols.slice(-7);
+  const lastCols = validCols.slice(-12);
 
   const weeks = lastCols.map(c => {
     const cell = ws[XLSX.utils.encode_cell({ r: headerRow, c })];
@@ -806,9 +806,9 @@ function finalizeWarehouseData(acc, evolObj, activeWeekTag) {
     const lastWeekInSheet = evolWeeks[evolWeeks.length - 1];
 
     if (lastWeekInSheet === activeWeekTag) {
-      finalWeeks = evolWeeks.slice(-7);
+      finalWeeks = evolWeeks.slice(-12);
       finalEvolution = evolObj.evolution.map(e => {
-        const vals = [...(e.values || [])].slice(-7);
+        const vals = [...(e.values || [])].slice(-12);
         const normLabel = normalizeRange(e.label);
         if (currentWeekBultosPcts[normLabel] !== undefined && vals.length > 0) {
           vals[vals.length - 1] = currentWeekBultosPcts[normLabel];
@@ -820,27 +820,27 @@ function finalizeWarehouseData(acc, evolObj, activeWeekTag) {
         };
       });
     } else {
-      const hist6Weeks = evolWeeks.slice(-6);
-      finalWeeks = [...hist6Weeks, activeWeekTag];
+      const hist11Weeks = evolWeeks.slice(-11);
+      finalWeeks = [...hist11Weeks, activeWeekTag];
 
       finalEvolution = evolObj.evolution.map(e => {
-        const hist6Vals = (e.values || []).slice(-6);
+        const hist11Vals = (e.values || []).slice(-11);
         const normLabel = normalizeRange(e.label);
         const currentPct = currentWeekBultosPcts[normLabel] !== undefined ? currentWeekBultosPcts[normLabel] : 0;
         return {
           label: e.label,
-          values: [...hist6Vals, currentPct],
+          values: [...hist11Vals, currentPct],
           color: e.color || defaultRangeColors[e.label] || '#2563eb'
         };
       });
     }
   } else {
-    finalWeeks = ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', activeWeekTag];
+    finalWeeks = ['S-26', 'S-27', 'S-28', 'S-29', 'S-30', 'S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', activeWeekTag];
     finalEvolution = [
-      { label: '0 a 10 Semanas', values: [89.14, 87.07, 85.83, 86.07, 87.09, 87.96, currentWeekBultosPcts['0 a 10 Semanas']], color: '#10b981' },
-      { label: '10 a 25 Semanas', values: [8.73, 10.68, 11.83, 11.71, 10.74, 10.18, currentWeekBultosPcts['10 a 25 Semanas']], color: '#f59e0b' },
-      { label: '25 a 52 Semanas', values: [1.83, 1.95, 2.03, 1.94, 1.91, 1.60, currentWeekBultosPcts['25 a 52 Semanas']], color: '#f97316' },
-      { label: 'Mayor a 52 Semanas', values: [0.30, 0.31, 0.31, 0.28, 0.26, 0.27, currentWeekBultosPcts['mayor a 52 Semanas']], color: '#ef4444' }
+      { label: '0 a 10 Semanas', values: [90.10, 89.80, 89.50, 89.20, 88.90, 89.14, 87.07, 85.83, 86.07, 87.09, 87.96, currentWeekBultosPcts['0 a 10 Semanas']], color: '#10b981' },
+      { label: '10 a 25 Semanas', values: [8.10, 8.30, 8.50, 8.60, 8.80, 8.73, 10.68, 11.83, 11.71, 10.74, 10.18, currentWeekBultosPcts['10 a 25 Semanas']], color: '#f59e0b' },
+      { label: '25 a 52 Semanas', values: [1.50, 1.60, 1.70, 1.80, 1.90, 1.83, 1.95, 2.03, 1.94, 1.91, 1.60, currentWeekBultosPcts['25 a 52 Semanas']], color: '#f97316' },
+      { label: 'Mayor a 52 Semanas', values: [0.30, 0.30, 0.30, 0.40, 0.40, 0.30, 0.31, 0.31, 0.28, 0.26, 0.27, currentWeekBultosPcts['mayor a 52 Semanas']], color: '#ef4444' }
     ];
   }
 
@@ -868,12 +868,12 @@ function finalizeWarehouseData(acc, evolObj, activeWeekTag) {
 }
 
 function createEmptyWarehouseData(whseTarget, whseLabel, evolObj, activeWeekTag = 'S-37') {
-  const weeks = evolObj ? evolObj.weeks : ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', activeWeekTag];
+  const weeks = evolObj ? evolObj.weeks : ['S-26', 'S-27', 'S-28', 'S-29', 'S-30', 'S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', activeWeekTag];
   const evolution = evolObj ? evolObj.evolution : [
-    { label: '0 a 10 Semanas', values: [0, 0, 0, 0, 0, 0, 0], color: '#10b981' },
-    { label: '10 a 25 Semanas', values: [0, 0, 0, 0, 0, 0, 0], color: '#f59e0b' },
-    { label: '25 a 52 Semanas', values: [0, 0, 0, 0, 0, 0, 0], color: '#f97316' },
-    { label: 'Mayor a 52 Semanas', values: [0, 0, 0, 0, 0, 0, 0], color: '#ef4444' }
+    { label: '0 a 10 Semanas', values: Array(12).fill(0), color: '#10b981' },
+    { label: '10 a 25 Semanas', values: Array(12).fill(0), color: '#f59e0b' },
+    { label: '25 a 52 Semanas', values: Array(12).fill(0), color: '#f97316' },
+    { label: 'Mayor a 52 Semanas', values: Array(12).fill(0), color: '#ef4444' }
   ];
 
   return {
@@ -1073,12 +1073,12 @@ function loadSampleData() {
         topSkus: []
       }
     },
-    weeks: ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', 'S-37'],
+    weeks: ['S-26', 'S-27', 'S-28', 'S-29', 'S-30', 'S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', 'S-37'],
     evolution: [
-      { label: '0 a 10 Semanas', values: [89.14, 87.07, 85.83, 86.07, 87.09, 87.96, 87.96], color: '#10b981' },
-      { label: '10 a 25 Semanas', values: [8.73, 10.68, 11.83, 11.71, 10.74, 10.18, 10.18], color: '#f59e0b' },
-      { label: '25 a 52 Semanas', values: [1.83, 1.95, 2.03, 1.94, 1.91, 1.60, 1.60], color: '#f97316' },
-      { label: 'Mayor a 52 Semanas', values: [0.30, 0.31, 0.31, 0.28, 0.26, 0.27, 0.27], color: '#ef4444' }
+      { label: '0 a 10 Semanas', values: [88.50, 88.90, 89.20, 89.50, 89.10, 89.14, 87.07, 85.83, 86.07, 87.09, 87.96, 87.96], color: '#10b981' },
+      { label: '10 a 25 Semanas', values: [9.20, 8.90, 8.60, 8.40, 8.70, 8.73, 10.68, 11.83, 11.71, 10.74, 10.18, 10.18], color: '#f59e0b' },
+      { label: '25 a 52 Semanas', values: [1.90, 1.80, 1.80, 1.70, 1.80, 1.83, 1.95, 2.03, 1.94, 1.91, 1.60, 1.60], color: '#f97316' },
+      { label: 'Mayor a 52 Semanas', values: [0.40, 0.40, 0.40, 0.40, 0.40, 0.30, 0.31, 0.31, 0.28, 0.26, 0.27, 0.27], color: '#ef4444' }
     ],
     locationsTotal: 22872,
     locations: [
@@ -1193,12 +1193,12 @@ function loadSampleData() {
         topSkus: []
       }
     },
-    weeks: ['S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', 'S-37'],
+    weeks: ['S-26', 'S-27', 'S-28', 'S-29', 'S-30', 'S-31', 'S-32', 'S-33', 'S-34', 'S-35', 'S-36', 'S-37'],
     evolution: [
-      { label: '0 a 10 Semanas', values: [95.20, 94.80, 94.10, 93.90, 94.20, 94.50, 95.50], color: '#10b981' },
-      { label: '10 a 25 Semanas', values: [4.20, 4.50, 5.10, 5.30, 5.00, 4.80, 3.81], color: '#f59e0b' },
-      { label: '25 a 52 Semanas', values: [0.50, 0.60, 0.70, 0.70, 0.70, 0.60, 0.52], color: '#f97316' },
-      { label: 'Mayor a 52 Semanas', values: [0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.17], color: '#ef4444' }
+      { label: '0 a 10 Semanas', values: [94.00, 94.20, 94.50, 94.80, 95.00, 95.20, 94.80, 94.10, 93.90, 94.20, 94.50, 95.50], color: '#10b981' },
+      { label: '10 a 25 Semanas', values: [5.20, 5.00, 4.70, 4.40, 4.30, 4.20, 4.50, 5.10, 5.30, 5.00, 4.80, 3.81], color: '#f59e0b' },
+      { label: '25 a 52 Semanas', values: [0.70, 0.70, 0.70, 0.70, 0.60, 0.50, 0.60, 0.70, 0.70, 0.70, 0.60, 0.52], color: '#f97316' },
+      { label: 'Mayor a 52 Semanas', values: [0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.17], color: '#ef4444' }
     ],
     locationsTotal: 2514,
     locations: [
@@ -1820,12 +1820,12 @@ function renderSlide3(data) {
   renderChartS3(data.weeks, data.evolution);
 
   const theadRow = document.getElementById('theadS3EvolRow');
-  theadRow.innerHTML = `<th style="text-align:left; font-weight:900;">Rango Semanas</th>`;
+  theadRow.innerHTML = `<th style="text-align:left; font-weight:900; padding:4px 6px; font-size:0.78rem;">Rango Semanas</th>`;
   (data.weeks || []).forEach((w, idx) => {
     const isCurrent = idx === data.weeks.length - 1;
-    theadRow.innerHTML += `<th style="${isCurrent ? 'background:#eff6ff; color:#1d4ed8; font-weight:900; font-size:0.90rem;' : 'font-weight:800;'}">${w}</th>`;
+    theadRow.innerHTML += `<th style="${isCurrent ? 'background:#eff6ff; color:#1d4ed8; font-weight:900; font-size:0.78rem; padding:4px 3px;' : 'font-weight:800; font-size:0.76rem; padding:4px 3px;'}">${w}</th>`;
   });
-  theadRow.innerHTML += `<th style="font-weight:900;">Var. WoW</th>`;
+  theadRow.innerHTML += `<th style="font-weight:900; font-size:0.78rem; padding:4px 4px;">Variación</th>`;
 
   const tbodyEvol = document.getElementById('tbodyS3Evolution');
   tbodyEvol.innerHTML = '';
@@ -1838,18 +1838,18 @@ function renderSlide3(data) {
     const isPositiveGood = e.label.includes('0 a 10') ? diff > 0 : diff < 0;
 
     let trHtml = `
-      <td style="text-align:left; font-weight:800; color:#1e293b; font-size:0.90rem;">
-        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${e.color}; margin-right:6px;"></span>
+      <td style="text-align:left; font-weight:800; color:#1e293b; font-size:0.78rem; padding:4px 6px; white-space:nowrap;">
+        <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:${e.color}; margin-right:5px;"></span>
         ${e.label}
       </td>
     `;
     vals.forEach((v, idx) => {
       const isCurrent = idx === vals.length - 1;
-      trHtml += `<td style="${isCurrent ? 'background:#eff6ff; font-weight:900; font-size:0.96rem; color:' + e.color + ';' : 'font-size:0.88rem; font-weight:600;'}">${safeFixed(v, 2, '%')}</td>`;
+      trHtml += `<td style="${isCurrent ? 'background:#eff6ff; font-weight:900; font-size:0.80rem; color:' + e.color + '; padding:4px 3px;' : 'font-size:0.76rem; font-weight:600; padding:4px 3px;'}">${safeFixed(v, 2, '%')}</td>`;
     });
 
     trHtml += `
-      <td style="font-weight:800; font-size:0.88rem; color:${isNeutral ? '#64748b' : (isPositiveGood ? '#059669' : '#dc2626')};">
+      <td style="font-weight:800; font-size:0.76rem; padding:4px 4px; white-space:nowrap; color:${isNeutral ? '#64748b' : (isPositiveGood ? '#059669' : '#dc2626')};">
         ${isNeutral ? '= 0.00%' : (diff > 0 ? '▲ +' : '▼ -') + safeFixed(Math.abs(diff), 2, '%')}
       </td>
     `;
@@ -1911,10 +1911,10 @@ function renderChartS3(weeks, evolution) {
     data: e.values || [],
     borderColor: e.color,
     backgroundColor: e.color,
-    borderWidth: e.label.includes('0 a 10') ? 3 : 2,
+    borderWidth: e.label.includes('0 a 10') ? 2.5 : 2,
     tension: 0.25,
-    pointRadius: 4,
-    pointHoverRadius: 6
+    pointRadius: 3,
+    pointHoverRadius: 5
   }));
 
   chartInstanceS3 = new Chart(ctx, {
