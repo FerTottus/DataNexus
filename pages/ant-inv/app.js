@@ -9,6 +9,8 @@
  * 5. Captura 16:9 panorámica (1920x1080) directa al portapapeles (Ctrl + V en PPT) sin descargas forzadas.
  */
 
+console.log('[DataNexus] app.js v20261011_12w_variacion cargado exitosamente.');
+
 // Estado global
 let currentWarehouse = '655'; // '655' (Secos) o '676' (Frescos)
 let currentSlide = 1;
